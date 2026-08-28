@@ -7,27 +7,17 @@ import { useState } from 'react';
 type NavItem = {
   label: string;
   href: string;
-  children?: { label: string; href: string }[];
 };
 
 const NAV: NavItem[] = [
   { label: 'HOME', href: '#home' },
-  {
-    label: 'PORTFOLIO',
-    href: '#',
-    children: [
-      { label: 'COMEDY', href: '#comedy' },
-      { label: 'PORTRAIT', href: '#portrait' },
-      { label: 'MUSIC', href: '#music' },
-    ],
-  },
+  { label: 'COMEDY', href: '#comedy' },
+  { label: 'PORTRAITS', href: '#portrait' },
+  { label: 'THE MUSIC', href: '#music' },
   { label: 'ABOUT', href: '#' },
-  { label: 'INSTAGRAM', href: '#' },
-  { label: 'CONNECT', href: '#contact' },
 ];
 
 export default function HeroSection({ pathname = '#home' }: { pathname?: string }) {
-  const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
@@ -39,10 +29,10 @@ export default function HeroSection({ pathname = '#home' }: { pathname?: string 
     >
       {/* Wordmark */}
       <Link href="#home" className="inline-block">
-        <span className="block font-display text-[20px] leading-none tracking-tight text-ink md:text-[24px]">
-          Photography by
+        <span className="block font-display text-[20px] font-400 leading-none tracking-tight text-ink md:text-[24px]">
+          The
         </span>
-        <span className="mt-1 block font-display text-[40px] leading-[1.05] tracking-tight text-ink md:text-[56px]">
+        <span className="mt-1 block font-display text-[40px] font-800 leading-[1.05] tracking-tight text-ink md:text-[56px]">
           BT PHOTOGRAPHY
         </span>
       </Link>
@@ -69,37 +59,16 @@ export default function HeroSection({ pathname = '#home' }: { pathname?: string 
             return (
               <li
                 key={item.label}
-                onMouseEnter={() => setOpenMenu(item.label)}
-                onMouseLeave={() => setOpenMenu(null)}
                 className="relative block py-2 md:inline-block md:px-[20px] md:pb-[10px] md:pt-0"
               >
                 <Link
                   href={item.href}
-                  className={`text-[14px] font-bold uppercase tracking-wide text-accent transition-opacity hover:opacity-60 ${
-                    isActive ? 'border-b border-accent pb-[2px]' : ''
+                  className={`text-[14px] font-600 uppercase tracking-[0.08em] transition-colors hover:opacity-60 ${
+                    isActive ? 'text-accent border-b border-accent pb-[2px]' : 'text-ink'
                   }`}
                 >
                   {item.label}
                 </Link>
-
-                {item.children && (
-                  <ul
-                    className={`${
-                      openMenu === item.label ? 'md:block' : 'md:hidden'
-                    } mt-2 md:absolute md:left-1/2 md:top-full md:z-10 md:mt-0 md:-translate-x-1/2 md:whitespace-nowrap md:bg-white md:py-3 md:shadow-sm`}
-                  >
-                    {item.children.map((child) => (
-                      <li key={child.label} className="md:px-5 md:py-1.5">
-                        <Link
-                          href={child.href}
-                          className="text-[13px] font-bold uppercase tracking-wide text-accent transition-opacity hover:opacity-60"
-                        >
-                          {child.label}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                )}
               </li>
             );
           })}

@@ -26,7 +26,7 @@ export default function ContactSection() {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <h2 className="text-5xl font-bold text-gray-900 mb-4">Get in Touch</h2>
+          <h2 className="text-5xl font-600 text-gray-900 mb-4">Get in Touch</h2>
           <p className="text-xl text-gray-600">
             Have a project in mind? Let's create something amazing together.
           </p>
@@ -93,7 +93,7 @@ export default function ContactSection() {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             type="submit"
-            className="w-full bg-black text-white font-semibold py-3 rounded-lg hover:bg-gray-800 transition-colors"
+            className="w-full bg-black text-white font-600 py-3 rounded-lg hover:bg-gray-800 transition-colors"
           >
             Send Message
           </motion.button>

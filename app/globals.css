@@ -1,20 +1,15 @@
-@import url("https://fonts.googleapis.com/css2?family=Raleway:wght@700&family=Jost:wght@300&display=swap");
 @import "tailwindcss";
 
 @theme {
   --color-ink: #404040;
   --color-accent: #f80034;
-
-  --font-display: "Raleway", ui-sans-serif, system-ui, sans-serif;
-  --font-sans: "Jost", ui-sans-serif, system-ui, sans-serif;
 }
 
 html,
 body {
   background: #ffffff;
   color: var(--color-ink);
-  font-family: var(--font-sans);
-  font-weight: 300;
+  font-family: var(--font-display), system-ui, sans-serif;
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
 }
