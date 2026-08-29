@@ -82,3 +82,23 @@ body {
   transform: translateY(var(--breakout-pan)) scale(var(--breakout-zoom));
   will-change: transform;
 }
+
+/* Mobile variant: zoom only, no pan. object-contain (set in BreakoutPhoto)
+   always shows the complete photo, so there's nothing hidden left to pan
+   across - panning only made sense against object-cover's crop-to-fill,
+   which is what mobile deliberately no longer uses. A smaller zoom peak
+   than desktop's (1.12 vs 1.18) since this scales the whole contained
+   image including its letterbox margins, not just a crop-filled frame. */
+@keyframes breakout-zoom-only-kf {
+  0% { --breakout-zoom: 1; }
+  50% { --breakout-zoom: 1.12; }
+  100% { --breakout-zoom: 1; }
+}
+
+.breakout-zoom-only-layer {
+  animation: breakout-zoom-only-kf 1s linear;
+  animation-timeline: --breakout-progress;
+  animation-fill-mode: both;
+  transform: scale(var(--breakout-zoom));
+  will-change: transform;
+}
