@@ -34,15 +34,26 @@ interface BreakoutPhotoProps {
  * server/first render) fall back to the original Framer Motion
  * useScroll/useSpring implementation, unchanged.
  *
- * The sticky frame is shorter on mobile (60dvh vs 100dvh on desktop) - at
+ * The sticky frame is shorter on mobile (60svh vs 100svh on desktop) - at
  * full viewport height, the frame's now-narrower (padded, not full-bleed)
  * width made for a very tall/narrow crop window on phones, so object-cover
  * had to zoom in hard and cut off far more of the photo than intended. The
  * pan layer sizes itself as a percentage of the frame's own height (not a
- * fixed dvh value) so the sweep scales correctly at either height with no
- * JS media-query needed. `dvh` rather than `vh` is still used for the pin
- * distances themselves, so the math stays correct as the address bar
- * collapses/expands mid-scroll on mobile.
+ * fixed viewport-unit value) so the sweep scales correctly at either height
+ * with no JS media-query needed.
+ *
+ * The pin/frame heights use `svh` (small viewport height - the viewport
+ * size with the browser's chrome fully expanded), not `dvh`, despite `dvh`
+ * being the usual recommendation for mobile-safe sizing elsewhere on this
+ * site. That's deliberate here: `dvh` recalculates live as Safari's address
+ * bar collapses/expands *during* the scroll gesture itself, and
+ * position: sticky's release point depends on a stable relationship
+ * between the frame's height and its container's - when that relationship
+ * shifts mid-scroll, the release point drifts and leaves a residual gap of
+ * page background between the breakout and whatever comes next. `svh`
+ * never changes, which trades a small constant margin at the bottom on
+ * collapsed-chrome (once the address bar hides) for eliminating that drift
+ * entirely - confirmed as the documented fix for this exact failure mode.
  *
  * On first appearance (once the grid above it has revealed, see
  * `headerReady`/`isInView` below) the whole panel slides up from below
@@ -99,12 +110,12 @@ export default function BreakoutPhoto({ photo, priority, onClick }: BreakoutPhot
   return (
     <div
       ref={pinRef}
-      className={`relative h-[100dvh] md:h-[220dvh] ${cssSupported ? 'breakout-timeline-subject' : ''}`}
+      className={`relative h-[100svh] md:h-[220svh] ${cssSupported ? 'breakout-timeline-subject' : ''}`}
     >
       <motion.div
         onClick={onClick}
         onContextMenu={(e) => e.preventDefault()}
-        className="sticky top-0 h-[60dvh] w-full cursor-pointer overflow-hidden bg-[var(--bg)] md:h-[100dvh]"
+        className="sticky top-0 h-[60svh] w-full cursor-pointer overflow-hidden bg-[var(--bg)] md:h-[100svh]"
         initial={{ y: '100%' }}
         animate={{ y: revealed ? '0%' : '100%' }}
         transition={{ duration: 0.85, ease: 'easeOut' }}
