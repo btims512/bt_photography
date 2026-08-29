@@ -6,7 +6,9 @@ import { motion } from 'framer-motion';
 import { chunkWithBreakouts, distributeToColumns } from '@/lib/masonry';
 import { BLUR_DATA_URL } from '@/lib/blur';
 import { useRevealWhenReady } from '@/lib/use-reveal';
+import { useWasInitiallyVisible } from '@/lib/use-was-initially-visible';
 import { useMediaQuery } from '@/lib/use-media-query';
+import { useLayoutMode } from '@/lib/layout-mode';
 import Lightbox from './Lightbox';
 import BreakoutPhoto from './BreakoutPhoto';
 import type { Photo } from '@/lib/photos';
@@ -23,6 +25,7 @@ interface GridPhotoProps {
   currentIndex: number;
   priority: boolean;
   onOpen: () => void;
+  isDesktop: boolean;
 }
 
 // Every grid photo eager-loads (fetch starts immediately at page load,
@@ -34,36 +37,88 @@ interface GridPhotoProps {
 // touch (see GridPhoto's `quality`) to help offset that.
 
 // Its own component (rather than inline in the .map() below) because the
-// reveal hook needs a stable per-photo call site to satisfy rules of hooks.
-function GridPhoto({ photo, currentIndex, priority, onOpen }: GridPhotoProps) {
-  const { ref, revealed } = useRevealWhenReady<HTMLElement>('400px');
-  const hiddenState = { opacity: 0, y: 20, scale: 0.95 };
+// reveal hooks need a stable per-photo call site to satisfy rules of hooks.
+//
+// Desktop keeps the original reveal-on-scroll (fade + rise + scale, see
+// useRevealWhenReady) since it re-triggers cleanly as each photo scrolls
+// into view. Mobile behaves differently on purpose: only whatever was
+// already visible in the viewport at page load (see
+// useWasInitiallyVisible) slides in once, from alternating sides -
+// currentIndex 0 from the right, 1 from the left, and so on - and anything
+// reached only by scrolling gets no entrance animation at all, appearing
+// the instant its data is ready rather than replaying a reveal each time.
+function GridPhoto({ photo, currentIndex, priority, onOpen, isDesktop }: GridPhotoProps) {
+  const { ref: revealRef, revealed } = useRevealWhenReady<HTMLElement>('400px');
+  const { ref: initialRef, wasInitiallyVisible } = useWasInitiallyVisible<HTMLElement>();
+  const { headerReady } = useLayoutMode();
+
+  const setRef = (node: HTMLElement | null) => {
+    if (isDesktop) revealRef.current = node;
+    else initialRef.current = node;
+  };
+
+  const image = (
+    <Image
+      src={photo.src}
+      alt={photo.alt}
+      width={photo.width}
+      height={photo.height}
+      sizes="(max-width: 767px) 100vw, 33vw"
+      className="photo-protected block h-auto w-full"
+      draggable={false}
+      priority={priority}
+      loading={priority ? undefined : 'eager'}
+      quality={82}
+      placeholder="blur"
+      blurDataURL={BLUR_DATA_URL}
+    />
+  );
+
+  if (isDesktop) {
+    const hiddenState = { opacity: 0, y: 20, scale: 0.95 };
+    return (
+      <motion.figure
+        ref={setRef}
+        initial={hiddenState}
+        animate={revealed ? { opacity: 1, y: 0, scale: 1 } : hiddenState}
+        transition={{ duration: 0.85, delay: currentIndex * 0.07, ease: 'easeOut' }}
+        whileHover={{ scale: 1.02 }}
+        className="relative m-0 cursor-pointer bg-[var(--bg)]"
+        onContextMenu={(e) => e.preventDefault()}
+        onClick={onOpen}
+      >
+        {image}
+      </motion.figure>
+    );
+  }
+
+  // Every mobile photo starts in the same hidden, off-to-one-side pose at
+  // mount - `initial` only ever matters on the first render, so it can't
+  // wait for the (necessarily async) wasInitiallyVisible determination.
+  // Once ready, photos confirmed visible at load animate in for real;
+  // anything below the fold snaps instantly (duration: 0) to its resting
+  // state instead, invisibly, since it's still off-screen at that point -
+  // by the time a real scroll could reach it, this has long since resolved.
+  const fromRight = currentIndex % 2 === 0;
+  const hiddenState = { opacity: 0, x: fromRight ? 60 : -60 };
+  const visibleState = { opacity: 1, x: 0 };
+  const isReady = wasInitiallyVisible !== null && headerReady;
 
   return (
     <motion.figure
-      ref={ref}
+      ref={setRef}
       initial={hiddenState}
-      animate={revealed ? { opacity: 1, y: 0, scale: 1 } : hiddenState}
-      transition={{ duration: 0.85, delay: currentIndex * 0.07, ease: 'easeOut' }}
-      whileHover={{ scale: 1.02 }}
+      animate={isReady ? visibleState : hiddenState}
+      transition={
+        isReady && wasInitiallyVisible
+          ? { duration: 0.6, delay: currentIndex * 0.08, ease: 'easeOut' }
+          : { duration: 0 }
+      }
       className="relative m-0 cursor-pointer bg-[var(--bg)]"
       onContextMenu={(e) => e.preventDefault()}
       onClick={onOpen}
     >
-      <Image
-        src={photo.src}
-        alt={photo.alt}
-        width={photo.width}
-        height={photo.height}
-        sizes="(max-width: 767px) 100vw, 33vw"
-        className="photo-protected block h-auto w-full"
-        draggable={false}
-        priority={priority}
-        loading={priority ? undefined : 'eager'}
-        quality={82}
-        placeholder="blur"
-        blurDataURL={BLUR_DATA_URL}
-      />
+      {image}
     </motion.figure>
   );
 }
@@ -128,6 +183,7 @@ export default function PortfolioSectionModern({ id, photos, breakoutEvery }: Po
                         currentIndex={currentIndex}
                         priority={currentIndex === 0}
                         onOpen={() => setOpenIndex(validPhotos.indexOf(photo))}
+                        isDesktop={isDesktop}
                       />
                     );
                   })}
@@ -154,6 +210,7 @@ export default function PortfolioSectionModern({ id, photos, breakoutEvery }: Po
                           currentIndex={currentIndex}
                           priority={currentIndex === 0}
                           onOpen={() => setOpenIndex(validPhotos.indexOf(photo))}
+                          isDesktop={isDesktop}
                         />
                       );
                     })}

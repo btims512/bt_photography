@@ -38,3 +38,47 @@ body {
   user-select: none;
   -webkit-user-drag: none;
 }
+
+/* Scroll-driven pan/zoom for the breakout photo (components/BreakoutPhoto.tsx),
+   used instead of a JS scroll listener wherever the browser supports it (see
+   lib/use-css-scroll-support.ts) - it runs entirely on the compositor thread,
+   so it's immune to both main-thread jank and iOS Safari's documented bug
+   where scrollY stops updating consistently during fast/momentum scrolling. */
+@property --breakout-zoom {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 1;
+}
+
+@property --breakout-pan {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 0%;
+}
+
+.breakout-timeline-subject {
+  view-timeline-name: --breakout-progress;
+  view-timeline-axis: block;
+}
+
+@keyframes breakout-zoom-kf {
+  0% { --breakout-zoom: 1; }
+  50% { --breakout-zoom: 1.18; }
+  100% { --breakout-zoom: 1; }
+}
+
+@keyframes breakout-pan-kf {
+  0% { --breakout-pan: 25%; }
+  100% { --breakout-pan: -25%; }
+}
+
+.breakout-pan-layer {
+  /* The "1s" is nominal - animation-timeline replaces time-based progress
+     with scroll-based progress, but some engines only treat the animation
+     as active with a non-zero/non-auto duration in the shorthand. */
+  animation: breakout-zoom-kf 1s linear, breakout-pan-kf 1s linear;
+  animation-timeline: --breakout-progress;
+  animation-fill-mode: both;
+  transform: translateY(var(--breakout-pan)) scale(var(--breakout-zoom));
+  will-change: transform;
+}
