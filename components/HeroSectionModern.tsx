@@ -58,7 +58,7 @@ export default function HeroSectionModern() {
             PHOTOGRAPHY
           </div>
           <div
-            className="mx-auto mt-1 w-[70px] md:w-[95px]"
+            className="mt-1 w-[70px] md:w-[95px]"
             style={{ borderTop: '1px solid var(--ink)' }}
           />
         </motion.div>
