@@ -93,57 +93,84 @@ export type GallerySegment =
   | { type: 'breakout'; photo: Photo };
 
 /**
- * Splits a flat photo list into masonry-grid chunks (of up to `breakoutEvery`
- * photos, in original order) interrupted by full-bleed "breakout" photos.
- * Every portrait photo is pulled out of its chunk's grid contribution: a
- * portrait squeezed into a 1/3-width grid column runs much taller than its
- * landscape neighbors, leaving the other columns padded with wasted space,
- * whereas breakout's pinned pan crops to a fixed frame regardless of source
- * orientation, so it's a better home for any of them. A chunk only ever
- * spends one on its own breakout slot; extras queue up and get used by the
- * next chunk's slot instead of lingering in a grid, so no chunk is ever left
- * with a leftover portrait.
+ * Splits a flat photo list into masonry-grid segments of `breakoutEvery`
+ * *visible* photos apiece, interrupted by full-bleed "breakout" photos.
+ * `breakoutEvery` counts grid-eligible (landscape) photos specifically, not
+ * raw position in the array — every portrait photo is pulled out into a
+ * queue for the breakout slot instead of the grid (a portrait squeezed into
+ * a 1/3-width grid column runs much taller than its landscape neighbors,
+ * leaving the other columns padded with wasted space, whereas breakout's
+ * pinned pan crops to a fixed frame regardless of source orientation, so
+ * it's a better home for any of them). Counting raw position instead of
+ * visible count would make the breakout arrive early whenever a stretch
+ * happened to be portrait-heavy, showing up after e.g. 6 grid photos
+ * instead of the requested 12 just because the other 6 were portraits
+ * routed elsewhere.
+ *
+ * Landscape photos are picked by round-robin across categories (not by
+ * walking the input in its already-interleaved order) because categories
+ * differ in how landscape-heavy they are — if e.g. one category happens to
+ * be all-landscape while another is mostly portrait-oriented, walking the
+ * interleaved sequence in order drains the all-landscape category's supply
+ * far faster, so a single grid segment ends up dominated by it even though
+ * the input alternated categories evenly. Round-robining specifically over
+ * each category's *landscape* photos keeps the grid's visible mix even
+ * regardless of that imbalance. Portrait-oriented photos still queue for
+ * breakout in their original relative order, since that queue doesn't care
+ * about category mixing.
  *
  * Grid segments are also trimmed to a multiple of `columnCount`: an uneven
  * count (e.g. 5 similar-height photos across 3 columns) leaves one column
  * shorter than the others, and since the row's height is set by the tallest
- * column, the short one just ends in visible empty space. The remainder
- * carries over into the next chunk instead of being flushed short.
- *
- * Chunking (rather than filtering portraits out of the whole sequence up
- * front) keeps category interleaving upstream — e.g. comedy/portraits
- * alternation — intact within each grid segment. Anything still queued once
- * photos run out (excess portraits, an uneven carry-over remainder) rides
- * along in a trailing grid segment rather than being dropped.
+ * column, the short one just ends in visible empty space (this only matters
+ * for desktop's packed-column layout; mobile renders every grid segment as
+ * one continuous list regardless of segment boundaries). The remainder
+ * carries over to accumulate with whatever comes next instead of being
+ * flushed short. Anything still queued once photos run out (excess
+ * portraits, a final uneven remainder) rides along in a trailing grid
+ * segment rather than being dropped.
  */
 export function chunkWithBreakouts(photos: Photo[], breakoutEvery: number, columnCount = 3): GallerySegment[] {
   const segments: GallerySegment[] = [];
   const breakoutQueue: Photo[] = [];
-  let carryOver: Photo[] = [];
 
-  for (let i = 0; i < photos.length; i += breakoutEvery) {
-    const chunk = photos.slice(i, i + breakoutEvery);
-    const hasMore = i + breakoutEvery < photos.length;
+  const categoryOrder: Array<Photo['category']> = [];
+  const landscapeByCategory = new Map<Photo['category'], Photo[]>();
+  let landscapeRemaining = 0;
 
-    const landscapeThisChunk: Photo[] = [];
-    for (const photo of chunk) {
-      if (photo.height > photo.width) {
-        breakoutQueue.push(photo);
-      } else {
-        landscapeThisChunk.push(photo);
+  for (const photo of photos) {
+    if (photo.height > photo.width) {
+      breakoutQueue.push(photo);
+      continue;
+    }
+    const bucket = landscapeByCategory.get(photo.category);
+    if (bucket) {
+      bucket.push(photo);
+    } else {
+      landscapeByCategory.set(photo.category, [photo]);
+      categoryOrder.push(photo.category);
+    }
+    landscapeRemaining++;
+  }
+
+  let gridBuffer: Photo[] = [];
+  let categoryIdx = 0;
+
+  while (landscapeRemaining > 0) {
+    const category = categoryOrder[categoryIdx % categoryOrder.length];
+    categoryIdx++;
+    const bucket = landscapeByCategory.get(category);
+    if (!bucket || bucket.length === 0) continue;
+
+    gridBuffer.push(bucket.shift()!);
+    landscapeRemaining--;
+
+    if (gridBuffer.length >= breakoutEvery) {
+      const evenCount = gridBuffer.length - (gridBuffer.length % columnCount);
+      if (evenCount > 0) {
+        segments.push({ type: 'grid', photos: gridBuffer.slice(0, evenCount) });
+        gridBuffer = gridBuffer.slice(evenCount);
       }
-    }
-
-    const available = [...carryOver, ...landscapeThisChunk];
-    const evenCount = available.length - (available.length % columnCount);
-    const gridPhotos = available.slice(0, evenCount);
-    carryOver = available.slice(evenCount);
-
-    if (gridPhotos.length > 0) {
-      segments.push({ type: 'grid', photos: gridPhotos });
-    }
-
-    if (hasMore) {
       const breakoutPhoto = breakoutQueue.shift();
       if (breakoutPhoto) {
         segments.push({ type: 'breakout', photo: breakoutPhoto });
@@ -151,9 +178,11 @@ export function chunkWithBreakouts(photos: Photo[], breakoutEvery: number, colum
     }
   }
 
-  const leftovers = [...carryOver, ...breakoutQueue];
-  if (leftovers.length > 0) {
-    segments.push({ type: 'grid', photos: leftovers });
+  if (gridBuffer.length > 0) {
+    segments.push({ type: 'grid', photos: gridBuffer });
+  }
+  if (breakoutQueue.length > 0) {
+    segments.push({ type: 'grid', photos: breakoutQueue });
   }
 
   return segments;
@@ -174,40 +203,4 @@ export function distributeToColumns(photos: Photo[], columnCount = 2): Photo[][]
   }
 
   return columns;
-}
-
-export interface PlacedPhoto {
-  photo: Photo;
-  /** 1-indexed CSS grid column this photo belongs in at the desktop breakpoint. */
-  column: number;
-  /** 1-indexed CSS grid row within that column. */
-  row: number;
-}
-
-/**
- * Same shortest-column packing as distributeToColumns, but returns a flat
- * list in the original photo order (each one tagged with the column/row it
- * was packed into) instead of pre-grouping photos by column. Pre-grouping
- * is what breaks mobile: stacking three column groups with CSS (flex-col)
- * plays each column's photos as its own block — all of column 0, then all
- * of column 1, then column 2 — instead of the natural reading order. With a
- * flat, naturally-ordered list, a CSS grid can place photos into packed
- * columns via each one's own grid-column/grid-row at the desktop breakpoint,
- * while mobile's single-column grid just lets them fall in their real order
- * with no per-item override needed.
- */
-export function placeInColumns(photos: Photo[], columnCount = 2): PlacedPhoto[] {
-  const heights = new Array<number>(columnCount).fill(0);
-  const rowCounts = new Array<number>(columnCount).fill(0);
-
-  return photos.map((photo) => {
-    let shortest = 0;
-    for (let i = 1; i < columnCount; i++) {
-      if (heights[i] < heights[shortest]) shortest = i;
-    }
-    const placed: PlacedPhoto = { photo, column: shortest + 1, row: rowCounts[shortest] + 1 };
-    heights[shortest] += photo.height / photo.width;
-    rowCounts[shortest] += 1;
-    return placed;
-  });
 }

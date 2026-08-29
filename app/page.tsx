@@ -17,7 +17,7 @@ export default function Home() {
 
   return (
     <div className="w-full">
-      <PortfolioSection id="featured" photos={photos} breakoutEvery={10} />
+      <PortfolioSection id="featured" photos={photos} breakoutEvery={12} />
     </div>
   );
 }

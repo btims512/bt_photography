@@ -38,29 +38,3 @@ body {
   user-select: none;
   -webkit-user-drag: none;
 }
-
-/* Masonry grid: single column on mobile so photos fall in their real,
-   already-interleaved order; at the desktop breakpoint each .masonry-item
-   is placed via its own --gc/--gr custom properties (set inline, computed
-   by lib/masonry.ts's placeInColumns) to reproduce the packed-column
-   layout without reordering the underlying DOM. */
-.masonry-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-}
-
-.masonry-item {
-  grid-column: auto;
-  grid-row: auto;
-}
-
-@media (min-width: 768px) {
-  .masonry-grid {
-    grid-template-columns: repeat(var(--masonry-cols, 3), minmax(0, 1fr));
-  }
-
-  .masonry-item {
-    grid-column: var(--gc);
-    grid-row: var(--gr);
-  }
-}

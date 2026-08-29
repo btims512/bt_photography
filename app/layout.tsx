@@ -12,8 +12,19 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://thebtphotography.com"),
   title: "BT Photography | Artistic Portfolio",
   description: "Artistic photography portfolio featuring comedy, portrait, and music photography by BT",
+  openGraph: {
+    title: "BT Photography",
+    description: "Artistic photography portfolio featuring comedy, portrait, and music photography by BT",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "BT Photography",
+    description: "Artistic photography portfolio featuring comedy, portrait, and music photography by BT",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
