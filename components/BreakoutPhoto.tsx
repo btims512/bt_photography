@@ -14,12 +14,13 @@ interface BreakoutPhotoProps {
 }
 
 /**
- * A full-bleed photo that pins itself to the viewport while the user
- * scrolls, zooming in while panning slowly down through an oversized
- * version of the image (a fixed window pushing into a bigger canvas)
- * instead of flashing past like a regular grid photo, then releases back
- * into the grid once the extra scroll distance below is used up. Uses
- * `dvh` rather than `vh` throughout so the pin math stays correct on
+ * A photo that pins itself to the viewport while the user scrolls, zooming
+ * in while panning slowly down through an oversized version of the image
+ * (a fixed window pushing into a bigger canvas) instead of flashing past
+ * like a regular grid photo, then releases back into the grid once the
+ * extra scroll distance below is used up. Sits within the page's normal
+ * side padding, same as the grid photos, rather than stretching full-bleed.
+ * Uses `dvh` rather than `vh` throughout so the pin math stays correct on
  * mobile, where the address bar collapsing mid-scroll shifts the actual
  * visible viewport height.
  *
@@ -55,7 +56,7 @@ export default function BreakoutPhoto({ photo, priority, onClick }: BreakoutPhot
   }, [isInView, headerReady]);
 
   return (
-    <div ref={pinRef} className="relative mx-[-24px] h-[160dvh] md:mx-[-50px] md:h-[220dvh]">
+    <div ref={pinRef} className="relative h-[160dvh] md:h-[220dvh]">
       <motion.div
         onClick={onClick}
         onContextMenu={(e) => e.preventDefault()}
@@ -75,7 +76,7 @@ export default function BreakoutPhoto({ photo, priority, onClick }: BreakoutPhot
             src={photo.src}
             alt={photo.alt}
             fill
-            sizes="100vw"
+            sizes="(max-width: 767px) calc(100vw - 48px), calc(100vw - 100px)"
             className="photo-protected object-cover"
             draggable={false}
             priority={priority}
