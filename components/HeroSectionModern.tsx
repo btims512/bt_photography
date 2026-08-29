@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useState } from 'react';
 import MobileMenu from './MobileMenu';
+import { useLayoutMode } from '@/lib/layout-mode';
 
 type NavItem = {
   label: string;
@@ -24,6 +25,7 @@ const NAV: NavItem[] = [
 export default function HeroSectionModern() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { markHeaderReady } = useLayoutMode();
 
   return (
     <motion.header
@@ -114,6 +116,7 @@ export default function HeroSectionModern() {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.75, delay: idx * 0.08, ease: 'easeOut' }}
+                  onAnimationComplete={idx === NAV.length - 1 ? markHeaderReady : undefined}
                 >
                   <Link
                     href={item.href}

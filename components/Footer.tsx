@@ -59,7 +59,7 @@ export default function Footer() {
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.opacity = '1';
-          e.currentTarget.style.color = 'var(--accent)';
+          e.currentTarget.style.color = 'var(--ink)';
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.opacity = '0.6';

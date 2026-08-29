@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { chunkWithBreakouts, distributeToColumns } from '@/lib/masonry';
 import { BLUR_DATA_URL } from '@/lib/blur';
+import { useRevealWhenReady } from '@/lib/use-reveal';
 import Lightbox from './Lightbox';
 import BreakoutPhoto from './BreakoutPhoto';
 import type { Photo } from '@/lib/photos';
@@ -14,6 +15,48 @@ interface PortfolioSectionProps {
   photos: Photo[];
   /** Interrupt the grid with a full-bleed photo every N photos. Omit to disable. */
   breakoutEvery?: number;
+}
+
+interface GridPhotoProps {
+  photo: Photo;
+  currentIndex: number;
+  priority: boolean;
+  onOpen: () => void;
+}
+
+// Its own component (rather than inline in the .map() below) because the
+// reveal hook needs a stable per-photo call site to satisfy rules of hooks.
+function GridPhoto({ photo, currentIndex, priority, onOpen }: GridPhotoProps) {
+  const { ref, revealed } = useRevealWhenReady<HTMLElement>('400px');
+  const hiddenState = { opacity: 0, y: 20, scale: 0.95 };
+
+  return (
+    <motion.figure
+      ref={ref}
+      initial={hiddenState}
+      animate={revealed ? { opacity: 1, y: 0, scale: 1 } : hiddenState}
+      transition={{ duration: 0.7, delay: currentIndex * 0.09, ease: 'easeOut' }}
+      whileHover={{ scale: 1.02 }}
+      className="relative m-0 cursor-pointer bg-[var(--bg)]"
+      onContextMenu={(e) => e.preventDefault()}
+      onClick={onOpen}
+    >
+      <Image
+        src={photo.src}
+        alt={photo.alt}
+        width={photo.width}
+        height={photo.height}
+        sizes="(max-width: 767px) 100vw, 33vw"
+        className="photo-protected block h-auto w-full"
+        draggable={false}
+        priority={priority}
+        loading={priority ? undefined : 'eager'}
+        quality={90}
+        placeholder="blur"
+        blurDataURL={BLUR_DATA_URL}
+      />
+    </motion.figure>
+  );
 }
 
 export default function PortfolioSectionClassic({ id, photos, breakoutEvery }: PortfolioSectionProps) {
@@ -64,34 +107,14 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery }: P
                   <div key={columnIndex} className="flex flex-1 flex-col gap-[10px]">
                     {column.map((photo) => {
                       const currentIndex = index++;
-                      const priority = currentIndex === 0;
                       return (
-                        <motion.figure
+                        <GridPhoto
                           key={`${currentIndex}-${photo.src}`}
-                          initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                          whileInView={{ opacity: 1, y: 0, scale: 1 }}
-                          viewport={{ once: true, margin: '400px' }}
-                          transition={{ duration: 0.7, delay: currentIndex * 0.09, ease: 'easeOut' }}
-                          whileHover={{ scale: 1.02 }}
-                          className="relative m-0 cursor-pointer bg-[var(--bg)]"
-                          onContextMenu={(e) => e.preventDefault()}
-                          onClick={() => setOpenIndex(validPhotos.indexOf(photo))}
-                        >
-                          <Image
-                            src={photo.src}
-                            alt={photo.alt}
-                            width={photo.width}
-                            height={photo.height}
-                            sizes="(max-width: 767px) 100vw, 33vw"
-                            className="photo-protected block h-auto w-full"
-                            draggable={false}
-                            priority={priority}
-                            loading={priority ? undefined : 'eager'}
-                            quality={90}
-                            placeholder="blur"
-                            blurDataURL={BLUR_DATA_URL}
-                          />
-                        </motion.figure>
+                          photo={photo}
+                          currentIndex={currentIndex}
+                          priority={currentIndex === 0}
+                          onOpen={() => setOpenIndex(validPhotos.indexOf(photo))}
+                        />
                       );
                     })}
                   </div>
