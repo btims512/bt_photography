@@ -20,6 +20,20 @@ export type Photo = {
   height: number;
 };
 
+/**
+ * Round-robin distribution: photo i always goes to column i % columnCount.
+ * Unlike distributeToColumns, this preserves the exact left-to-right reading
+ * order of the source array (e.g. landscape/portrait/landscape per row),
+ * at the cost of columns no longer self-balancing by height.
+ */
+export function distributeRoundRobin(photos: Photo[], columnCount = 3): Photo[][] {
+  const columns: Photo[][] = Array.from({ length: columnCount }, () => []);
+  photos.forEach((photo, i) => {
+    columns[i % columnCount].push(photo);
+  });
+  return columns;
+}
+
 export function distributeToColumns(photos: Photo[], columnCount = 2): Photo[][] {
   const columns: Photo[][] = Array.from({ length: columnCount }, () => []);
   // Tracked in "units of column width" so it is resolution independent.

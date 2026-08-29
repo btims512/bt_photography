@@ -1,14 +1,30 @@
 @import "tailwindcss";
 
-@theme {
-  --color-ink: #404040;
-  --color-accent: #f80034;
+:root {
+  /* grounds */
+  --bg:        #F4F4F5;
+  --bg-elev:   #FFFFFF;
+  --img-bed:   #E7E7EA;
+
+  /* text — all AA pass */
+  --ink:       #17171A;
+  --dim:       #52525B;
+  --faint:     #6B6B75;
+
+  /* accent */
+  --accent:       #f70000;
+  --accent-hover: #d60000;
+
+  /* borders */
+  --line:       #D4D4D9;
+  --line-input: #8C8C93;
+  --focus:      #1F1F24;
 }
 
 html,
 body {
-  background: #ffffff;
-  color: var(--color-ink);
+  background: var(--bg);
+  color: var(--ink);
   font-family: var(--font-display), system-ui, sans-serif;
   font-size: 16px;
   -webkit-font-smoothing: antialiased;

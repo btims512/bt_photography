@@ -26,7 +26,7 @@ export default function ContactSection() {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <h2 className="text-5xl font-600 text-gray-900 mb-4">Get in Touch</h2>
+          <h2 className="text-5xl font-700 text-gray-900 mb-4">Get in Touch</h2>
           <p className="text-xl text-gray-600">
             Have a project in mind? Let's create something amazing together.
           </p>
@@ -42,10 +42,11 @@ export default function ContactSection() {
         >
           {/* Name Field */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
               Name
             </label>
             <input
+              id="name"
               type="text"
               value={formData.name}
               onChange={(e) =>
@@ -53,15 +54,18 @@ export default function ContactSection() {
               }
               placeholder="Your name"
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent outline-none transition"
+              required
+              aria-required="true"
             />
           </div>
 
           {/* Email Field */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
               Email
             </label>
             <input
+              id="email"
               type="email"
               value={formData.email}
               onChange={(e) =>
@@ -69,15 +73,18 @@ export default function ContactSection() {
               }
               placeholder="your.email@example.com"
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent outline-none transition"
+              required
+              aria-required="true"
             />
           </div>
 
           {/* Message Field */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-2">
               Message
             </label>
             <textarea
+              id="message"
               value={formData.message}
               onChange={(e) =>
                 setFormData({ ...formData, message: e.target.value })
@@ -85,6 +92,8 @@ export default function ContactSection() {
               placeholder="Tell me about your project..."
               rows={6}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent outline-none transition resize-none"
+              required
+              aria-required="true"
             />
           </div>
 
@@ -93,7 +102,7 @@ export default function ContactSection() {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             type="submit"
-            className="w-full bg-black text-white font-600 py-3 rounded-lg hover:bg-gray-800 transition-colors"
+            className="w-full bg-black text-white font-700 py-3 rounded-lg hover:bg-gray-800 focus:outline-2 focus:outline-offset-2 focus:outline-white transition-colors"
           >
             Send Message
           </motion.button>

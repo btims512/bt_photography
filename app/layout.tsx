@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
-import { Playfair_Display } from "next/font/google";
+import { Inter } from "next/font/google";
+import HeroSection from "@/components/HeroSection";
+import Footer from "@/components/Footer";
+import { LayoutModeProvider } from "@/lib/layout-mode";
 import "./globals.css";
 
-const display = Playfair_Display({
+const inter = Inter({
   subsets: ["latin"],
-  weight: ["400", "600", "700", "800", "900"],
+  weight: ["300", "400", "500", "600", "700", "800"],
   variable: "--font-display",
 });
 
@@ -15,8 +18,14 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${display.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="en" className={`${inter.variable} h-full antialiased`}>
+      <body className="min-h-full flex flex-col">
+        <LayoutModeProvider>
+          <HeroSection />
+          <main className="flex-1">{children}</main>
+          <Footer />
+        </LayoutModeProvider>
+      </body>
     </html>
   );
 }
