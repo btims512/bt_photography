@@ -18,7 +18,61 @@ export type Photo = {
   width: number;
   /** intrinsic pixel height */
   height: number;
+  /** genre tag, used to interleave the featured/home grid */
+  category?: 'comedy' | 'portraits' | 'music';
 };
+
+/**
+ * Cycles through categories in a fixed order (comedy, portraits, music),
+ * pulling the next unused photo from each in turn so genres spread out
+ * instead of clumping together. Within whichever category's turn it is,
+ * it also prefers a photo whose orientation (landscape/portrait) differs
+ * from the last one placed, so the reading order alternates orientation
+ * too where the available photos allow it. Categories that run out are
+ * skipped; leftovers keep cycling among what's left.
+ */
+export function interleaveByCategory(photos: Photo[]): Photo[] {
+  const order: Array<Photo['category']> = ['comedy', 'portraits', 'music'];
+  const buckets = new Map<string, Photo[]>();
+  const untagged: Photo[] = [];
+
+  for (const photo of photos) {
+    if (photo.category) {
+      const bucket = buckets.get(photo.category) ?? [];
+      bucket.push(photo);
+      buckets.set(photo.category, bucket);
+    } else {
+      untagged.push(photo);
+    }
+  }
+
+  const isPortraitOrientation = (p: Photo) => p.height > p.width;
+
+  const result: Photo[] = [];
+  let remaining = photos.length - untagged.length;
+  let categoryIdx = 0;
+  let lastWasPortrait: boolean | null = null;
+
+  while (remaining > 0) {
+    const category = order[categoryIdx % order.length];
+    categoryIdx++;
+    const bucket = buckets.get(category as string);
+    if (!bucket || bucket.length === 0) continue;
+
+    let pickIdx = 0;
+    if (lastWasPortrait !== null) {
+      const wantPortrait = !lastWasPortrait;
+      const found = bucket.findIndex((p) => isPortraitOrientation(p) === wantPortrait);
+      if (found !== -1) pickIdx = found;
+    }
+    const [photo] = bucket.splice(pickIdx, 1);
+    result.push(photo);
+    lastWasPortrait = isPortraitOrientation(photo);
+    remaining--;
+  }
+
+  return [...result, ...untagged];
+}
 
 /**
  * Round-robin distribution: photo i always goes to column i % columnCount.

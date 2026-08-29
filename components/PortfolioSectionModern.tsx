@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { distributeRoundRobin } from '@/lib/masonry';
+import { distributeToColumns } from '@/lib/masonry';
 import type { Photo } from '@/lib/photos';
 
 interface PortfolioSectionProps {
@@ -22,9 +22,12 @@ export default function PortfolioSectionModern({ id, photos }: PortfolioSectionP
     );
   }
 
-  // Round-robin (not shortest-column) so photo order is preserved left-to-right,
-  // e.g. landscape/portrait/landscape per row.
-  const columns = distributeRoundRobin(validPhotos, 3);
+  // Shortest-column packing: each photo goes into whichever column is
+  // currently shortest. Unlike a fixed round-robin, this doesn't resonate
+  // with any fixed-period pattern in the input order (e.g. category cycling
+  // in featuredPhotos), so genres actually spread across columns instead of
+  // aliasing into the same one.
+  const columns = distributeToColumns(validPhotos, 3);
   let index = 0;
 
   return (
