@@ -175,3 +175,39 @@ export function distributeToColumns(photos: Photo[], columnCount = 2): Photo[][]
 
   return columns;
 }
+
+export interface PlacedPhoto {
+  photo: Photo;
+  /** 1-indexed CSS grid column this photo belongs in at the desktop breakpoint. */
+  column: number;
+  /** 1-indexed CSS grid row within that column. */
+  row: number;
+}
+
+/**
+ * Same shortest-column packing as distributeToColumns, but returns a flat
+ * list in the original photo order (each one tagged with the column/row it
+ * was packed into) instead of pre-grouping photos by column. Pre-grouping
+ * is what breaks mobile: stacking three column groups with CSS (flex-col)
+ * plays each column's photos as its own block — all of column 0, then all
+ * of column 1, then column 2 — instead of the natural reading order. With a
+ * flat, naturally-ordered list, a CSS grid can place photos into packed
+ * columns via each one's own grid-column/grid-row at the desktop breakpoint,
+ * while mobile's single-column grid just lets them fall in their real order
+ * with no per-item override needed.
+ */
+export function placeInColumns(photos: Photo[], columnCount = 2): PlacedPhoto[] {
+  const heights = new Array<number>(columnCount).fill(0);
+  const rowCounts = new Array<number>(columnCount).fill(0);
+
+  return photos.map((photo) => {
+    let shortest = 0;
+    for (let i = 1; i < columnCount; i++) {
+      if (heights[i] < heights[shortest]) shortest = i;
+    }
+    const placed: PlacedPhoto = { photo, column: shortest + 1, row: rowCounts[shortest] + 1 };
+    heights[shortest] += photo.height / photo.width;
+    rowCounts[shortest] += 1;
+    return placed;
+  });
+}

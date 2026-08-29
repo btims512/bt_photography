@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { chunkWithBreakouts, distributeToColumns } from '@/lib/masonry';
+import { chunkWithBreakouts, placeInColumns } from '@/lib/masonry';
 import { BLUR_DATA_URL } from '@/lib/blur';
 import { useRevealWhenReady } from '@/lib/use-reveal';
 import Lightbox from './Lightbox';
@@ -22,13 +22,17 @@ interface GridPhotoProps {
   currentIndex: number;
   priority: boolean;
   onOpen: () => void;
+  /** 1-indexed desktop grid column/row from placeInColumns; see .masonry-item in globals.css. */
+  gridColumn: number;
+  gridRow: number;
 }
 
 // Its own component (rather than inline in the .map() below) because the
 // reveal hook needs a stable per-photo call site to satisfy rules of hooks.
-function GridPhoto({ photo, currentIndex, priority, onOpen }: GridPhotoProps) {
+function GridPhoto({ photo, currentIndex, priority, onOpen, gridColumn, gridRow }: GridPhotoProps) {
   const { ref, revealed } = useRevealWhenReady<HTMLElement>('400px');
   const hiddenState = { opacity: 0, y: 20, scale: 0.95 };
+  const gridVars = { '--gc': gridColumn, '--gr': gridRow } as CSSProperties;
 
   return (
     <motion.figure
@@ -37,7 +41,8 @@ function GridPhoto({ photo, currentIndex, priority, onOpen }: GridPhotoProps) {
       animate={revealed ? { opacity: 1, y: 0, scale: 1 } : hiddenState}
       transition={{ duration: 0.85, delay: currentIndex * 0.07, ease: 'easeOut' }}
       whileHover={{ scale: 1.02 }}
-      className="relative m-0 cursor-pointer bg-[var(--bg)]"
+      style={gridVars}
+      className="masonry-item relative m-0 cursor-pointer bg-[var(--bg)]"
       onContextMenu={(e) => e.preventDefault()}
       onClick={onOpen}
     >
@@ -99,26 +104,31 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery }: P
             // is currently shortest. Unlike a fixed round-robin, this doesn't
             // resonate with any fixed-period pattern in the input order (e.g.
             // category cycling in featuredPhotos), so genres actually spread
-            // across columns instead of aliasing into the same one.
-            const columns = distributeToColumns(segment.photos, 3);
+            // across columns instead of aliasing into the same one. Stays in
+            // its original flat order (see placeInColumns) so mobile's single-
+            // column layout reads correctly; only the desktop grid placement
+            // (--gc/--gr, applied via .masonry-item) uses the packed columns.
+            const placed = placeInColumns(segment.photos, 3);
             return (
-              <div key={`grid-${segmentIndex}`} className="flex flex-col gap-[10px] md:flex-row">
-                {columns.map((column, columnIndex) => (
-                  <div key={columnIndex} className="flex flex-1 flex-col gap-[10px]">
-                    {column.map((photo) => {
-                      const currentIndex = index++;
-                      return (
-                        <GridPhoto
-                          key={`${currentIndex}-${photo.src}`}
-                          photo={photo}
-                          currentIndex={currentIndex}
-                          priority={currentIndex === 0}
-                          onOpen={() => setOpenIndex(validPhotos.indexOf(photo))}
-                        />
-                      );
-                    })}
-                  </div>
-                ))}
+              <div
+                key={`grid-${segmentIndex}`}
+                className="masonry-grid gap-[10px]"
+                style={{ '--masonry-cols': 3 } as CSSProperties}
+              >
+                {placed.map(({ photo, column, row }) => {
+                  const currentIndex = index++;
+                  return (
+                    <GridPhoto
+                      key={`${currentIndex}-${photo.src}`}
+                      photo={photo}
+                      currentIndex={currentIndex}
+                      priority={currentIndex === 0}
+                      onOpen={() => setOpenIndex(validPhotos.indexOf(photo))}
+                      gridColumn={column}
+                      gridRow={row}
+                    />
+                  );
+                })}
               </div>
             );
           })}

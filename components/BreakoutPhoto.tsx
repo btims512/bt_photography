@@ -20,9 +20,16 @@ interface BreakoutPhotoProps {
  * like a regular grid photo, then releases back into the grid once the
  * extra scroll distance below is used up. Sits within the page's normal
  * side padding, same as the grid photos, rather than stretching full-bleed.
- * Uses `dvh` rather than `vh` throughout so the pin math stays correct on
- * mobile, where the address bar collapsing mid-scroll shifts the actual
- * visible viewport height.
+ *
+ * The sticky frame is shorter on mobile (60dvh vs 100dvh on desktop) - at
+ * full viewport height, the frame's now-narrower (padded, not full-bleed)
+ * width made for a very tall/narrow crop window on phones, so object-cover
+ * had to zoom in hard and cut off far more of the photo than intended. The
+ * pan layer sizes itself as a percentage of the frame's own height (not a
+ * fixed dvh value) so the sweep scales correctly at either height with no
+ * JS media-query needed. `dvh` rather than `vh` is still used for the pin
+ * distances themselves, so the math stays correct as the address bar
+ * collapses/expands mid-scroll on mobile.
  *
  * On first appearance (once the grid above it has revealed, see
  * `headerReady`/`isInView` below) the whole panel slides up from below
@@ -42,7 +49,10 @@ export default function BreakoutPhoto({ photo, priority, onClick }: BreakoutPhot
   // rather than a series of little jumps.
   const smoothProgress = useSpring(scrollYProgress, { stiffness: 200, damping: 30, mass: 0.5 });
 
-  const y = useTransform(smoothProgress, [0, 1], ['25dvh', '-25dvh']);
+  // Expressed as a percentage of the pan layer's own height (not dvh)
+  // so the sweep scales correctly whatever the sticky frame's actual
+  // height is at the current breakpoint, with no JS media-query needed.
+  const y = useTransform(smoothProgress, [0, 1], ['25%', '-25%']);
   const scale = useTransform(smoothProgress, [0, 1], [1, 1.18]);
 
   // Waits for the header's entrance sequence to finish (the same rule grid
@@ -56,11 +66,11 @@ export default function BreakoutPhoto({ photo, priority, onClick }: BreakoutPhot
   }, [isInView, headerReady]);
 
   return (
-    <div ref={pinRef} className="relative h-[160dvh] md:h-[220dvh]">
+    <div ref={pinRef} className="relative h-[100dvh] md:h-[220dvh]">
       <motion.div
         onClick={onClick}
         onContextMenu={(e) => e.preventDefault()}
-        className="sticky top-0 h-[100dvh] w-full cursor-pointer overflow-hidden bg-[var(--bg)]"
+        className="sticky top-0 h-[60dvh] w-full cursor-pointer overflow-hidden bg-[var(--bg)] md:h-[100dvh]"
         initial={{ y: '100%' }}
         animate={{ y: revealed ? '0%' : '100%' }}
         transition={{ duration: 0.85, ease: 'easeOut' }}
@@ -70,7 +80,7 @@ export default function BreakoutPhoto({ photo, priority, onClick }: BreakoutPhot
           initial={{ opacity: 0 }}
           animate={{ opacity: revealed ? 1 : 0 }}
           transition={{ opacity: { duration: 0.75, ease: 'easeOut' } }}
-          className="absolute inset-x-0 top-[-25dvh] h-[150dvh]"
+          className="absolute inset-x-0 top-[-50%] h-[200%]"
         >
           <Image
             src={photo.src}
