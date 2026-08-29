@@ -6,6 +6,7 @@ import { motion, useInView, useScroll, useSpring, useTransform } from 'framer-mo
 import { BLUR_DATA_URL } from '@/lib/blur';
 import { useLayoutMode } from '@/lib/layout-mode';
 import { useCssScrollTimelineSupport } from '@/lib/use-css-scroll-support';
+import { useMediaQuery } from '@/lib/use-media-query';
 import type { Photo } from '@/lib/photos';
 
 interface BreakoutPhotoProps {
@@ -15,61 +16,58 @@ interface BreakoutPhotoProps {
 }
 
 /**
- * A photo that pins itself to the viewport while the user scrolls, panning
- * slowly down through an oversized version of the image (a fixed window
- * pushing into a bigger canvas) while zooming in through the first half of
- * the scroll and back out through the second, instead of flashing past
- * like a regular grid photo, then releases back into the grid once the
- * extra scroll distance below is used up. Sits within the page's normal
- * side padding, same as the grid photos, rather than stretching full-bleed.
+ * A full-bleed-ish photo that breaks up the grid with a scroll-linked
+ * pan/zoom (panning down through an oversized version of the image while
+ * zooming in through the first half of the scroll and back out through the
+ * second) instead of flashing past like a regular grid photo. Sits within
+ * the page's normal side padding, same as the grid photos, rather than
+ * stretching full-bleed.
+ *
+ * Desktop additionally pins itself to the viewport (position: sticky) so
+ * it holds the screen for an extended "dwell" while you keep scrolling
+ * through it, then releases back into the grid. Mobile deliberately does
+ * NOT do this: iOS 26 Safari has a confirmed, currently-unpatched WebKit
+ * bug where position: sticky/fixed elements near full viewport height
+ * render incorrectly against its new floating bottom navigation controls
+ * (tracked in e.g. mastodon/mastodon#36144 and Apple Developer Forums
+ * thread 800798 - no reliable CSS workaround exists as of this writing).
+ * That's what was actually causing the persistent gap on mobile, not a
+ * sizing issue - dvh vs svh tuning never had a chance of fixing it, since
+ * the bug is in Safari's sticky implementation itself. Mobile instead uses
+ * a single normal-flow panel with no sticky/fixed positioning anywhere,
+ * sidestepping the buggy mechanism entirely, trading the pin/dwell for
+ * guaranteed-correct rendering. Desktop is unaffected by this bug and
+ * keeps the full pin effect.
  *
  * The pan/zoom itself runs as native CSS scroll-driven animation wherever
  * the browser supports it (see lib/use-css-scroll-support.ts and the
  * .breakout-* rules in globals.css) instead of a JS scroll listener, since
  * that runs entirely on the compositor thread - immune to both main-thread
- * jank and iOS Safari's documented bug where scrollY stops updating
- * consistently during fast/momentum scrolling, which is what actually
- * caused this to feel clunky on mobile specifically. Browsers without
+ * jank and iOS Safari's separate documented bug where scrollY stops
+ * updating consistently during fast/momentum scrolling. Browsers without
  * support (checked via CSS.supports, defaulting to the JS path on the
  * server/first render) fall back to the original Framer Motion
- * useScroll/useSpring implementation, unchanged.
+ * useScroll/useSpring implementation.
  *
- * The sticky frame is shorter on mobile (60svh vs 100svh on desktop) - at
- * full viewport height, the frame's now-narrower (padded, not full-bleed)
- * width made for a very tall/narrow crop window on phones, so object-cover
- * had to zoom in hard and cut off far more of the photo than intended. The
- * pan layer sizes itself as a percentage of the frame's own height (not a
- * fixed viewport-unit value) so the sweep scales correctly at either height
- * with no JS media-query needed.
- *
- * The pin/frame heights use `svh` (small viewport height - the viewport
- * size with the browser's chrome fully expanded), not `dvh`, despite `dvh`
- * being the usual recommendation for mobile-safe sizing elsewhere on this
- * site. That's deliberate here: `dvh` recalculates live as Safari's address
- * bar collapses/expands *during* the scroll gesture itself, and
- * position: sticky's release point depends on a stable relationship
- * between the frame's height and its container's - when that relationship
- * shifts mid-scroll, the release point drifts and leaves a residual gap of
- * page background between the breakout and whatever comes next. `svh`
- * never changes, which trades a small constant margin at the bottom on
- * collapsed-chrome (once the address bar hides) for eliminating that drift
- * entirely - confirmed as the documented fix for this exact failure mode.
- *
- * On first appearance (once the grid above it has revealed, see
- * `headerReady`/`isInView` below) the whole panel slides up from below
- * into place — a separate `y` transform on the outer sticky frame, kept
- * apart from the inner layer's pan/zoom (CSS or JS) so they don't fight
- * over the same property. That slide-up alone is what conceals the panel
- * until revealed, so the inner layer doesn't need its own fade for the
- * CSS path.
+ * Desktop's pin/frame heights use `svh` (small viewport height - fixed at
+ * the browser chrome's fully-expanded size), not `dvh`: `dvh` recalculates
+ * live as Safari's address bar collapses/expands mid-scroll, and sticky's
+ * release point depends on a stable frame/container height relationship -
+ * svh avoids that drift (a separate, real fix, even though it wasn't the
+ * fix for the mobile gap specifically).
  */
 export default function BreakoutPhoto({ photo, priority, onClick }: BreakoutPhotoProps) {
+  const isDesktop = useMediaQuery('(min-width: 768px)', false);
   const pinRef = useRef<HTMLDivElement>(null);
   const cssSupported = useCssScrollTimelineSupport();
 
+  // Desktop tracks progress across the whole pin container (the sticky
+  // frame's sticky/dwell duration); mobile, with no pin, just tracks this
+  // single panel's own passage through the viewport - a standard "start
+  // entering from below" to "finish exiting above" range.
   const { scrollYProgress } = useScroll({
     target: pinRef,
-    offset: ['start start', 'end end'],
+    offset: isDesktop ? ['start start', 'end end'] : ['start end', 'end start'],
   });
   // Raw scroll progress updates in whatever-sized jumps the browser's
   // scroll events happen to fire in, which reads as jittery on a large,
@@ -107,32 +105,47 @@ export default function BreakoutPhoto({ photo, priority, onClick }: BreakoutPhot
     />
   );
 
+  const panLayer = cssSupported ? (
+    <div className="breakout-pan-layer absolute inset-x-0 top-[-50%] h-[200%]">{image}</div>
+  ) : (
+    <motion.div
+      style={{ y, scale, willChange: 'transform' }}
+      className="absolute inset-x-0 top-[-50%] h-[200%]"
+    >
+      {image}
+    </motion.div>
+  );
+
+  if (!isDesktop) {
+    return (
+      <motion.div
+        ref={pinRef}
+        onClick={onClick}
+        onContextMenu={(e) => e.preventDefault()}
+        className={`relative h-[60svh] w-full cursor-pointer overflow-hidden bg-[var(--bg)] ${cssSupported ? 'breakout-timeline-subject' : ''}`}
+        initial={{ opacity: 0, y: 40 }}
+        animate={revealed ? { opacity: 1, y: 0 } : { opacity: 0, y: 40 }}
+        transition={{ duration: 0.7, ease: 'easeOut' }}
+      >
+        {panLayer}
+      </motion.div>
+    );
+  }
+
   return (
     <div
       ref={pinRef}
-      className={`relative h-[100svh] md:h-[220svh] ${cssSupported ? 'breakout-timeline-subject' : ''}`}
+      className={`relative h-[220svh] ${cssSupported ? 'breakout-timeline-subject' : ''}`}
     >
       <motion.div
         onClick={onClick}
         onContextMenu={(e) => e.preventDefault()}
-        className="sticky top-0 h-[60svh] w-full cursor-pointer overflow-hidden bg-[var(--bg)] md:h-[100svh]"
+        className="sticky top-0 h-[100svh] w-full cursor-pointer overflow-hidden bg-[var(--bg)]"
         initial={{ y: '100%' }}
         animate={{ y: revealed ? '0%' : '100%' }}
         transition={{ duration: 0.85, ease: 'easeOut' }}
       >
-        {cssSupported ? (
-          <div className="breakout-pan-layer absolute inset-x-0 top-[-50%] h-[200%]">{image}</div>
-        ) : (
-          <motion.div
-            style={{ y, scale, willChange: 'transform' }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: revealed ? 1 : 0 }}
-            transition={{ opacity: { duration: 0.75, ease: 'easeOut' } }}
-            className="absolute inset-x-0 top-[-50%] h-[200%]"
-          >
-            {image}
-          </motion.div>
-        )}
+        {panLayer}
       </motion.div>
     </div>
   );
