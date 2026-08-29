@@ -14,9 +14,10 @@ interface BreakoutPhotoProps {
 }
 
 /**
- * A photo that pins itself to the viewport while the user scrolls, zooming
- * in while panning slowly down through an oversized version of the image
- * (a fixed window pushing into a bigger canvas) instead of flashing past
+ * A photo that pins itself to the viewport while the user scrolls, panning
+ * slowly down through an oversized version of the image (a fixed window
+ * pushing into a bigger canvas) while zooming in through the first half of
+ * the scroll and back out through the second, instead of flashing past
  * like a regular grid photo, then releases back into the grid once the
  * extra scroll distance below is used up. Sits within the page's normal
  * side padding, same as the grid photos, rather than stretching full-bleed.
@@ -52,8 +53,11 @@ export default function BreakoutPhoto({ photo, priority, onClick }: BreakoutPhot
   // Expressed as a percentage of the pan layer's own height (not dvh)
   // so the sweep scales correctly whatever the sticky frame's actual
   // height is at the current breakpoint, with no JS media-query needed.
+  // The pan still runs one-way top-to-bottom across the full scroll, but
+  // the zoom is a pulse — in through the first half, back out through the
+  // second — rather than continuing to zoom in the whole way through.
   const y = useTransform(smoothProgress, [0, 1], ['25%', '-25%']);
-  const scale = useTransform(smoothProgress, [0, 1], [1, 1.18]);
+  const scale = useTransform(smoothProgress, [0, 0.5, 1], [1, 1.18, 1]);
 
   // Waits for the header's entrance sequence to finish (the same rule grid
   // photos follow) so this doesn't appear ready before the grid above it
@@ -91,7 +95,7 @@ export default function BreakoutPhoto({ photo, priority, onClick }: BreakoutPhot
             draggable={false}
             priority={priority}
             loading={priority ? undefined : 'eager'}
-            quality={90}
+            quality={82}
             placeholder="blur"
             blurDataURL={BLUR_DATA_URL}
           />

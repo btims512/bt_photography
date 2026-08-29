@@ -25,14 +25,13 @@ interface GridPhotoProps {
   onOpen: () => void;
 }
 
-// Beyond a small eager-loaded head start, photos fall back to native lazy
-// loading. Eager-loading every photo works fine on fast desktop connections
-// but makes every image compete for the same limited mobile bandwidth,
-// which is what actually causes slow/incomplete-looking photos on phones -
-// lazy-loaded images still get a generous browser-native prefetch margin,
-// and scrolling itself takes real time, so this doesn't reintroduce visible
-// pop-in for normal scroll speeds.
-const EAGER_COUNT = 6;
+// Every grid photo eager-loads (fetch starts immediately at page load,
+// never deferred to scroll proximity) so nothing is still downloading by
+// the time it's scrolled to - including everything after the breakout,
+// which is far enough down the page that native lazy-loading's fetch
+// timing isn't reliably ahead of scroll speed. The tradeoff is more
+// simultaneous network load on slow connections; quality is tuned down a
+// touch (see GridPhoto's `quality`) to help offset that.
 
 // Its own component (rather than inline in the .map() below) because the
 // reveal hook needs a stable per-photo call site to satisfy rules of hooks.
@@ -60,8 +59,8 @@ function GridPhoto({ photo, currentIndex, priority, onOpen }: GridPhotoProps) {
         className="photo-protected block h-auto w-full"
         draggable={false}
         priority={priority}
-        loading={priority ? undefined : currentIndex < EAGER_COUNT ? 'eager' : undefined}
-        quality={90}
+        loading={priority ? undefined : 'eager'}
+        quality={82}
         placeholder="blur"
         blurDataURL={BLUR_DATA_URL}
       />
