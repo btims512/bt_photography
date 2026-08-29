@@ -46,10 +46,10 @@ export default function HeroSectionClassic() {
           <Image
             src="/bt-mark.svg"
             alt="BT Photography"
-            width={545}
-            height={273}
+            width={527}
+            height={257}
             priority
-            className="mx-auto h-[95px] w-auto translate-x-[21px] md:h-[160px] md:translate-x-[36px]"
+            className="mx-auto h-[95px] w-auto md:h-[160px]"
           />
           <div
             className="mt-1 text-[19px] font-400 md:mt-1 md:text-[34px]"

@@ -1,8 +1,10 @@
 'use client';
 
+import { useState } from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { distributeToColumns } from '@/lib/masonry';
+import Lightbox from './Lightbox';
 import type { Photo } from '@/lib/photos';
 
 interface PortfolioSectionProps {
@@ -11,6 +13,8 @@ interface PortfolioSectionProps {
 }
 
 export default function PortfolioSectionClassic({ id, photos }: PortfolioSectionProps) {
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+
   // Filter out photos without src URLs (placeholders)
   const validPhotos = photos.filter((photo) => photo.src.trim() !== '');
 
@@ -37,13 +41,19 @@ export default function PortfolioSectionClassic({ id, photos }: PortfolioSection
           {columns.map((column, columnIndex) => (
             <div key={columnIndex} className="flex flex-1 flex-col gap-[10px]">
               {column.map((photo) => {
-                const priority = index++ === 0;
+                const currentIndex = index++;
+                const priority = currentIndex === 0;
                 return (
                   <motion.figure
                     key={photo.src}
+                    initial={{ opacity: 0, y: 16, scale: 0.96 }}
+                    whileInView={{ opacity: 1, y: 0, scale: 1 }}
+                    viewport={{ once: true, margin: '-40px' }}
+                    transition={{ duration: 0.55, delay: currentIndex * 0.07, ease: 'easeOut' }}
                     whileHover={{ scale: 1.02 }}
                     className="relative m-0 cursor-pointer"
                     onContextMenu={(e) => e.preventDefault()}
+                    onClick={() => setOpenIndex(validPhotos.indexOf(photo))}
                   >
                     <Image
                       src={photo.src}
@@ -61,6 +71,12 @@ export default function PortfolioSectionClassic({ id, photos }: PortfolioSection
           ))}
         </div>
       </main>
+      <Lightbox
+        photos={validPhotos}
+        index={openIndex}
+        onClose={() => setOpenIndex(null)}
+        onNavigate={setOpenIndex}
+      />
     </section>
   );
 }

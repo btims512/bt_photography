@@ -46,8 +46,8 @@ export default function HeroSectionModern() {
           <Image
             src="/bt-mark.svg"
             alt="BT Photography"
-            width={545}
-            height={273}
+            width={527}
+            height={257}
             priority
             className="h-[36px] w-auto md:h-[48px]"
           />
@@ -58,7 +58,7 @@ export default function HeroSectionModern() {
             PHOTOGRAPHY
           </div>
           <div
-            className="mt-1 w-[70px] md:w-[95px]"
+            className="mx-auto mt-1 w-[70px] md:w-[95px]"
             style={{ borderTop: '1px solid var(--ink)' }}
           />
         </motion.div>

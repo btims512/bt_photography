@@ -1,5 +1,7 @@
 import type { Photo } from '@/lib/masonry';
 
+export type { Photo };
+
 export const musicPhotos: Photo[] = [];
 
 export const comedyPhotos: Photo[] = [
