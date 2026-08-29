@@ -35,7 +35,7 @@ function GridPhoto({ photo, currentIndex, priority, onOpen }: GridPhotoProps) {
       ref={ref}
       initial={hiddenState}
       animate={revealed ? { opacity: 1, y: 0, scale: 1 } : hiddenState}
-      transition={{ duration: 0.7, delay: currentIndex * 0.09, ease: 'easeOut' }}
+      transition={{ duration: 0.85, delay: currentIndex * 0.07, ease: 'easeOut' }}
       whileHover={{ scale: 1.02 }}
       className="relative m-0 cursor-pointer bg-[var(--bg)]"
       onContextMenu={(e) => e.preventDefault()}

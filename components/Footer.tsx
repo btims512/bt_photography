@@ -47,14 +47,14 @@ export default function Footer() {
         aria-label="Toggle layout style"
         className="absolute bottom-4 right-4 md:bottom-6 md:right-6 inline-flex items-center justify-center"
         style={{
-          width: '20px',
-          height: '20px',
+          width: '26px',
+          height: '26px',
           backgroundColor: 'transparent',
           border: 'none',
           cursor: 'pointer',
           padding: 0,
-          color: 'var(--line)',
-          opacity: 0.6,
+          color: 'var(--faint)',
+          opacity: 0.7,
           transition: 'opacity 0.3s ease, color 0.3s ease'
         }}
         onMouseEnter={(e) => {
@@ -62,13 +62,13 @@ export default function Footer() {
           e.currentTarget.style.color = 'var(--ink)';
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.opacity = '0.6';
-          e.currentTarget.style.color = 'var(--line)';
+          e.currentTarget.style.opacity = '0.7';
+          e.currentTarget.style.color = 'var(--faint)';
         }}
       >
         <svg
           viewBox="0 0 24 24"
-          className="h-3 w-3"
+          className="h-4 w-4"
           fill="none"
           stroke="currentColor"
           strokeWidth="1.6"

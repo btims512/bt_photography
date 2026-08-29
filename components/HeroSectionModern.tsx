@@ -115,7 +115,7 @@ export default function HeroSectionModern() {
                   key={item.label}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.75, delay: idx * 0.08, ease: 'easeOut' }}
+                  transition={{ duration: 0.6, delay: idx * 0.05, ease: 'easeOut' }}
                   onAnimationComplete={idx === NAV.length - 1 ? markHeaderReady : undefined}
                 >
                   <Link

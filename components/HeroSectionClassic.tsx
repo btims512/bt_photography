@@ -115,7 +115,7 @@ export default function HeroSectionClassic() {
                 className="relative block py-2 md:inline-block md:pb-[10px] md:pt-0"
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.75, delay: idx * 0.1, ease: 'easeOut' }}
+                transition={{ duration: 0.6, delay: idx * 0.06, ease: 'easeOut' }}
                 onAnimationComplete={idx === NAV.length - 1 ? markHeaderReady : undefined}
               >
                 <Link

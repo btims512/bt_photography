@@ -62,13 +62,13 @@ export default function BreakoutPhoto({ photo, priority, onClick }: BreakoutPhot
         className="sticky top-0 h-[100dvh] w-full cursor-pointer overflow-hidden bg-[var(--bg)]"
         initial={{ y: '100%' }}
         animate={{ y: revealed ? '0%' : '100%' }}
-        transition={{ duration: 0.7, ease: 'easeOut' }}
+        transition={{ duration: 0.85, ease: 'easeOut' }}
       >
         <motion.div
           style={{ y, scale, willChange: 'transform' }}
           initial={{ opacity: 0 }}
           animate={{ opacity: revealed ? 1 : 0 }}
-          transition={{ opacity: { duration: 0.6, ease: 'easeOut' } }}
+          transition={{ opacity: { duration: 0.75, ease: 'easeOut' } }}
           className="absolute inset-x-0 top-[-25dvh] h-[150dvh]"
         >
           <Image
