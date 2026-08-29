@@ -9,6 +9,7 @@ export const comedyPhotos: Photo[] = [
   { src: '/photos/DSC_3615.jpg', alt: 'Comedian in a cap speaking into a microphone during his set', width: 5310, height: 3545 },
   { src: '/photos/DSC_5544.jpg', alt: 'Comedian in a leather jacket on stage as the audience claps', width: 6016, height: 4016 },
   { src: '/photos/DSC_4726-Edit-3.jpg', alt: 'Black and white portrait of a comedian in a flat cap and sunglasses peering through a stage curtain', width: 6016, height: 4016 },
+  { src: '/photos/btp-82.jpg', alt: 'Portrait of a comedian with a mullet and neck tattoos in a western print shirt, looking upward', width: 1536, height: 1024 },
 ];
 
 export const portraitPhotos: Photo[] = [
@@ -31,5 +32,5 @@ export const featuredPhotos: Photo[] = [
   { src: '/photos/DSC_3615.jpg', alt: 'Comedian in a cap speaking into a microphone during his set', width: 5310, height: 3545, category: 'comedy' },
   { src: '/photos/DSC_5544.jpg', alt: 'Comedian in a leather jacket on stage as the audience claps', width: 6016, height: 4016, category: 'comedy' },
   { src: '/photos/DSC_4726-Edit-3.jpg', alt: 'Black and white portrait of a comedian in a flat cap and sunglasses peering through a stage curtain', width: 6016, height: 4016, category: 'comedy' },
-  { src: '/photos/btp-82.jpg', alt: 'Close-up portrait of a bearded man with a mullet and neck tattoos in a western print shirt, looking upward', width: 1536, height: 1024, category: 'portraits' },
+  { src: '/photos/btp-82.jpg', alt: 'Close-up portrait of a bearded man with a mullet and neck tattoos in a western print shirt, looking upward', width: 1536, height: 1024, category: 'comedy' },
 ];

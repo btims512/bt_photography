@@ -8,13 +8,14 @@ import type { Photo } from '@/lib/photos';
 interface PortfolioSectionProps {
   id: string;
   photos: Photo[];
+  breakoutEvery?: number;
 }
 
-export default function PortfolioSection({ id, photos }: PortfolioSectionProps) {
+export default function PortfolioSection({ id, photos, breakoutEvery }: PortfolioSectionProps) {
   const { mode } = useLayoutMode();
   return mode === 'modern' ? (
-    <PortfolioSectionModern id={id} photos={photos} />
+    <PortfolioSectionModern id={id} photos={photos} breakoutEvery={breakoutEvery} />
   ) : (
-    <PortfolioSectionClassic id={id} photos={photos} />
+    <PortfolioSectionClassic id={id} photos={photos} breakoutEvery={breakoutEvery} />
   );
 }

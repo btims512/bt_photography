@@ -30,38 +30,49 @@ export default function HeroSectionModern() {
       className="relative px-6 py-[14px] md:px-[50px] md:py-[16px] flex items-center justify-between"
       style={{ zIndex: 10 }}
     >
-      {/* Logo - Left */}
+      {/* Logo - Left — each line arrives from its own direction rather than as one block */}
       <Link href="/" className="inline-block flex-shrink-0">
-        <motion.div
-          initial={{ opacity: 0, x: -50 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.75, ease: 'easeOut' }}
-        >
-          <div
+        <div>
+          <motion.div
             className="text-[6px] font-400 md:text-[8px]"
             style={{ color: 'var(--ink)', letterSpacing: '0.28em' }}
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
           >
             THE
-          </div>
-          <Image
-            src="/bt-mark.svg"
-            alt="BT Photography"
-            width={527}
-            height={257}
-            priority
-            className="h-[36px] w-auto md:h-[48px]"
-          />
-          <div
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, x: 24 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, delay: 0.1, ease: 'easeOut' }}
+          >
+            <Image
+              src="/bt-mark.svg"
+              alt="BT Photography"
+              width={527}
+              height={257}
+              priority
+              className="h-[36px] w-auto md:h-[48px]"
+            />
+          </motion.div>
+          <motion.div
             className="mt-1 text-[9px] font-400 md:text-[13px]"
             style={{ color: 'var(--ink)', letterSpacing: '0.42em' }}
+            initial={{ opacity: 0, x: -24 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.55, delay: 0.22, ease: 'easeOut' }}
           >
             PHOTOGRAPHY
-          </div>
-          <div
+          </motion.div>
+          <motion.div
             className="mt-1 w-[70px] md:w-[95px]"
-            style={{ borderTop: '1px solid var(--ink)' }}
+            style={{ borderTop: '1px solid var(--ink)', transformOrigin: 'left' }}
+            initial={{ opacity: 0, scaleX: 0 }}
+            animate={{ opacity: 1, scaleX: 1 }}
+            transition={{ duration: 0.4, delay: 0.38, ease: 'easeOut' }}
           />
-        </motion.div>
+        </div>
       </Link>
 
       {/* Mobile hamburger toggle */}

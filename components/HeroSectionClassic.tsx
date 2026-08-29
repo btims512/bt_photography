@@ -30,38 +30,49 @@ export default function HeroSectionClassic() {
       className="relative px-6 pb-[20px] pt-[18px] text-center md:px-[50px] md:pb-[24px] md:pt-[22px]"
       style={{ zIndex: 10 }}
     >
-      {/* Logo */}
+      {/* Logo — each line arrives from its own direction rather than as one block */}
       <Link href="/" className="inline-block">
-        <motion.div
-          initial={{ opacity: 0, x: -50 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.75, ease: 'easeOut' }}
-        >
-          <div
+        <div>
+          <motion.div
             className="text-[13px] font-400 md:text-[16px]"
             style={{ color: 'var(--ink)', letterSpacing: '0.32em' }}
+            initial={{ opacity: 0, y: -16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: 'easeOut' }}
           >
             THE
-          </div>
-          <Image
-            src="/bt-mark.svg"
-            alt="BT Photography"
-            width={527}
-            height={257}
-            priority
-            className="mx-auto h-[95px] w-auto md:h-[160px]"
-          />
-          <div
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, x: 40 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.7, delay: 0.12, ease: 'easeOut' }}
+          >
+            <Image
+              src="/bt-mark.svg"
+              alt="BT Photography"
+              width={527}
+              height={257}
+              priority
+              className="mx-auto h-[95px] w-auto md:h-[160px]"
+            />
+          </motion.div>
+          <motion.div
             className="mt-1 text-[19px] font-400 md:mt-1 md:text-[34px]"
             style={{ color: 'var(--ink)', letterSpacing: '0.6em' }}
+            initial={{ opacity: 0, x: -40 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.65, delay: 0.28, ease: 'easeOut' }}
           >
             PHOTOGRAPHY
-          </div>
-          <div
+          </motion.div>
+          <motion.div
             className="mx-auto mt-2 w-[150px] md:mt-2 md:w-[280px]"
             style={{ borderTop: '1px solid var(--ink)' }}
+            initial={{ opacity: 0, scaleX: 0 }}
+            animate={{ opacity: 1, scaleX: 1 }}
+            transition={{ duration: 0.5, delay: 0.48, ease: 'easeOut' }}
           />
-        </motion.div>
+        </div>
       </Link>
 
       {/* Mobile hamburger toggle */}

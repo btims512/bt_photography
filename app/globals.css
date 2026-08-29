@@ -29,3 +29,12 @@ body {
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
 }
+
+/* Blocks the iOS/Android long-press "Save Photo" sheet and drag-to-save on
+   desktop, on top of the onContextMenu preventDefault() used for right-click. */
+.photo-protected {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}

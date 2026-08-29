@@ -88,6 +88,77 @@ export function distributeRoundRobin(photos: Photo[], columnCount = 3): Photo[][
   return columns;
 }
 
+export type GallerySegment =
+  | { type: 'grid'; photos: Photo[] }
+  | { type: 'breakout'; photo: Photo };
+
+/**
+ * Splits a flat photo list into masonry-grid chunks (of up to `breakoutEvery`
+ * photos, in original order) interrupted by full-bleed "breakout" photos.
+ * Every portrait photo is pulled out of its chunk's grid contribution: a
+ * portrait squeezed into a 1/3-width grid column runs much taller than its
+ * landscape neighbors, leaving the other columns padded with wasted space,
+ * whereas breakout's pinned pan crops to a fixed frame regardless of source
+ * orientation, so it's a better home for any of them. A chunk only ever
+ * spends one on its own breakout slot; extras queue up and get used by the
+ * next chunk's slot instead of lingering in a grid, so no chunk is ever left
+ * with a leftover portrait.
+ *
+ * Grid segments are also trimmed to a multiple of `columnCount`: an uneven
+ * count (e.g. 5 similar-height photos across 3 columns) leaves one column
+ * shorter than the others, and since the row's height is set by the tallest
+ * column, the short one just ends in visible empty space. The remainder
+ * carries over into the next chunk instead of being flushed short.
+ *
+ * Chunking (rather than filtering portraits out of the whole sequence up
+ * front) keeps category interleaving upstream — e.g. comedy/portraits
+ * alternation — intact within each grid segment. Anything still queued once
+ * photos run out (excess portraits, an uneven carry-over remainder) rides
+ * along in a trailing grid segment rather than being dropped.
+ */
+export function chunkWithBreakouts(photos: Photo[], breakoutEvery: number, columnCount = 3): GallerySegment[] {
+  const segments: GallerySegment[] = [];
+  const breakoutQueue: Photo[] = [];
+  let carryOver: Photo[] = [];
+
+  for (let i = 0; i < photos.length; i += breakoutEvery) {
+    const chunk = photos.slice(i, i + breakoutEvery);
+    const hasMore = i + breakoutEvery < photos.length;
+
+    const landscapeThisChunk: Photo[] = [];
+    for (const photo of chunk) {
+      if (photo.height > photo.width) {
+        breakoutQueue.push(photo);
+      } else {
+        landscapeThisChunk.push(photo);
+      }
+    }
+
+    const available = [...carryOver, ...landscapeThisChunk];
+    const evenCount = available.length - (available.length % columnCount);
+    const gridPhotos = available.slice(0, evenCount);
+    carryOver = available.slice(evenCount);
+
+    if (gridPhotos.length > 0) {
+      segments.push({ type: 'grid', photos: gridPhotos });
+    }
+
+    if (hasMore) {
+      const breakoutPhoto = breakoutQueue.shift();
+      if (breakoutPhoto) {
+        segments.push({ type: 'breakout', photo: breakoutPhoto });
+      }
+    }
+  }
+
+  const leftovers = [...carryOver, ...breakoutQueue];
+  if (leftovers.length > 0) {
+    segments.push({ type: 'grid', photos: leftovers });
+  }
+
+  return segments;
+}
+
 export function distributeToColumns(photos: Photo[], columnCount = 2): Photo[][] {
   const columns: Photo[][] = Array.from({ length: columnCount }, () => []);
   // Tracked in "units of column width" so it is resolution independent.

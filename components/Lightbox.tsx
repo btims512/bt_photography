@@ -3,6 +3,7 @@
 import { useCallback, useEffect } from 'react';
 import Image from 'next/image';
 import { AnimatePresence, motion } from 'framer-motion';
+import { BLUR_DATA_URL } from '@/lib/blur';
 import type { Photo } from '@/lib/photos';
 
 interface LightboxProps {
@@ -64,7 +65,7 @@ export default function Lightbox({ photos, index, onClose, onNavigate }: Lightbo
               onClose();
             }}
             aria-label="Close"
-            className="absolute left-4 top-4 z-10 flex h-11 w-11 items-center justify-center text-white/80 transition-colors hover:text-white md:left-6 md:top-6"
+            className="absolute left-4 top-4 z-10 flex h-11 w-11 items-center justify-center text-white/80 outline-none transition-colors hover:text-white md:left-6 md:top-6"
           >
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
               <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
@@ -79,7 +80,7 @@ export default function Lightbox({ photos, index, onClose, onNavigate }: Lightbo
                   goPrev();
                 }}
                 aria-label="Previous photo"
-                className="absolute left-2 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center text-white/80 transition-colors hover:text-white md:left-6"
+                className="absolute left-2 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center text-white/80 outline-none transition-colors hover:text-white md:left-6"
               >
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <path d="M15 6l-6 6 6 6" strokeLinecap="round" strokeLinejoin="round" />
@@ -91,7 +92,7 @@ export default function Lightbox({ photos, index, onClose, onNavigate }: Lightbo
                   goNext();
                 }}
                 aria-label="Next photo"
-                className="absolute right-2 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center text-white/80 transition-colors hover:text-white md:right-6"
+                className="absolute right-2 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center text-white/80 outline-none transition-colors hover:text-white md:right-6"
               >
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
@@ -102,21 +103,26 @@ export default function Lightbox({ photos, index, onClose, onNavigate }: Lightbo
 
           <motion.div
             key={photo.src}
-            className="relative z-[5] flex max-h-[94vh] max-w-[94vw] items-center justify-center"
+            className="relative z-[5] flex max-h-[98vh] max-w-[98vw] items-center justify-center"
             initial={{ scale: 0.85, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.85, opacity: 0 }}
             transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
             onClick={(e) => e.stopPropagation()}
+            onContextMenu={(e) => e.preventDefault()}
           >
             <Image
               src={photo.src}
               alt={photo.alt}
               width={photo.width}
               height={photo.height}
-              sizes="94vw"
-              className="h-auto max-h-[94vh] w-auto max-w-[94vw] object-contain"
+              sizes="98vw"
+              className="photo-protected h-auto max-h-[98vh] w-auto max-w-[98vw] object-contain"
+              draggable={false}
               priority
+              quality={90}
+              placeholder="blur"
+              blurDataURL={BLUR_DATA_URL}
             />
           </motion.div>
         </motion.div>
