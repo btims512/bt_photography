@@ -30,11 +30,16 @@ interface BreakoutPhotoProps {
  * the grid.
  *
  * Mobile shows the complete photo instead (object-contain, full viewport
- * height) with only a gentle zoom pulse - no pan, no crop, no sticky pin.
- * Panning only made sense as a way to reveal portions of the image hidden
- * by object-cover's crop; with object-contain there's nothing hidden left
- * to pan across. And no pin: iOS 26 Safari has a confirmed, currently-
- * unpatched WebKit bug where position: sticky/fixed elements near full
+ * height) with only a gentle zoom pulse - no pan, no crop, no sticky pin,
+ * ever. The contained image sits inset 6% from the frame at rest rather
+ * than filling it exactly, specifically so the zoom pulse (peaking at
+ * 1.12x) can never push any part of it past the frame's edge to be clipped
+ * by overflow-hidden: 88% (the inset size) * 1.12 = ~98.6%, still short of
+ * 100% at the very peak. Panning only made sense as a way to reveal
+ * portions of the image hidden by object-cover's crop; with object-contain
+ * there's nothing hidden left to pan across. And no pin: iOS 26 Safari has
+ * a confirmed, currently-unpatched WebKit bug where position: sticky/fixed
+ * elements near full
  * viewport height render incorrectly against its new floating bottom
  * navigation controls (tracked in e.g. mastodon/mastodon#36144 and Apple
  * Developer Forums thread 800798 - no reliable CSS workaround exists as of
@@ -125,11 +130,11 @@ export default function BreakoutPhoto({ photo, priority, onClick }: BreakoutPhot
         transition={{ duration: 0.7, ease: 'easeOut' }}
       >
         {cssSupported ? (
-          <div className="breakout-zoom-only-layer absolute inset-0">{mobileImage}</div>
+          <div className="breakout-zoom-only-layer absolute inset-[6%]">{mobileImage}</div>
         ) : (
           <motion.div
             style={{ scale: mobileScale, willChange: 'transform' }}
-            className="absolute inset-0"
+            className="absolute inset-[6%]"
           >
             {mobileImage}
           </motion.div>
