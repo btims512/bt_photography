@@ -737,7 +737,7 @@ body {
   animation-name: rail-edge-reverse-kf;
 }
 
-/* Draw and withdraw are the same length (18% each, 12->30 and 70->88) and
+/* Draw and withdraw are the same length (26% each, 12->38 and 62->88) and
    symmetric about the dwell's midpoint, and the hold between them is long
    on purpose: the line has to be on screen for the *first and last*
    photos too, not just the ones in the middle. Tucking the cycle inside
@@ -777,8 +777,8 @@ body {
 @keyframes rail-edge-kf {
   0%   { stroke-dashoffset: 0.75; }
   12%  { stroke-dashoffset: 0.75; }
-  30%  { stroke-dashoffset: 0; }
-  70%  { stroke-dashoffset: 0; }
+  38%  { stroke-dashoffset: 0; }
+  62%  { stroke-dashoffset: 0; }
   88%  { stroke-dashoffset: 0.75; }
   100% { stroke-dashoffset: 0.75; }
 }
@@ -790,8 +790,8 @@ body {
 @keyframes rail-edge-reverse-kf {
   0%   { stroke-dashoffset: -1; }
   12%  { stroke-dashoffset: -1; }
-  30%  { stroke-dashoffset: -0.25; }
-  70%  { stroke-dashoffset: -0.25; }
+  38%  { stroke-dashoffset: -0.25; }
+  62%  { stroke-dashoffset: -0.25; }
   88%  { stroke-dashoffset: -1; }
   100% { stroke-dashoffset: -1; }
 }
