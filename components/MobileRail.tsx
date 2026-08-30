@@ -33,6 +33,20 @@ const RAIL_DWELL_PER_TRANSITION_SVH = 45;
 // the photos read as nearly touching once they filled their panels.
 const RAIL_GAP_CQW = 12;
 
+// One continuous wave, as a quadratic opener followed by smooth-quadratic
+// (T) reflections that each mirror the previous control point - so the
+// curve stays smooth across every joint without restating control points.
+// Amplitude is deliberately shallow (y 1..11 around a midline of 6) so the
+// line reads as a subtle texture in the black band rather than competing
+// with the photo. Drawn wide (SQUIGGLE_VIEW_W units) and stretched to the
+// frame by preserveAspectRatio="none"; the wave count is what survives
+// that stretch, so more segments = tighter squiggle at any screen width.
+const SQUIGGLE_VIEW_W = 240;
+const SQUIGGLE_PATH = `M0 6 Q6 1 12 6 ${Array.from(
+  { length: SQUIGGLE_VIEW_W / 12 - 1 },
+  (_, i) => `T${(i + 2) * 12} 6`
+).join(' ')}`;
+
 /**
  * Mobile-only interlude between grid segments: a horizontal strip of
  * portrait photos, pinned to the viewport while an inner track slides left
@@ -140,6 +154,13 @@ export default function MobileRail({ photos, onOpen }: MobileRailProps) {
   // CSS path is compositor-driven and has no discrete jumps to smooth.
   const smoothProgress = useSpring(rawProgress, { stiffness: 200, damping: 30, mass: 0.5 });
   const transform = useTransform(smoothProgress, (v) => `translateX(calc(${(-v).toFixed(4)} * ${shiftCqw}cqw))`);
+  // JS-fallback equivalents of the three scroll-driven CSS animations
+  // below - each mirrors its keyframe percentages exactly so both paths
+  // look identical. See .rail-photo-zoom-kf / .rail-squiggle-kf in
+  // globals.css for what the stops mean.
+  const photoZoom = useTransform(smoothProgress, [0, 0.08, 0.92, 1], [0.88, 1, 1, 0.88]);
+  const squiggleFromLeft = useTransform(smoothProgress, [0, 0.14, 0.3, 0.72, 0.88, 1], [1, 1, 0, 0, 1, 1]);
+  const squiggleFromRight = useTransform(smoothProgress, [0, 0.14, 0.3, 0.72, 0.88, 1], [-1, -1, 0, 0, -1, -1]);
 
   const isInView = useInView(outerRef, { margin: '200px' });
   const { headerReady } = useLayoutMode();
@@ -156,7 +177,15 @@ export default function MobileRail({ photos, onOpen }: MobileRailProps) {
       onClick={() => onOpen(photo)}
       onContextMenu={(e) => e.preventDefault()}
     >
-      <div className="rail-photo-box relative">
+      {/* scale comes from the CSS class where scroll-timelines are
+          supported; on the fallback Framer writes an inline transform,
+          which takes precedence over the class's own - the class's
+          animation is inert there anyway, since its timeline doesn't
+          resolve. */}
+      <motion.div
+        className="rail-photo-box relative"
+        style={cssSupported ? undefined : { scale: photoZoom }}
+      >
         <Image
           src={photo.src}
           alt={photo.alt}
@@ -169,9 +198,25 @@ export default function MobileRail({ photos, onOpen }: MobileRailProps) {
           placeholder="blur"
           blurDataURL={BLUR_DATA_URL}
         />
-      </div>
+      </motion.div>
     </div>
   ));
+
+  const squiggle = (fromRight: boolean) => (
+    <svg
+      className={`rail-squiggle${fromRight ? ' rail-squiggle-from-right' : ''}`}
+      viewBox={`0 0 ${SQUIGGLE_VIEW_W} 12`}
+      preserveAspectRatio="none"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <motion.path
+        d={SQUIGGLE_PATH}
+        pathLength={1}
+        style={cssSupported ? undefined : { strokeDashoffset: fromRight ? squiggleFromRight : squiggleFromLeft }}
+      />
+    </svg>
+  );
 
   return (
     <div
@@ -217,6 +262,15 @@ export default function MobileRail({ photos, onOpen }: MobileRailProps) {
             {panels}
           </motion.div>
         )}
+
+        {/* Overlaid on the frame rather than nested in the track, so the
+            squiggles hold still across the screen while the photos slide
+            underneath them. */}
+        <div className="rail-squiggle-layer">
+          <div className="rail-squiggle-band">{squiggle(false)}</div>
+          <div className="rail-squiggle-spacer" />
+          <div className="rail-squiggle-band">{squiggle(true)}</div>
+        </div>
       </motion.div>
     </div>
   );

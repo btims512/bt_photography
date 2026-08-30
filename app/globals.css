@@ -316,7 +316,7 @@ body {
    padding, so this fills its frame's width the same way. */
 .breakout-mobile-box {
   aspect-ratio: 66 / 100;
-  width: min(calc(100vw - 48px), 45svh);
+  width: min(calc(100vw - 48px), calc(0.62 * (100svh - var(--header-shrunk-height))));
   height: auto;
 }
 
@@ -350,6 +350,14 @@ body {
 .rail-frame {
   container-type: inline-size;
   padding-top: var(--header-shrunk-height);
+  /* The photo's layout width, shared with .rail-squiggle-spacer so the
+     squiggle overlay's bands always match the real gaps above and below
+     the photo without either having to know the other's numbers. Declared
+     here rather than on the users because cqw inside a custom property
+     resolves where the property is *used*, not where it's declared - both
+     users are descendants of this element, so both resolve it against this
+     frame's own width, which is what cqw means for them anyway. */
+  --rail-photo-w: min(100cqw, calc(0.62 * (100svh - var(--header-shrunk-height))));
 }
 
 @keyframes rail-slide-kf {
@@ -384,18 +392,152 @@ body {
    panel exactly and the flex gap between panels (RAIL_GAP_CQW in
    MobileRail.tsx) is what keeps neighbours apart while sliding - that gap
    is now the only separation, since the side bars that used to add to it
-   are gone. 45svh caps the derived height at ~68svh so a wide-but-short
-   viewport can't resolve 100cqw into a box taller than the screen; it has
-   to leave room for .rail-frame's header padding as well, which eats a
-   far larger share of a short viewport (72px of 375 is 19%, against 8% of
-   844), so this sits low enough that the photo still clears the header
-   with visible space instead of butting up against it. Only short
-   viewports are affected - at ordinary phone-portrait sizes 100cqw is the
-   smaller of the two and this cap never binds. */
+   are gone. The second term stops a viewport too short to fit a
+   full-width photo from resolving 100cqw into a box taller than the space
+   available, and is derived from that space rather than being a flat svh
+   fraction: 0.62 is the box's own 0.66 ratio scaled by ~0.94, so the
+   photo's height lands at ~94% of what's left after .rail-frame's header
+   padding, keeping a little black above and below instead of butting into
+   the header. Deriving it matters because a flat fraction has to be tuned
+   for the worst case and then binds everywhere: an earlier 45svh version
+   was picked against headless viewports, where svh equals the whole
+   window, and shipped side bars to real phones - iOS reports svh
+   *excluding* Safari's chrome, so a 393x852 phone resolves svh nearer 720
+   than 852, and 45svh of that fell short of the frame's width. Written
+   this way the term only binds when the height genuinely cannot fit a
+   full-width photo, which no phone in portrait hits. */
 .rail-photo-box {
   aspect-ratio: 66 / 100;
-  width: min(100cqw, 45svh);
+  width: var(--rail-photo-w);
   height: auto;
+  transform: scale(var(--rail-photo-zoom));
+  animation: rail-photo-zoom-kf 1s linear;
+  animation-timeline: --rail-progress;
+  animation-range-start: var(--rail-range-start, cover 29.4118%);
+  animation-range-end: var(--rail-range-end, cover 82.3529%);
+  animation-fill-mode: both;
+  will-change: transform;
+}
+
+/* The photo sits inset from the frame's edges at rest, showing a black
+   border down each side, then scales up to meet them ("rises") as the
+   pinned dwell begins, holds at full width through the whole horizontal
+   slide, and drops back before the pin releases - so the section is
+   bookended by the same resting state it started in.
+   --rail-photo-zoom's initial value matches the 0% keyframe, which is what
+   the photo shows before the timeline is active (approaching the pin) and
+   after it ends. scale() rather than an animated width keeps this
+   compositor-only, and leaves the *layout* box at full size the whole
+   time - which is what lets .rail-squiggle-spacer match the gaps the
+   squiggles sit in without tracking the zoom itself. The zoom finishes
+   well before the squiggles start drawing (8% vs 14%) and restarts after
+   they've fully retracted (92% vs 88%), so the two never move at once. */
+@property --rail-photo-zoom {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0.88;
+}
+
+@keyframes rail-photo-zoom-kf {
+  0%   { --rail-photo-zoom: 0.88; }
+  8%   { --rail-photo-zoom: 1; }
+  92%  { --rail-photo-zoom: 1; }
+  100% { --rail-photo-zoom: 0.88; }
+}
+
+/* White squiggle drawn across the black band above and below the photo,
+   entering from opposite sides once the photo has risen and retracting the
+   same way before it drops. A flex column pinned over the frame's content
+   box: the spacer takes exactly the photo's layout height (shared
+   --rail-photo-w and the same ratio), so the two flex:1 bands either side
+   of it are precisely the black gaps, and each squiggle centres itself in
+   one without any band-height arithmetic. pointer-events: none so the
+   overlay never intercepts a tap meant for the photo underneath. */
+.rail-squiggle-layer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: var(--header-shrunk-height);
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+
+.rail-squiggle-band {
+  flex: 1;
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.rail-squiggle-spacer {
+  flex: none;
+  width: var(--rail-photo-w);
+  aspect-ratio: 66 / 100;
+}
+
+.rail-squiggle {
+  display: block;
+  width: 100%;
+  height: 14px;
+  overflow: visible;
+}
+
+/* pathLength="1" (set in MobileRail.tsx) renormalises the path so its
+   length is exactly 1 regardless of the actual geometry, which is what
+   makes a plain unitless dasharray/dashoffset work here and stay correct
+   however the wave is redrawn or stretched. dashoffset 1 parks the dash a
+   full length back so nothing shows; animating to 0 draws it on from the
+   path's start. Negative offset does the same from the path's *end*, which
+   is how the two lines enter from opposite sides off one shared path -
+   see .rail-squiggle-from-right.
+
+   Deliberately NOT vector-effect: non-scaling-stroke, which is the
+   obvious way to keep an even line weight under this element's
+   non-uniform stretch but silently breaks the draw-on: it has the stroke
+   measured in post-transform screen space while pathLength normalises the
+   untransformed geometry, so the two disagree and a nominally complete
+   dash (offset 0) stops around 70% of the way across. Letting the stroke
+   scale with the viewBox keeps dash and geometry in the same space; the
+   line reads as an even weight anyway, since a mostly-horizontal curve
+   takes its apparent thickness from the vertical scale alone. */
+.rail-squiggle path {
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-dasharray: 1 1;
+  animation: rail-squiggle-kf 1s linear;
+  animation-timeline: --rail-progress;
+  animation-range-start: var(--rail-range-start, cover 29.4118%);
+  animation-range-end: var(--rail-range-end, cover 82.3529%);
+  animation-fill-mode: both;
+}
+
+.rail-squiggle-from-right path {
+  animation-name: rail-squiggle-reverse-kf;
+}
+
+@keyframes rail-squiggle-kf {
+  0%   { stroke-dashoffset: 1; }
+  14%  { stroke-dashoffset: 1; }
+  30%  { stroke-dashoffset: 0; }
+  72%  { stroke-dashoffset: 0; }
+  88%  { stroke-dashoffset: 1; }
+  100% { stroke-dashoffset: 1; }
+}
+
+@keyframes rail-squiggle-reverse-kf {
+  0%   { stroke-dashoffset: -1; }
+  14%  { stroke-dashoffset: -1; }
+  30%  { stroke-dashoffset: 0; }
+  72%  { stroke-dashoffset: 0; }
+  88%  { stroke-dashoffset: -1; }
+  100% { stroke-dashoffset: -1; }
 }
 
 .rail-track {
