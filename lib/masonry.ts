@@ -229,11 +229,19 @@ export function chunkWithBreakouts(
 }
 
 /** How close two photos' aspect ratios must be, proportionally, to count as
- *  "the same shape" for rail grouping. 2% comfortably clusters photos that
- *  are nominally the same ratio but differ by a few pixels of crop (e.g.
- *  2666x4000 = 0.6665 and 2670x4000 = 0.6675) while still separating
- *  genuinely different shapes (2:3 = 0.667 vs 4:5 = 0.800). */
-const RAIL_RATIO_TOLERANCE = 0.02;
+ *  "the same shape" for rail grouping. 2.5% clusters photos that are
+ *  nominally the same ratio but differ by some cropping (2666x4000 =
+ *  0.6665 through 5444x8000 = 0.6805) while still separating genuinely
+ *  different shapes (2:3 = 0.667 vs 4:5 = 0.800, 20% apart).
+ *
+ *  Raised from 2% when btp-153 landed at 0.6805 - 2.1% off the other 2:3
+ *  photos, so it fell just outside and became a group of one, which can
+ *  never form a rail since a shape needs two distinct photos. At rail size
+ *  a 2.1% ratio difference is about 10px of height, well below noticing.
+ *  Widen further only with the same care: the gap to the next real shape
+ *  is 13%, so there is room, but grouping visibly different shapes is
+ *  exactly what the uniform-size work was undoing. */
+const RAIL_RATIO_TOLERANCE = 0.025;
 
 /** A rail shorter than this isn't worth pinning the viewport for - the
  *  photos fall through to a normal grid segment instead. */

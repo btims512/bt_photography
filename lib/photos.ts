@@ -22,6 +22,7 @@ export const portraitPhotos: Photo[] = [
   { src: '/photos/IMG_5910.jpg', alt: 'Man in black shirt with gold cross necklace seated on a lounge sofa', width: 1320, height: 1748 },
   { src: '/photos/btp-30.jpg', alt: 'Woman in a fur coat and red lingerie standing beneath string lights at night with blue and pink neon lighting', width: 4000, height: 2667 },
   { src: '/photos/artboard-2-copy-4.jpg', alt: 'Stylized portrait of a man in a leather jacket and sunglasses composited over a black-and-white crowd scene', width: 1122, height: 1402 },
+  { src: '/photos/btp-153.jpg', alt: 'Portrait photograph', width: 5444, height: 8000 },
 ];
 
 // Tagged by category so the home page can interleave genres (see
@@ -36,6 +37,7 @@ export const featuredPhotos: Photo[] = [
   { src: '/photos/IMG_5910.jpg', alt: 'Man in black shirt with gold cross necklace seated on a lounge sofa', width: 1320, height: 1748, category: 'portraits' },
   { src: '/photos/btp-30.jpg', alt: 'Woman in a fur coat and red lingerie standing beneath string lights at night with blue and pink neon lighting', width: 4000, height: 2667, category: 'portraits' },
   { src: '/photos/artboard-2-copy-4.jpg', alt: 'Stylized portrait of a man in a leather jacket and sunglasses composited over a black-and-white crowd scene', width: 1122, height: 1402, category: 'portraits' },
+  { src: '/photos/btp-153.jpg', alt: 'Portrait photograph', width: 5444, height: 8000, category: 'portraits' },
   { src: '/photos/DSC_5916.jpg', alt: 'Comedian mid-joke on stage gesturing with his hand, lit in blue stage light', width: 4000, height: 2670, category: 'comedy' },
   { src: '/photos/DSC_3615.jpg', alt: 'Comedian in a cap speaking into a microphone during his set', width: 4000, height: 2670, category: 'comedy' },
   { src: '/photos/DSC_5544.jpg', alt: 'Comedian in a leather jacket on stage as the audience claps', width: 4000, height: 2670, category: 'comedy' },
