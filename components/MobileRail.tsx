@@ -44,43 +44,23 @@ const RAIL_SLIDE_END = 0.82;
 // the photos read as nearly touching once they filled their panels.
 const RAIL_GAP_CQW = 12;
 
-// The shape drawn across the black band above and below the photo: a
-// corkscrew - a coil seen from the side, spiralling as it travels.
+// The shape drawn across the black band above and below the photo. A plain
+// horizontal rule at the viewBox's midline: quiet and editorial, staying
+// out of the photo's way rather than competing with it. Drawn in
+// EDGE_VIEW_W user units and stretched to the frame by
+// preserveAspectRatio="none".
 //
-// Built from elliptical arcs rather than curves. Each arc steps a fixed
-// distance along the band but is given a radius wider than half that step
-// (EDGE_COIL_RX against EDGE_COIL_STEP), with the large-arc flag set, so
-// it is forced the long way round between its endpoints instead of
-// bulging gently between them. That overshoot is what makes each turn
-// close back across the one before it, and it is the whole difference
-// between a coil and a wave - a sine, however tight, never crosses
-// itself. A fixed step is also what keeps the turns evenly spaced.
-//
-// The turn count is the thing to get right. An earlier version put 20
-// turns across the band, which left each one about 20px wide on a phone
-// and read as a scribble rather than a spiral; 8 gives roughly 49px per
-// turn. The viewBox is also proportioned to match the rendered box
-// (240x18 against ~390x30), so preserveAspectRatio="none" stretches it
-// almost uniformly and the loops stay round instead of being squashed
-// flat. Height is a third of the black band, so the coil sits in it
-// without crowding the photo.
-//
-// Only these constants decide the shape. The draw-on, the timing and the
-// two opposite entry directions all work off the path's *length*, so any
-// single continuous subpath drops straight in - see the dash comments in
-// globals.css, which likewise measure in fractions of that length rather
-// than in geometry. Keep it one subpath: several `M` moves would draw all
-// their pieces at once instead of as one travelling line.
+// Only this constant decides the shape - the draw-on, the timing, and the
+// two opposite entry directions all work off the path's length, not its
+// geometry, so swapping in any other single path changes the look without
+// touching the animation. (It has held a shallow wave and an arc-built
+// corkscrew; both were tried and set aside in favour of the rule.) Keep it
+// a single continuous subpath: a path broken into several `M` moves draws
+// all its pieces at once rather than as one travelling line, since the
+// dash runs over the path's whole length.
 const EDGE_VIEW_W = 240;
-const EDGE_VIEW_H = 18;
-const EDGE_COIL_STEP = 30;
-const EDGE_COIL_RX = 20;
-const EDGE_COIL_RY = 8;
-const EDGE_MID = EDGE_VIEW_H / 2;
-const EDGE_PATH = `M0 ${EDGE_MID} ${Array.from(
-  { length: EDGE_VIEW_W / EDGE_COIL_STEP },
-  (_, i) => `A${EDGE_COIL_RX} ${EDGE_COIL_RY} 0 1 1 ${(i + 1) * EDGE_COIL_STEP} ${EDGE_MID}`
-).join(' ')}`;
+const EDGE_VIEW_H = 12;
+const EDGE_PATH = `M0 6 L${EDGE_VIEW_W} 6`;
 
 /**
  * Mobile-only interlude between grid segments: a horizontal strip of
