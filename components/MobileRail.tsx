@@ -44,22 +44,35 @@ const RAIL_SLIDE_END = 0.82;
 // the photos read as nearly touching once they filled their panels.
 const RAIL_GAP_CQW = 12;
 
-// The shape drawn across the black band above and below the photo. A plain
-// horizontal rule at the viewBox's midline: quiet and editorial, staying
-// out of the photo's way rather than competing with it. Drawn in
-// EDGE_VIEW_W user units and stretched to the frame by
-// preserveAspectRatio="none".
+// The shape drawn across the black band above and below the photo: a
+// corkscrew - a coil seen from the side, looping as it travels.
 //
-// Only this constant decides the shape - the draw-on, the timing, and the
-// two opposite entry directions all work off the path's length, not its
-// geometry, so swapping in any other single path changes the look without
-// touching the animation. (It has held a shallow multi-segment wave, and
-// could equally hold film-sprocket ticks or a measuring scale.) Keep it a
-// single continuous subpath: a path broken into several `M` moves draws
-// all its pieces at once rather than as one travelling line, since the
-// dash runs over the path's whole length.
+// Built from elliptical arcs rather than curves. Each arc runs a short
+// step along the band but is given a radius wider than that step
+// (EDGE_COIL_RX against EDGE_COIL_STEP), with the large-arc flag set, so
+// it is forced to take the long way round between its two endpoints
+// instead of bulging gently between them. That overshoot is what makes
+// each turn close back on itself and cross the one before it, which is
+// what separates a coil from a wave - a plain sine, however tight, never
+// crosses. Widen the radius against the step for fatter loops, narrow it
+// toward half the step and the coil relaxes back into a wave.
+//
+// Only this constant decides the shape. The draw-on, the timing and the
+// two opposite entry directions all work off the path's *length*, so any
+// single continuous subpath drops straight in - see the dash comments in
+// globals.css, which likewise measure in fractions of that length rather
+// than in geometry. Keep it one subpath: several `M` moves would draw all
+// their pieces at once instead of as one travelling line.
 const EDGE_VIEW_W = 240;
-const EDGE_PATH = `M0 6 L${EDGE_VIEW_W} 6`;
+const EDGE_VIEW_H = 16;
+const EDGE_COIL_STEP = 12;
+const EDGE_COIL_RX = 9;
+const EDGE_COIL_RY = 6;
+const EDGE_MID = EDGE_VIEW_H / 2;
+const EDGE_PATH = `M0 ${EDGE_MID} ${Array.from(
+  { length: EDGE_VIEW_W / EDGE_COIL_STEP },
+  (_, i) => `A${EDGE_COIL_RX} ${EDGE_COIL_RY} 0 1 1 ${(i + 1) * EDGE_COIL_STEP} ${EDGE_MID}`
+).join(' ')}`;
 
 /**
  * Mobile-only interlude between grid segments: a horizontal strip of
@@ -194,8 +207,8 @@ export default function MobileRail({ photos, onOpen }: MobileRailProps) {
   // look identical. See .rail-photo-zoom-kf / .rail-edge-kf in
   // globals.css for what the stops mean.
   const photoZoom = useTransform(smoothProgress, [0, 0.12, 0.18, 0.82, 0.88, 1], [0.88, 0.88, 1, 1, 0.88, 0.88]);
-  const edgeFromLeft = useTransform(smoothProgress, [0, 0.12, 0.3, 0.7, 0.88, 1], [1, 1, 0, 0, 1, 1]);
-  const edgeFromRight = useTransform(smoothProgress, [0, 0.12, 0.3, 0.7, 0.88, 1], [-1, -1, 0, 0, -1, -1]);
+  const edgeFromLeft = useTransform(smoothProgress, [0, 0.12, 0.3, 0.7, 0.88, 1], [0.75, 0.75, 0, 0, 0.75, 0.75]);
+  const edgeFromRight = useTransform(smoothProgress, [0, 0.12, 0.3, 0.7, 0.88, 1], [-1, -1, -0.25, -0.25, -1, -1]);
 
   const isInView = useInView(outerRef, { margin: '200px' });
   const { headerReady } = useLayoutMode();
@@ -240,7 +253,7 @@ export default function MobileRail({ photos, onOpen }: MobileRailProps) {
   const edgeLine = (fromRight: boolean) => (
     <svg
       className={`rail-edge${fromRight ? ' rail-edge-from-right' : ''}`}
-      viewBox={`0 0 ${EDGE_VIEW_W} 12`}
+      viewBox={`0 0 ${EDGE_VIEW_W} ${EDGE_VIEW_H}`}
       preserveAspectRatio="none"
       aria-hidden="true"
       focusable="false"
