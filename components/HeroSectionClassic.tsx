@@ -210,8 +210,12 @@ export default function HeroSectionClassic() {
       </motion.button>
 
       {/* Desktop Navigation */}
+      {/* The slot reserves the nav's height in flow; the nav inside moves by
+          transform. Separating the two is what lets the header actually
+          get shorter as it shrinks - see .header-nav-slot in globals.css. */}
+      <div className="header-nav-slot hidden md:block">
       <motion.nav
-        className="header-nav-shrink hidden md:block"
+        className="header-nav-shrink"
         aria-label="Primary"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -259,6 +263,7 @@ export default function HeroSectionClassic() {
           })}
         </ul>
       </motion.nav>
+      </div>
 
       <MobileMenu isOpen={mobileOpen} onClose={() => setMobileOpen(false)} nav={NAV} pathname={pathname} />
     </motion.header>

@@ -194,8 +194,8 @@ export default function MobileRail({ photos, onOpen }: MobileRailProps) {
   // look identical. See .rail-photo-zoom-kf / .rail-edge-kf in
   // globals.css for what the stops mean.
   const photoZoom = useTransform(smoothProgress, [0, 0.12, 0.18, 0.82, 0.88, 1], [0.88, 0.88, 1, 1, 0.88, 0.88]);
-  const edgeFromLeft = useTransform(smoothProgress, [0, 0.2, 0.48, 0.52, 0.8, 1], [1, 1, 0, 0, 1, 1]);
-  const edgeFromRight = useTransform(smoothProgress, [0, 0.2, 0.48, 0.52, 0.8, 1], [-1, -1, 0, 0, -1, -1]);
+  const edgeFromLeft = useTransform(smoothProgress, [0, 0.12, 0.3, 0.7, 0.88, 1], [1, 1, 0, 0, 1, 1]);
+  const edgeFromRight = useTransform(smoothProgress, [0, 0.12, 0.3, 0.7, 0.88, 1], [-1, -1, 0, 0, -1, -1]);
 
   const isInView = useInView(outerRef, { margin: '200px' });
   const { headerReady } = useLayoutMode();

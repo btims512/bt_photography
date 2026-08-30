@@ -206,9 +206,37 @@ body {
    its own individually-computed offset) - it just keeps its original
    static spacing throughout, which is a small enough visual difference
    from Modern's own tighter gap to not be worth the added complexity. */
+/* The nav's reserved space in the header's flow. Collapsing it to zero as
+   the header shrinks is what actually shortens the header: the nav itself
+   moves by transform, which paints in a new place but still occupies its
+   original box, so on its own it could never reclaim a single pixel of
+   height. Height on this one wrapper is a layout property and does cost a
+   reflow per scroll frame, but it is one element that nothing else is
+   sized against - the same trade .header-logo-frame already makes, and
+   the only way to trade header height for grid visibility at all.
+
+   49px is the nav's own footprint at rest: 15px margin-top plus its 34px
+   line. Desktop-only, like the nav it wraps. */
+.header-nav-slot {
+  height: calc(49px - var(--header-shrink) * 49px);
+  /* Establishes a block formatting context purely to stop the nav's own
+     15px margin-top collapsing out through this wrapper and re-adding
+     itself to the header's height - which it did, leaving the header 15px
+     taller than the slot's arithmetic says at both ends. overflow stays
+     visible, so the nav can still be lifted out of this box by transform
+     once the slot has collapsed. */
+  display: flow-root;
+}
+
+/* -69px lands the nav vertically centred on the shrunk logo's row rather
+   than below it: with the slot collapsed the nav's box starts 15px under
+   the 74px logo frame (at 103px from the header's top edge), and centring
+   its 34px line in that frame wants it at 34px - a 69px lift. The logo
+   sits left and the nav centred, so sharing a row costs them nothing
+   horizontally, and the header drops from 151px to 102px. */
 .header-nav-shrink {
   margin-top: 15px;
-  transform: translateY(calc(var(--header-shrink) * -11px));
+  transform: translateY(calc(var(--header-shrink) * -69px));
   will-change: transform;
 }
 
@@ -657,9 +685,18 @@ body {
   animation-name: rail-edge-reverse-kf;
 }
 
-/* Draw and withdraw are deliberately the same length (34% each, 14->48
-   and 52->86), and start and finish the same distance from their
-   respective ends, so the exit mirrors the entrance instead of snapping
+/* Draw and withdraw are the same length (18% each, 12->30 and 70->88) and
+   symmetric about the dwell's midpoint, and the hold between them is long
+   on purpose: the line has to be on screen for the *first and last*
+   photos too, not just the ones in the middle. Tucking the cycle inside
+   the slide's own span (18->82) put its endpoints exactly where the first
+   and last photos come to rest, so those two were the only photos that
+   never saw a line at all. Bracketing it to 12->88 instead - the same
+   span across which the photo grows and shrinks - starts the line with
+   the photo's growth and retracts it with the photo's shrink, leaving it
+   about a third drawn as each end photo settles and fully drawn
+   throughout the middle of the slide. Draw and withdraw start and finish the
+   same distance from their respective ends, so the exit mirrors the entrance instead of snapping
    away faster than it arrived - an earlier version drew over 36% but
    withdrew over 22%, which read as the line being yanked off. Withdrawing
    right out to 86% also keeps the line on screen through the last photo
@@ -679,19 +716,19 @@ body {
    travelled any distance worth seeing.) */
 @keyframes rail-edge-kf {
   0%   { stroke-dashoffset: 1; }
-  20%  { stroke-dashoffset: 1; }
-  48%  { stroke-dashoffset: 0; }
-  52%  { stroke-dashoffset: 0; }
-  80%  { stroke-dashoffset: 1; }
+  12%  { stroke-dashoffset: 1; }
+  30%  { stroke-dashoffset: 0; }
+  70%  { stroke-dashoffset: 0; }
+  88%  { stroke-dashoffset: 1; }
   100% { stroke-dashoffset: 1; }
 }
 
 @keyframes rail-edge-reverse-kf {
   0%   { stroke-dashoffset: -1; }
-  20%  { stroke-dashoffset: -1; }
-  48%  { stroke-dashoffset: 0; }
-  52%  { stroke-dashoffset: 0; }
-  80%  { stroke-dashoffset: -1; }
+  12%  { stroke-dashoffset: -1; }
+  30%  { stroke-dashoffset: 0; }
+  70%  { stroke-dashoffset: 0; }
+  88%  { stroke-dashoffset: -1; }
   100% { stroke-dashoffset: -1; }
 }
 
@@ -740,6 +777,17 @@ body {
    both set explicitly. */
 .dtrail-frame {
   container-type: size;
+}
+
+/* Breaks the rail out of the section's own md:px-[50px] padding, so a
+   "full screen" photo really is the full viewport width rather than
+   stopping 50px short on each side. The mobile rail does the same against
+   its own 24px padding (.rail-fullbleed); the two differ only in that
+   number, which is why they aren't one shared rule. */
+.dtrail-fullbleed {
+  width: calc(100% + 100px);
+  margin-left: -50px;
+  margin-right: -50px;
 }
 
 /* Black backdrop: wipes in from the top-right, holds, then leaves through
@@ -811,13 +859,15 @@ body {
   width: 100%;
 }
 
-/* Sized off the frame's height rather than its width: the frame is much
-   wider than it is tall on desktop, so height is the binding dimension
-   for a portrait photo. Every photo in one rail shares an aspect ratio
-   (takeUniformRail in lib/masonry.ts groups them that way), so a single
-   box ratio fits them all without letterboxing varying photo to photo. */
+/* Full frame, not a box sized to the photo. The corner wipe only reads as
+   "the photo fills the screen" if there is a full-screen photo underneath
+   it to uncover - against a small centred box the wipe just revealed a
+   small centred box, which is what it did before. object-cover on the
+   image (DesktopRail.tsx) crops these portrait photos to the frame rather
+   than letterboxing them into it; filling the screen and showing the
+   whole of a portrait photo in a landscape frame are mutually exclusive,
+   and this side of the app picks filling. */
 .dtrail-photo-box {
-  height: 74cqh;
-  aspect-ratio: 2 / 3;
-  width: auto;
+  width: 100%;
+  height: 100%;
 }

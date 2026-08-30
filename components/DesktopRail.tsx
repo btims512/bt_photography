@@ -22,8 +22,11 @@ const FRAME_SVH = 100;
 // Scroll consumed per photo-to-photo transition while pinned, as svh.
 const DWELL_PER_TRANSITION_SVH = 60;
 // Vertical gap between photos mid-slide, as cqh (% of the frame's own
-// height - the frame sets container-type: size so both axes are queryable).
-const GAP_CQH = 8;
+// height - the frame sets container-type: size so both axes are
+// queryable). Small, because the photos either side of it are now
+// full-screen: at 8 the black band between them read as a pause in the
+// slide rather than a seam.
+const GAP_CQH = 3;
 
 // Where the slide sits within the dwell. Everything before SLIDE_START is
 // the two staged reveals (backdrop, then photos); everything after
@@ -131,8 +134,8 @@ export default function DesktopRail({ photos, onOpen }: DesktopRailProps) {
           src={photo.src}
           alt={photo.alt}
           fill
-          sizes="60vh"
-          className="photo-protected object-contain"
+          sizes="100vw"
+          className="photo-protected object-cover"
           draggable={false}
           loading="eager"
           quality={82}
@@ -146,7 +149,7 @@ export default function DesktopRail({ photos, onOpen }: DesktopRailProps) {
   return (
     <div
       ref={outerRef}
-      className={`relative w-full ${cssSupported ? 'dtrail-timeline-subject' : ''}`}
+      className={`dtrail-fullbleed relative ${cssSupported ? 'dtrail-timeline-subject' : ''}`}
       style={{ height: `${outerHeightSvh}svh` }}
     >
       <motion.div
