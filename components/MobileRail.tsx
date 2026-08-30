@@ -18,11 +18,17 @@ interface MobileRailProps {
 // shorter version of this had exactly that gap).
 const RAIL_FRAME_SVH = 100;
 // Extra scroll consumed per photo-to-photo transition while pinned, as svh.
-// Deliberately much shorter than a full screen per photo - enough dwell to
-// keep the slide from being outrun by a fast scroll/swipe, without holding
-// the rest of the page off-screen for as long as a full-viewport dwell
-// would. Tune this (and RAIL_FRAME_SVH) if the pace feels off either way.
-const RAIL_DWELL_PER_TRANSITION_SVH = 45;
+// This is the single knob for the whole section's pace: everything else -
+// the backdrop's two stages, the photo's rise, the slide, the rules - is
+// expressed as a fraction of the dwell, so raising this stretches all of
+// them together and lowering it compresses them together.
+//
+// Bigger means the section is *slower*, not longer-feeling: the same
+// animation is spread over more scroll, so a given swipe advances it less
+// and a fast flick has less chance of jumping several photos at once.
+// Still well short of a full screen per photo, which would hold the rest
+// of the page off-screen for an uncomfortable stretch.
+const RAIL_DWELL_PER_TRANSITION_SVH = 65;
 
 // Fraction of the dwell spent growing the black backdrop in at the start,
 // and again shrinking it out at the end - the slide only runs across the
