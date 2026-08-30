@@ -737,21 +737,18 @@ body {
   animation-name: rail-edge-reverse-kf;
 }
 
-/* One continuous out-and-back with no hold: the line draws across the
-   whole first half of the dwell, reaches its full three-quarter extent
-   exactly at the midpoint, and withdraws across the whole second half.
-   38% each way, against the 18% it used to take - it was arriving long
-   before the photos it frames had finished passing, which read as the
-   line being quick and then simply sitting there.
-
-   The 12->88 bracket is the span across which the photo itself grows and
-   shrinks, so the line starts with the photo's growth and finishes with
-   its shrink. That also keeps it on screen for the *first and last*
-   photos: an earlier version tucked the cycle inside the slide's own span
-   (18->82), which put its endpoints exactly where those two photos come
-   to rest, and they were the only ones that never saw a line at all.
-   Draw and withdraw start and finish the same distance from their
-   respective ends, so the exit mirrors the entrance instead of snapping
+/* Draw and withdraw are the same length (18% each, 12->30 and 70->88) and
+   symmetric about the dwell's midpoint, and the hold between them is long
+   on purpose: the line has to be on screen for the *first and last*
+   photos too, not just the ones in the middle. Tucking the cycle inside
+   the slide's own span (18->82) put its endpoints exactly where the first
+   and last photos come to rest, so those two were the only photos that
+   never saw a line at all. Bracketing it to 12->88 instead - the same
+   span across which the photo grows and shrinks - starts the line with
+   the photo's growth and retracts it with the photo's shrink, leaving it
+   about a third drawn as each end photo settles and fully drawn
+   throughout the middle of the slide. Draw and withdraw start and finish the
+   same distance from their respective ends, so the exit mirrors the entrance instead of snapping
    away faster than it arrived - an earlier version drew over 36% but
    withdrew over 22%, which read as the line being yanked off. Withdrawing
    right out to 86% also keeps the line on screen through the last photo
@@ -780,7 +777,8 @@ body {
 @keyframes rail-edge-kf {
   0%   { stroke-dashoffset: 0.75; }
   12%  { stroke-dashoffset: 0.75; }
-  50%  { stroke-dashoffset: 0; }
+  30%  { stroke-dashoffset: 0; }
+  70%  { stroke-dashoffset: 0; }
   88%  { stroke-dashoffset: 0.75; }
   100% { stroke-dashoffset: 0.75; }
 }
@@ -792,7 +790,8 @@ body {
 @keyframes rail-edge-reverse-kf {
   0%   { stroke-dashoffset: -1; }
   12%  { stroke-dashoffset: -1; }
-  50%  { stroke-dashoffset: -0.25; }
+  30%  { stroke-dashoffset: -0.25; }
+  70%  { stroke-dashoffset: -0.25; }
   88%  { stroke-dashoffset: -1; }
   100% { stroke-dashoffset: -1; }
 }
