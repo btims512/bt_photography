@@ -738,16 +738,19 @@ body {
 
 /* Timed against the photos rather than against the dwell's own midpoint.
    The slide runs 18->82%, so the last photo comes to rest at 82% and the
-   photo's zoom-out runs 82->88%. The line therefore draws right up to
-   72%, holds at full width across the last photo through to 82%, and only
-   then withdraws - finishing as the photo finishes shrinking.
+   photo's zoom-out runs 82->88%. The line draws across that entire span,
+   reaching full width exactly as the last photo finishes being shown, and
+   withdraws only through the zoom-out itself - so it is at its fullest at
+   the moment the section starts closing, and gone by the time the photo
+   is back at rest.
 
-   That makes the draw 60% of the dwell against the withdraw's 6%, which
-   is as lopsided as it sounds and is the point: the drawing is the part
-   you watch, spread across almost the whole slide, while the withdrawal
-   is a quick clearing-away that rides the zoom-out rather than being its
-   own beat. Both still start and finish the same distance from their
-   respective ends, and the hold between them is long
+   There is deliberately no hold: the draw takes 70% of the dwell against
+   the withdraw's 6%, and every one of those 70% is spent still moving.
+   Holding at full width, however briefly, is what made earlier versions
+   read as finishing early - the line stopped while the photos kept going,
+   and the eye reads a stopped line as done regardless of where in the
+   scroll it happened. Both still start and finish the same distance from
+   their respective ends, and the hold between them is long
    on purpose: the line has to be on screen for the *first and last*
    photos too, not just the ones in the middle. Tucking the cycle inside
    the slide's own span (18->82) put its endpoints exactly where the first
@@ -783,7 +786,6 @@ body {
 @keyframes rail-edge-kf {
   0%   { stroke-dashoffset: 1; }
   12%  { stroke-dashoffset: 1; }
-  72%  { stroke-dashoffset: 0; }
   82%  { stroke-dashoffset: 0; }
   88%  { stroke-dashoffset: 1; }
   100% { stroke-dashoffset: 1; }
@@ -794,7 +796,6 @@ body {
 @keyframes rail-edge-reverse-kf {
   0%   { stroke-dashoffset: -1; }
   12%  { stroke-dashoffset: -1; }
-  72%  { stroke-dashoffset: 0; }
   82%  { stroke-dashoffset: 0; }
   88%  { stroke-dashoffset: -1; }
   100% { stroke-dashoffset: -1; }
