@@ -33,19 +33,22 @@ const RAIL_DWELL_PER_TRANSITION_SVH = 45;
 // the photos read as nearly touching once they filled their panels.
 const RAIL_GAP_CQW = 12;
 
-// One continuous wave, as a quadratic opener followed by smooth-quadratic
-// (T) reflections that each mirror the previous control point - so the
-// curve stays smooth across every joint without restating control points.
-// Amplitude is deliberately shallow (y 1..11 around a midline of 6) so the
-// line reads as a subtle texture in the black band rather than competing
-// with the photo. Drawn wide (SQUIGGLE_VIEW_W units) and stretched to the
-// frame by preserveAspectRatio="none"; the wave count is what survives
-// that stretch, so more segments = tighter squiggle at any screen width.
-const SQUIGGLE_VIEW_W = 240;
-const SQUIGGLE_PATH = `M0 6 Q6 1 12 6 ${Array.from(
-  { length: SQUIGGLE_VIEW_W / 12 - 1 },
-  (_, i) => `T${(i + 2) * 12} 6`
-).join(' ')}`;
+// The shape drawn across the black band above and below the photo. A plain
+// horizontal rule at the viewBox's midline: quiet and editorial, staying
+// out of the photo's way rather than competing with it. Drawn in
+// EDGE_VIEW_W user units and stretched to the frame by
+// preserveAspectRatio="none".
+//
+// Only this constant decides the shape - the draw-on, the timing, and the
+// two opposite entry directions all work off the path's length, not its
+// geometry, so swapping in any other single path changes the look without
+// touching the animation. (It has held a shallow multi-segment wave, and
+// could equally hold film-sprocket ticks or a measuring scale.) Keep it a
+// single continuous subpath: a path broken into several `M` moves draws
+// all its pieces at once rather than as one travelling line, since the
+// dash runs over the path's whole length.
+const EDGE_VIEW_W = 240;
+const EDGE_PATH = `M0 6 L${EDGE_VIEW_W} 6`;
 
 /**
  * Mobile-only interlude between grid segments: a horizontal strip of
@@ -156,11 +159,11 @@ export default function MobileRail({ photos, onOpen }: MobileRailProps) {
   const transform = useTransform(smoothProgress, (v) => `translateX(calc(${(-v).toFixed(4)} * ${shiftCqw}cqw))`);
   // JS-fallback equivalents of the three scroll-driven CSS animations
   // below - each mirrors its keyframe percentages exactly so both paths
-  // look identical. See .rail-photo-zoom-kf / .rail-squiggle-kf in
+  // look identical. See .rail-photo-zoom-kf / .rail-edge-kf in
   // globals.css for what the stops mean.
   const photoZoom = useTransform(smoothProgress, [0, 0.06, 0.94, 1], [0.88, 1, 1, 0.88]);
-  const squiggleFromLeft = useTransform(smoothProgress, [0, 0.02, 0.44, 0.62, 0.94, 1], [1, 1, 0, 0, 1, 1]);
-  const squiggleFromRight = useTransform(smoothProgress, [0, 0.02, 0.44, 0.62, 0.94, 1], [-1, -1, 0, 0, -1, -1]);
+  const edgeFromLeft = useTransform(smoothProgress, [0, 0.02, 0.44, 0.62, 0.94, 1], [1, 1, 0, 0, 1, 1]);
+  const edgeFromRight = useTransform(smoothProgress, [0, 0.02, 0.44, 0.62, 0.94, 1], [-1, -1, 0, 0, -1, -1]);
 
   const isInView = useInView(outerRef, { margin: '200px' });
   const { headerReady } = useLayoutMode();
@@ -202,18 +205,18 @@ export default function MobileRail({ photos, onOpen }: MobileRailProps) {
     </div>
   ));
 
-  const squiggle = (fromRight: boolean) => (
+  const edgeLine = (fromRight: boolean) => (
     <svg
-      className={`rail-squiggle${fromRight ? ' rail-squiggle-from-right' : ''}`}
-      viewBox={`0 0 ${SQUIGGLE_VIEW_W} 12`}
+      className={`rail-edge${fromRight ? ' rail-edge-from-right' : ''}`}
+      viewBox={`0 0 ${EDGE_VIEW_W} 12`}
       preserveAspectRatio="none"
       aria-hidden="true"
       focusable="false"
     >
       <motion.path
-        d={SQUIGGLE_PATH}
+        d={EDGE_PATH}
         pathLength={1}
-        style={cssSupported ? undefined : { strokeDashoffset: fromRight ? squiggleFromRight : squiggleFromLeft }}
+        style={cssSupported ? undefined : { strokeDashoffset: fromRight ? edgeFromRight : edgeFromLeft }}
       />
     </svg>
   );
@@ -264,12 +267,12 @@ export default function MobileRail({ photos, onOpen }: MobileRailProps) {
         )}
 
         {/* Overlaid on the frame rather than nested in the track, so the
-            squiggles hold still across the screen while the photos slide
+            rules hold still across the screen while the photos slide
             underneath them. */}
-        <div className="rail-squiggle-layer">
-          <div className="rail-squiggle-band">{squiggle(false)}</div>
-          <div className="rail-squiggle-spacer" />
-          <div className="rail-squiggle-band">{squiggle(true)}</div>
+        <div className="rail-edge-layer">
+          <div className="rail-edge-band">{edgeLine(false)}</div>
+          <div className="rail-edge-spacer" />
+          <div className="rail-edge-band">{edgeLine(true)}</div>
         </div>
       </motion.div>
     </div>

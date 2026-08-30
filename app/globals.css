@@ -350,8 +350,8 @@ body {
 .rail-frame {
   container-type: inline-size;
   padding-top: var(--header-shrunk-height);
-  /* The photo's layout width, shared with .rail-squiggle-spacer so the
-     squiggle overlay's bands always match the real gaps above and below
+  /* The photo's layout width, shared with .rail-edge-spacer so the
+     rule overlay's bands always match the real gaps above and below
      the photo without either having to know the other's numbers. Declared
      here rather than on the users because cqw inside a custom property
      resolves where the property is *used*, not where it's declared - both
@@ -428,11 +428,11 @@ body {
    the photo shows before the timeline is active (approaching the pin) and
    after it ends. scale() rather than an animated width keeps this
    compositor-only, and leaves the *layout* box at full size the whole
-   time - which is what lets .rail-squiggle-spacer match the gaps the
-   squiggles sit in without tracking the zoom itself. The rise is quick
-   (6%) so it is over before the squiggle that starts at 2% has covered
+   time - which is what lets .rail-edge-spacer match the gaps the
+   rules sit in without tracking the zoom itself. The rise is quick
+   (6%) so it is over before the rule that starts at 2% has covered
    any noticeable distance, and the drop begins at 94%, exactly where that
-   squiggle finishes withdrawing - see rail-squiggle-kf for why the line's
+   rule finishes withdrawing - see rail-edge-kf for why the line's
    own timing is what these two numbers are chosen around. */
 @property --rail-photo-zoom {
   syntax: '<number>';
@@ -447,15 +447,15 @@ body {
   100% { --rail-photo-zoom: 0.88; }
 }
 
-/* White squiggle drawn across the black band above and below the photo,
+/* White rule drawn across the black band above and below the photo,
    entering from opposite sides once the photo has risen and retracting the
    same way before it drops. A flex column pinned over the frame's content
    box: the spacer takes exactly the photo's layout height (shared
    --rail-photo-w and the same ratio), so the two flex:1 bands either side
-   of it are precisely the black gaps, and each squiggle centres itself in
+   of it are precisely the black gaps, and each rule centres itself in
    one without any band-height arithmetic. pointer-events: none so the
    overlay never intercepts a tap meant for the photo underneath. */
-.rail-squiggle-layer {
+.rail-edge-layer {
   position: absolute;
   left: 0;
   right: 0;
@@ -467,7 +467,7 @@ body {
   pointer-events: none;
 }
 
-.rail-squiggle-band {
+.rail-edge-band {
   flex: 1;
   display: flex;
   width: 100%;
@@ -476,13 +476,13 @@ body {
   overflow: hidden;
 }
 
-.rail-squiggle-spacer {
+.rail-edge-spacer {
   flex: none;
   width: var(--rail-photo-w);
   aspect-ratio: 66 / 100;
 }
 
-.rail-squiggle {
+.rail-edge {
   display: block;
   width: 100%;
   height: 14px;
@@ -496,7 +496,7 @@ body {
    full length back so nothing shows; animating to 0 draws it on from the
    path's start. Negative offset does the same from the path's *end*, which
    is how the two lines enter from opposite sides off one shared path -
-   see .rail-squiggle-from-right.
+   see .rail-edge-from-right.
 
    Deliberately NOT vector-effect: non-scaling-stroke, which is the
    obvious way to keep an even line weight under this element's
@@ -507,21 +507,21 @@ body {
    scale with the viewBox keeps dash and geometry in the same space; the
    line reads as an even weight anyway, since a mostly-horizontal curve
    takes its apparent thickness from the vertical scale alone. */
-.rail-squiggle path {
+.rail-edge path {
   fill: none;
   stroke: #ffffff;
   stroke-width: 1.4;
   stroke-linecap: round;
   stroke-dasharray: 1 1;
-  animation: rail-squiggle-kf 1s linear;
+  animation: rail-edge-kf 1s linear;
   animation-timeline: --rail-progress;
   animation-range-start: var(--rail-range-start, cover 29.4118%);
   animation-range-end: var(--rail-range-end, cover 82.3529%);
   animation-fill-mode: both;
 }
 
-.rail-squiggle-from-right path {
-  animation-name: rail-squiggle-reverse-kf;
+.rail-edge-from-right path {
+  animation-name: rail-edge-reverse-kf;
 }
 
 /* The line begins almost immediately (2%) rather than waiting for the
@@ -535,7 +535,7 @@ body {
    starts dropping and the two never move together at that end - the rise
    at the other end is quick enough (6%) to be over before the line has
    travelled any distance worth seeing. */
-@keyframes rail-squiggle-kf {
+@keyframes rail-edge-kf {
   0%   { stroke-dashoffset: 1; }
   2%   { stroke-dashoffset: 1; }
   44%  { stroke-dashoffset: 0; }
@@ -544,7 +544,7 @@ body {
   100% { stroke-dashoffset: 1; }
 }
 
-@keyframes rail-squiggle-reverse-kf {
+@keyframes rail-edge-reverse-kf {
   0%   { stroke-dashoffset: -1; }
   2%   { stroke-dashoffset: -1; }
   44%  { stroke-dashoffset: 0; }
