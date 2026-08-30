@@ -73,12 +73,23 @@ const RAIL_GAP_CQW = 7.5;
  *
  * Sits within the page's normal side padding, same as the grid photos -
  * not full-bleed. Photos use object-contain (the complete photo, no
- * cropping), same as BreakoutPhoto - panels are simply as tall as the
- * frame and however wide the photo's own aspect ratio calls for, letting
- * object-contain fit it without cutting anything off. Panel widths are in
- * `cqw` (container query width, relative to this frame) rather than a
- * percentage of the track's own width, so the gap between panels doesn't
- * shrink the panels themselves.
+ * cropping), same as BreakoutPhoto, but inside a fixed 3:4 box
+ * (.rail-photo-box in globals.css) centered in each full-size panel,
+ * rather than each photo independently filling as much of the panel as
+ * its own aspect ratio allows - every real photo here (roughly 2:3 to 4:5)
+ * is proportionally wider than the panel itself, so left to object-contain
+ * against the whole panel, every photo ended up the same *width* but a
+ * different *height*, reading as inconsistently-sized photos sliding past
+ * each other. The fixed box gives every photo the same footprint, at the
+ * cost of a little letterboxing for whichever photos sit further from
+ * 3:4. Panel widths are in `cqw` (container query width, relative to this
+ * frame) rather than a percentage of the track's own width, so the gap
+ * between panels doesn't shrink the panels themselves.
+ *
+ * The frame is statically black (bg-black, no animation) so it's already
+ * black as it approaches from below rather than turning black once you
+ * scroll into it - see the NOTE ON THE DARK BACKDROP in globals.css for
+ * why this deliberately isn't scroll-driven.
  */
 export default function MobileRail({ photos, onOpen }: MobileRailProps) {
   const outerRef = useRef<HTMLDivElement>(null);
@@ -135,23 +146,25 @@ export default function MobileRail({ photos, onOpen }: MobileRailProps) {
   const panels = photos.map((photo, i) => (
     <div
       key={`${photo.src}-${i}`}
-      className="relative h-full cursor-pointer"
+      className="relative flex h-full cursor-pointer items-center justify-center"
       style={{ flex: '0 0 100cqw' }}
       onClick={() => onOpen(photo)}
       onContextMenu={(e) => e.preventDefault()}
     >
-      <Image
-        src={photo.src}
-        alt={photo.alt}
-        fill
-        sizes="calc(100vw - 48px)"
-        className="photo-protected object-contain"
-        draggable={false}
-        loading="eager"
-        quality={82}
-        placeholder="blur"
-        blurDataURL={BLUR_DATA_URL}
-      />
+      <div className="rail-photo-box relative">
+        <Image
+          src={photo.src}
+          alt={photo.alt}
+          fill
+          sizes="calc(100vw - 48px)"
+          className="photo-protected object-contain"
+          draggable={false}
+          loading="eager"
+          quality={82}
+          placeholder="blur"
+          blurDataURL={BLUR_DATA_URL}
+        />
+      </div>
     </div>
   ));
 
@@ -162,21 +175,25 @@ export default function MobileRail({ photos, onOpen }: MobileRailProps) {
       style={{ height: `${outerHeightSvh}svh` }}
     >
       <motion.div
-        className="rail-frame sticky top-0 w-full overflow-hidden bg-[var(--bg)]"
-        style={{ height: `${RAIL_FRAME_SVH}svh` }}
+        className="rail-frame sticky top-0 w-full overflow-hidden bg-black"
+        style={
+          {
+            height: `${RAIL_FRAME_SVH}svh`,
+            '--rail-range-start': `cover ${rangeStartPct.toFixed(4)}%`,
+            '--rail-range-end': `cover ${rangeEndPct.toFixed(4)}%`,
+          } as CSSProperties
+        }
         initial={{ opacity: 0 }}
         animate={{ opacity: revealed ? 1 : 0 }}
         transition={{ duration: 0.6, ease: 'easeOut' }}
       >
         {cssSupported ? (
           <div
-            className="rail-track flex h-full"
+            className="rail-track relative flex h-full"
             style={
               {
                 gap: `${RAIL_GAP_CQW}cqw`,
                 '--rail-shift': cssShiftValue,
-                '--rail-range-start': `cover ${rangeStartPct.toFixed(4)}%`,
-                '--rail-range-end': `cover ${rangeEndPct.toFixed(4)}%`,
               } as CSSProperties
             }
           >
@@ -184,7 +201,7 @@ export default function MobileRail({ photos, onOpen }: MobileRailProps) {
           </div>
         ) : (
           <motion.div
-            className="flex h-full"
+            className="relative flex h-full"
             style={{
               width: 'max-content',
               gap: `${RAIL_GAP_CQW}cqw`,

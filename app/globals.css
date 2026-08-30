@@ -41,39 +41,22 @@ body {
 
 /* Shrinking header (components/HeroSectionClassic.tsx), based on
    https://scroll-driven-animations.style/demos/shrinking-header-shadow/css/ -
-   a single scroll-position-driven number (--header-shrink, 0 to 1) tied to
-   the page's own scroll via animation-timeline: scroll() (the root
-   scroller's own position - not a specific element's passage through the
-   viewport, which is what view() tracks elsewhere in this file). Every
-   visual change below (logo scale/position, header padding, nav spacing,
-   shadow) reads this one inherited custom property via calc() rather than
-   being separately animated, so they all stay in sync and the whole thing
-   reverses cleanly scrolling back up - it's just a number tied to scroll
-   position, not a one-way triggered transition. inherits:true (unlike the
-   breakout/rail progress properties above, which are inherits:false since
-   only the one element that declares them consumes them) is what lets the
-   logo/nav/etc below read it despite being descendants, not the element
-   the animation is declared on. */
+   a single scroll-position-driven number (--header-shrink, 0 to 1), set by
+   Framer Motion (a damped spring, not raw scroll-timeline - see the
+   component's doc comment for why this one specifically needs damping)
+   rather than the animation-timeline: scroll()/view() this file uses
+   elsewhere. Every visual change below (logo scale/position, header
+   padding, nav spacing, shadow) reads this one inherited custom property
+   via calc() rather than being separately animated, so they all stay in
+   sync and the whole thing reverses cleanly scrolling back up.
+   inherits:true (unlike the breakout/rail progress properties elsewhere in
+   this file, which are inherits:false since only the one element that
+   declares them consumes them) is what lets the logo/nav/etc below read it
+   despite being descendants, not the element the value is set on. */
 @property --header-shrink {
   syntax: '<number>';
   inherits: true;
   initial-value: 0;
-}
-
-@keyframes header-shrink-kf {
-  to { --header-shrink: 1; }
-}
-
-.header-shrink-timeline {
-  /* The "1s" is nominal, same as elsewhere in this file - animation-timeline
-     replaces time-based progress with scroll-based progress, but some
-     engines only treat the animation as active with a non-zero duration in
-     the shorthand. */
-  animation: header-shrink-kf 1s linear both;
-  animation-timeline: scroll(root block);
-  /* Reaches --header-shrink: 1 after 220px of page scroll - about one
-     comfortable scroll gesture, not a long drawn-out transition. */
-  animation-range: 0 220px;
 }
 
 /* Establishes the container-query context the logo's translateX below
@@ -133,19 +116,31 @@ body {
 
 .header-logo-shrink {
   --logo-shrunk-half: 38px;
+  /* How much smaller the logo gets at full shrink - 0.72 means it bottoms
+     out at 28% of its resting size. This has to be picked to match
+     .header-logo-frame's own shrunk height above (44px at mobile's 156-112),
+     since overflow: hidden on the frame clips anything the scaled-down
+     logo still overhangs - a mismatch here silently clips the logo's top
+     rather than erroring. 0.72 leaves the mobile logo (natural height
+     ~144px) at ~40px, just inside the 44px frame. Desktop overrides this
+     below rather than sharing it, since its frame shrinks to a
+     proportionally smaller floor (45px, vs. a ~248px natural logo height -
+     needing a much bigger reduction than mobile's to still fit). */
+  --logo-shrink-max: 0.72;
   transform:
     translateX(calc(var(--header-shrink) * -1 * (50cqw - var(--logo-shrunk-half))))
-    scale(calc(1 - var(--header-shrink) * 0.72));
+    scale(calc(1 - var(--header-shrink) * var(--logo-shrink-max)));
   transform-origin: center top;
   will-change: transform;
 }
 
 @media (min-width: 768px) {
   .header-logo-frame {
-    height: calc(248px - var(--header-shrink) * 178px);
+    height: calc(248px - var(--header-shrink) * 203px);
   }
   .header-logo-shrink {
     --logo-shrunk-half: 68px;
+    --logo-shrink-max: 0.83;
   }
 }
 
@@ -213,26 +208,53 @@ body {
   container-type: inline-size;
 }
 
-/* Desktop breakout: starts as a normal-sized, centered photo (not filling
-   the frame), scales up to cover the full screen at the midpoint of the
-   scroll-linked dwell, then scales back down to its starting size - a
-   single transform: scale(), not real width/height, for the same
-   compositor-only reasoning as the header's shrink (see the
-   .header-logo-shrink comment). BREAKOUT_FULLSCREEN_PEAK's value: the box
-   starts at 100/BREAKOUT_FULLSCREEN_PEAK = ~22cqw wide, so scaling it by
-   that peak lands it at 100cqw (full frame width) with a little overshoot
-   for safety margin - full width is the binding constraint for a portrait-
-   oriented box (see BreakoutPhoto.tsx - the breakout queue is
-   portrait-only) inside a wider-than-tall frame, so reaching full *width*
-   coverage reliably overshoots full *height* coverage too on typical
-   desktop aspect ratios, without needing to separately reason about cqh.
-   overflow: hidden on .breakout-frame (the parent) clips whatever the
-   photo's own aspect ratio doesn't exactly fill at that peak, the same way
-   object-cover would. */
+@property --breakout-pan {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 0%;
+}
+
+/* NOTE ON THE DARK BACKDROP (both the breakout and the rail below): these
+   sections' frames are just statically black (`bg-black` in
+   BreakoutPhoto.tsx / MobileRail.tsx) - there is deliberately no
+   scroll-driven background animation, and re-adding one would be a
+   regression. The model these are based on
+   (https://scroll-driven-animations.style/demos/horizontal-section/) is
+   simply a black section sitting in a lighter page: it's already black as
+   it approaches from below, stays black while pinned, and the page's own
+   color returns once it's scrolled past - the darkness is the section's
+   identity, not a thing that animates. Two earlier versions animated it
+   instead and both were wrong in the same visible way, just at different
+   speeds: the frame read as white while approaching and only turned black
+   once scrolling reached its dwell, since any scroll-linked range
+   necessarily starts at its from-value right when the section arrives.
+   (For the record, in case animating a background here is ever attempted
+   again: driving `background-color` from a registered `<color>` custom
+   property does *not* work on WebKit - getComputedStyle confirms the
+   property itself interpolates correctly frame to frame while
+   background-color never visibly updates. An opacity fade on a solid
+   black div is the working equivalent.) */
+
+/* Desktop breakout: starts as a normal, substantial-but-not-huge landscape
+   photo (matching the grid's own landscape photos' shape, not the source
+   photo's - the breakout queue is portrait-only, see BreakoutPhoto.tsx,
+   and a portrait box read as visually disconnected from the surrounding
+   landscape grid at rest), scales up to cover the full screen at the
+   midpoint of the scroll-linked dwell while also panning slightly, then
+   scales/pans back to its starting state - transform (translateY +
+   scale()), not real width/height, for the same compositor-only reasoning
+   as the header's shrink (see .header-logo-shrink). BREAKOUT_START_CQW
+   (45, set in BreakoutPhoto.tsx) and the 2.8 peak below are independent
+   this time (unlike an earlier version that derived the start width as
+   100/peak, which made changing the peak alone a no-op - the two
+   cancelled out) - 45 * 2.8 = 126cqw, a deliberate overshoot past 100cqw
+   for safety margin on both width and height. overflow: hidden on
+   .breakout-frame (the parent) clips whatever the box's landscape ratio
+   doesn't exactly fill at that peak, the same way object-cover would. */
 @keyframes breakout-fullscreen-zoom-kf {
-  0% { --breakout-zoom: 1; }
-  50% { --breakout-zoom: 5.2; }
-  100% { --breakout-zoom: 1; }
+  0%   { --breakout-zoom: 1;   --breakout-pan: -12%; }
+  50%  { --breakout-zoom: 2.8; --breakout-pan: 0%; }
+  100% { --breakout-zoom: 1;   --breakout-pan: 12%; }
 }
 
 .breakout-fullscreen-zoom {
@@ -245,11 +267,11 @@ body {
      actually pinned, so the zoom is mid-cycle (already partway zoomed in,
      or already zooming back out) right as the pin engages instead of
      starting/ending exactly at rest size. Only matters as much as it does
-     here because the peak is now dramatic (5.2x) - the old, subtle 1.18x
-     desktop zoom had this same gap and it was never quite noticeable. */
+     here because the peak is now dramatic - the old, subtle 1.18x desktop
+     zoom had this same gap and it was never quite noticeable. */
   animation-range: contain 0% contain 100%;
   animation-fill-mode: both;
-  transform: scale(var(--breakout-zoom));
+  transform: translateY(var(--breakout-pan)) scale(var(--breakout-zoom));
   will-change: transform;
 }
 
@@ -271,6 +293,18 @@ body {
   animation-fill-mode: both;
   transform: scale(var(--breakout-zoom));
   will-change: transform;
+}
+
+/* Same technique and ratio as .rail-photo-box below (see its comment for
+   the full derivation of why 81/100 produces uniform heights with nothing
+   cropped) - kept in step with it deliberately, since on mobile this
+   branch and the rail render the same portrait photos and shouldn't size
+   them differently. vw rather than cqw only because this frame doesn't
+   establish a container-query context the way .rail-frame does. */
+.breakout-mobile-box {
+  aspect-ratio: 81 / 100;
+  width: min(94vw, 63svh);
+  height: auto;
 }
 
 /* Mobile-only horizontal rail (components/MobileRail.tsx), pinned to the
@@ -295,6 +329,33 @@ body {
 @keyframes rail-slide-kf {
   from { transform: translateX(0); }
   to   { transform: translateX(var(--rail-shift, calc(-430cqw))); }
+}
+
+/* Box each rail photo is centered in, sized so every photo renders at the
+   same HEIGHT with its own natural width and nothing ever cropped.
+   object-contain fits a photo by whichever axis runs out first, so the
+   axis that ends up uniform is decided entirely by how this box's ratio
+   compares to the photos': make the box *wider* than every photo and each
+   one is height-constrained, landing on identical heights with widths
+   varying by their own shape (top and bottom edges line up as they slide
+   past); make it narrower than every photo and the reverse happens. The
+   rail's photos run 0.6665 (2:3) to 0.8003 (4:5), so 81/100 clears the
+   widest with a small margin - raise it if a wider photo is ever added,
+   or that photo alone becomes width-constrained and breaks the uniform
+   height. Nothing here can crop: cropping would need object-cover, which
+   is the only way to make the widths uniform *too*, since the photos are
+   genuinely three different shapes (a deliberate tradeoff - uniform size
+   and zero cropping are mutually exclusive with mixed source ratios).
+
+   Two ceilings: 100cqw keeps the widest photo inside its own panel so it
+   can't spill into the gap and touch a neighbour (cqw measures against
+   .rail-frame's container-query context), and 63svh caps the derived
+   height at ~78svh for short viewports - without it, a wide-but-short
+   viewport resolves 100cqw to something far taller than the screen. */
+.rail-photo-box {
+  aspect-ratio: 81 / 100;
+  width: min(100cqw, 63svh);
+  height: auto;
 }
 
 .rail-track {

@@ -34,39 +34,42 @@ interface BreakoutPhotoProps {
  *
  * Desktop and mobile deliberately differ, not just in sizing:
  *
- * Desktop starts the photo at a normal, modest size, centered in the
- * frame - not filling it, deliberately reading as "one more photo" at
- * rest - then scales it up via transform: scale() (see
- * .breakout-fullscreen-zoom in globals.css for the full derivation) to
- * cover the entire screen at the midpoint of the scroll-linked dwell,
- * before scaling back down to its starting size by the end. Pinning to
- * the viewport (position: sticky) the whole time is what makes "cover the
- * entire screen, then shrink back down" mean anything - without a pin, a
- * fast scroll would just carry the frame away mid-zoom instead of holding
- * it through the full cycle. object-cover on the image itself crops to
- * fill the photo's own box at every size, same as it always has; the box
- * is portrait-shaped (the breakout queue is portrait-only - see
- * lib/masonry.ts), so scaling it up to cover the frame's full *width* is
- * what actually determines the peak scale, and reliably overshoots full
- * height coverage too on typical desktop aspect ratios (a wide frame vs. a
- * narrow box needs more scale to satisfy width than height).
+ * Desktop starts the photo at a normal, modest size (45cqw wide, a fixed
+ * 3:2 landscape box - not the source photo's own portrait shape, see
+ * .breakout-fullscreen-zoom in globals.css - so it reads as "one more
+ * photo" among the grid's landscape ones at rest, not a visually
+ * disconnected portrait cutout), then scales it up via transform: scale()
+ * while also panning slightly (translateY, -12% to 12%) to cover the
+ * entire screen at the midpoint of the scroll-linked dwell, before
+ * scaling/panning back to its starting state by the end. The frame itself
+ * is statically black (bg-black, no animation) so it's already black as
+ * it approaches from below rather than turning black once you scroll into
+ * it - see the NOTE ON THE DARK BACKDROP in globals.css for why this
+ * deliberately isn't scroll-driven. Pinning to the viewport (sticky) the whole
+ * time is what makes "cover the entire screen, then shrink back down"
+ * mean anything - without a pin, a fast scroll would just carry the frame
+ * away mid-zoom instead of holding it through the full cycle. object-cover
+ * on the image itself crops to fill the photo's own box at every size,
+ * same as it always has.
  *
  * (Two earlier desktop versions: one filled the frame with object-cover
  * and panned across an oversized crop while zooming subtly - dropped for
  * this bigger, more theatrical full-screen zoom instead. Before that, an
  * object-contain version showed the complete uncropped photo - dropped
  * because a portrait photo, uncropped, inside a wide desktop frame renders
- * tiny with huge empty margins on both sides.)
+ * tiny with huge empty margins on both sides. The box was portrait-shaped,
+ * matching the source photos, before the landscape 3:2 box above.)
  *
- * Mobile shows the complete photo instead (object-contain, full viewport
- * height) with only a gentle zoom pulse - no pan, no crop, no sticky pin,
- * ever. The contained image sits inset 6% from the frame at rest rather
- * than filling it exactly, specifically so the zoom pulse (peaking at
- * 1.12x) can never push any part of it past the frame's edge to be clipped
- * by overflow-hidden: 88% (the inset size) * 1.12 = ~98.6%, still short of
- * 100% at the very peak. Panning only made sense as a way to reveal
- * portions of the image hidden by object-cover's crop; with object-contain
- * there's nothing hidden left to pan across. And no pin: iOS 26 Safari has
+ * Mobile shows the complete photo instead (object-contain) with only a
+ * gentle zoom pulse - no pan, no crop, no sticky pin, ever - inside a
+ * fixed 3:4 box (.breakout-mobile-box in globals.css) centered in the
+ * frame, rather than each photo independently filling as much of the
+ * frame as its own aspect ratio allows. The catalog's portrait photos
+ * range roughly 2:3 to 4:5; letting each fill independently meant a tall,
+ * narrow photo rendered visibly smaller on screen than a squarer one - the
+ * fixed box gives every photo the same footprint, at the cost of a little
+ * extra letterboxing for whichever photos sit further from 3:4. Statically
+ * black frame, same as desktop. No pin: iOS 26 Safari has
  * a confirmed, currently-unpatched WebKit bug where position: sticky/fixed
  * elements near full
  * viewport height render incorrectly against its new floating bottom
@@ -76,6 +79,17 @@ interface BreakoutPhotoProps {
  * persistent gap after the breakout on mobile in earlier attempts - mobile
  * now uses a single normal-flow panel with no sticky/fixed positioning
  * anywhere, sidestepping it entirely. Desktop is unaffected by this bug.
+ *
+ * isDesktop (passed down from PortfolioSectionClassic's own useMediaQuery)
+ * is a plain min-width: 768px check, same breakpoint Tailwind's own `md:`
+ * uses - a phone in landscape is routinely wider than that (e.g. an iPhone
+ * in landscape is ~930px), so it gets the desktop branch above, pinned dwell
+ * and all, same as it would on an actual desktop browser window at that
+ * width. That's intentional, not a gap to special-case around: both
+ * branches size themselves in viewport-relative units (cqw, svh, vw) with
+ * no assumption baked in that "desktop" means "not a phone", so the same
+ * branch that works on a wide desktop window works equally well on a wide
+ * (landscape) phone one.
  *
  * The zoom/pan itself runs as native CSS scroll-driven animation wherever
  * the browser supports it (see lib/use-css-scroll-support.ts and the
@@ -116,9 +130,10 @@ export default function BreakoutPhoto({ photo, priority, onClick, isDesktop }: B
   // path - the CSS path doesn't need it, since a compositor-driven
   // timeline doesn't have discrete "jumps" to smooth in the first place.
   const smoothProgress = useSpring(scrollYProgress, { stiffness: 200, damping: 30, mass: 0.5 });
-  // Matches BREAKOUT_FULLSCREEN_PEAK / the CSS keyframe's peak - see the
-  // component doc comment and .breakout-fullscreen-zoom in globals.css.
-  const scale = useTransform(smoothProgress, [0, 0.5, 1], [1, 5.2, 1]);
+  // Matches the CSS keyframe's peak/pan - see the component doc comment
+  // and .breakout-fullscreen-zoom in globals.css.
+  const scale = useTransform(smoothProgress, [0, 0.5, 1], [1, 2.8, 1]);
+  const pan = useTransform(smoothProgress, [0, 0.5, 1], ['-12%', '0%', '12%']);
   // Smaller peak than desktop's: this scales the whole contained image
   // (including its letterbox margins), not just a crop-filled frame.
   const mobileScale = useTransform(smoothProgress, [0, 0.5, 1], [1, 1.12, 1]);
@@ -155,17 +170,17 @@ export default function BreakoutPhoto({ photo, priority, onClick, isDesktop }: B
         ref={pinRef}
         onClick={onClick}
         onContextMenu={(e) => e.preventDefault()}
-        className={`relative h-[100svh] w-full cursor-pointer overflow-hidden bg-[var(--bg)] ${cssSupported ? 'breakout-timeline-subject' : ''}`}
+        className={`relative flex h-[100svh] w-full cursor-pointer items-center justify-center overflow-hidden bg-black ${cssSupported ? 'breakout-timeline-subject' : ''}`}
         initial={{ opacity: 0, y: 40 }}
         animate={revealed ? { opacity: 1, y: 0 } : { opacity: 0, y: 40 }}
         transition={{ duration: 0.7, ease: 'easeOut' }}
       >
         {cssSupported ? (
-          <div className="breakout-zoom-only-layer absolute inset-[6%]">{mobileImage}</div>
+          <div className="breakout-zoom-only-layer breakout-mobile-box relative">{mobileImage}</div>
         ) : (
           <motion.div
             style={{ scale: mobileScale, willChange: 'transform' }}
-            className="absolute inset-[6%]"
+            className="breakout-mobile-box relative"
           >
             {mobileImage}
           </motion.div>
@@ -190,10 +205,13 @@ export default function BreakoutPhoto({ photo, priority, onClick, isDesktop }: B
     />
   );
 
-  // Starting width as a % of the frame: 100 / the peak scale (5.2, see
-  // globals.css and the scale transform above), so scaling up by exactly
-  // that factor lands the box at 100cqw - full frame width - at the peak.
-  const startWidthCqw = 100 / 5.2;
+  // Fixed landscape ratio, not the source photo's own (portrait, always -
+  // the breakout queue is portrait-only) - matches the grid's own
+  // landscape photos' general shape so the breakout reads as "one more
+  // photo" at rest rather than a visually disconnected portrait cutout.
+  // 45cqw is deliberately independent from the peak scale below (see the
+  // .breakout-fullscreen-zoom comment in globals.css for why).
+  const startWidthCqw = 45;
 
   return (
     <div
@@ -203,7 +221,14 @@ export default function BreakoutPhoto({ photo, priority, onClick, isDesktop }: B
       <motion.div
         onClick={onClick}
         onContextMenu={(e) => e.preventDefault()}
-        className="breakout-frame sticky top-0 flex h-[100svh] w-full cursor-pointer items-center justify-center overflow-hidden bg-[var(--bg)]"
+        // z-[35]: above the sticky header (z-30, HeroSectionClassic.tsx) -
+        // both are position: sticky/top-0 at once during the dwell, and
+        // without this the header would sit on top, permanently covering
+        // the top of the frame and defeating "covers the full screen" at
+        // the zoom's peak. Still well under the Lightbox's z-[100], so
+        // opening a photo from elsewhere on the page still comes out on
+        // top of everything.
+        className="breakout-frame sticky top-0 z-[35] flex h-[100svh] w-full cursor-pointer items-center justify-center overflow-hidden bg-black"
         initial={{ y: '100%' }}
         animate={{ y: revealed ? '0%' : '100%' }}
         transition={{ duration: 0.85, ease: 'easeOut' }}
@@ -211,7 +236,7 @@ export default function BreakoutPhoto({ photo, priority, onClick, isDesktop }: B
         {cssSupported ? (
           <div
             className="breakout-fullscreen-zoom relative"
-            style={{ width: `${startWidthCqw}cqw`, aspectRatio: `${photo.width} / ${photo.height}` }}
+            style={{ width: `${startWidthCqw}cqw`, aspectRatio: '3 / 2' }}
           >
             {desktopImage}
           </div>
@@ -219,7 +244,8 @@ export default function BreakoutPhoto({ photo, priority, onClick, isDesktop }: B
           <motion.div
             style={{
               width: `${startWidthCqw}cqw`,
-              aspectRatio: `${photo.width} / ${photo.height}`,
+              aspectRatio: '3 / 2',
+              y: pan,
               scale,
               willChange: 'transform',
             }}
