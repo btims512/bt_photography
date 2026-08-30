@@ -180,11 +180,14 @@ export default function HeroSectionClassic() {
         // Opening, this holds until the bars have finished becoming an X
         // (0.34s) and only then hands over to the drawer's own X, so the
         // icon change reads as its own beat before the menu moves.
-        // Closing keeps its previous timing - waiting for the panel to
-        // clear before the bars come back.
+        // Closing is the same beat in reverse: the button fades back in
+        // still showing an X while the panel is leaving, and only then do
+        // the bars unfold - which is why their morph carries a delay on
+        // the close side. Without it the bars reverted while the button
+        // was still transparent, so the X never visibly became lines.
         transition={{
-          duration: mobileOpen ? 0.22 : 0.28,
-          delay: mobileOpen ? 0.36 : 0.34,
+          duration: mobileOpen ? 0.22 : 0.2,
+          delay: mobileOpen ? 0.36 : 0.32,
           ease: 'easeOut',
         }}
         style={{
@@ -210,8 +213,8 @@ export default function HeroSectionClassic() {
             transition={{
               opacity: { duration: 0.55, delay: 0.42, ease: 'easeOut' },
               x: { duration: 0.55, delay: 0.42, ease: 'easeOut' },
-              y: { duration: 0.34, ease: [0.22, 1, 0.36, 1] },
-              rotate: { duration: 0.34, ease: [0.22, 1, 0.36, 1] },
+              y: { duration: 0.34, delay: mobileOpen ? 0 : 0.5, ease: [0.22, 1, 0.36, 1] },
+              rotate: { duration: 0.34, delay: mobileOpen ? 0 : 0.5, ease: [0.22, 1, 0.36, 1] },
             }}
           />
           <motion.span
@@ -222,8 +225,8 @@ export default function HeroSectionClassic() {
             transition={{
               opacity: { duration: 0.55, delay: 0.52, ease: 'easeOut' },
               x: { duration: 0.55, delay: 0.52, ease: 'easeOut' },
-              y: { duration: 0.34, ease: [0.22, 1, 0.36, 1] },
-              rotate: { duration: 0.34, ease: [0.22, 1, 0.36, 1] },
+              y: { duration: 0.34, delay: mobileOpen ? 0 : 0.5, ease: [0.22, 1, 0.36, 1] },
+              rotate: { duration: 0.34, delay: mobileOpen ? 0 : 0.5, ease: [0.22, 1, 0.36, 1] },
             }}
           />
         </span>
