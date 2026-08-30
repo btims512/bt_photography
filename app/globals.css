@@ -145,13 +145,31 @@ body {
   will-change: transform;
 }
 
+/* Desktop's shrunk logo, derived rather than eyeballed - the three numbers
+   below are locked to each other and to two measurements of the resting
+   logo: its widest line ("PHOTOGRAPHY", 484px - wider than the mark
+   itself, thanks to its letter-spacing) and its natural height (248px).
+   At the shrunk scale s = 1 - --logo-shrink-max:
+     .header-logo-frame height  = 248 * s      (or the frame clips it)
+     --logo-shrunk-half         = 484 * s / 2  (or it lands off the edge)
+   s is 0.30 here: the logo sits at just under a third of its resting
+   size, roughly double the 0.17 it used to, so it still reads as a mark
+   rather than a monogram once the header is compact.
+
+   --logo-shrunk-half being derived is what actually squares the logo up
+   with the rest of the page. It is the distance from the frame's left
+   edge to the shrunk logo's *centre*, so it has to equal the logo's own
+   shrunk half-width for the left edges to meet: set too large - it was
+   68px against a true half-width of 41px - and the logo floats 27px
+   inboard of the content edge every other section aligns to, which is the
+   uneven, pushed-into-the-corner look. */
 @media (min-width: 768px) {
   .header-logo-frame {
-    height: calc(248px - var(--header-shrink) * 203px);
+    height: calc(248px - var(--header-shrink) * 174px);
   }
   .header-logo-shrink {
-    --logo-shrunk-half: 68px;
-    --logo-shrink-max: 0.83;
+    --logo-shrunk-half: 73px;
+    --logo-shrink-max: 0.70;
   }
 }
 
