@@ -79,13 +79,13 @@ export default function MobileMenu({ isOpen, onClose, nav, pathname }: MobileMen
       />
       <motion.div
         initial={false}
-        // Opening waits for the header's bars to finish becoming an X
-        // (0.34s, HeroSectionClassic.tsx) so the icon change lands as its
-        // own beat and the panel follows it, rather than the two starting
-        // together. Closing has no delay - the panel leaves immediately,
-        // and it is the bars that wait for it.
+        // Both directions lead with the icon and follow with the panel.
+        // Opening waits on the header's bars becoming an X
+        // (HeroSectionClassic.tsx); closing waits on this panel's own X
+        // unfolding back into lines, below. Either way the icon change is
+        // its own beat and the panel answers it.
         animate={{ x: isOpen ? 0 : '100%' }}
-        transition={{ duration: 0.56, delay: isOpen ? 0.3 : 0, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 0.56, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
         className="fixed top-0 right-0 bottom-0 md:hidden"
         style={{
           width: '78%',
@@ -127,14 +127,28 @@ export default function MobileMenu({ isOpen, onClose, nav, pathname }: MobileMen
             pointerEvents: isOpen ? 'auto' : 'none',
           }}
         >
+          {/* These two bars, not the header's, are what the closing morph
+              plays on. The X is on the panel and the panel is what you are
+              looking at when you tap it, so unfolding it here happens in
+              plain sight; doing it on the header's bars instead put the
+              animation underneath a panel that was already sliding over
+              it. The panel's own slide waits for this to finish (see its
+              close delay above), so the order reads X -> lines -> panel
+              leaves. */}
           <span className="relative flex h-6 w-6 items-center justify-center">
-            <span
+            <motion.span
               className="absolute h-[2.2px] w-6 rounded-full"
-              style={{ backgroundColor: 'var(--ink)', transform: 'rotate(45deg)' }}
+              style={{ backgroundColor: 'var(--ink)' }}
+              initial={false}
+              animate={{ rotate: isOpen ? 45 : 0, y: isOpen ? 0 : -5 }}
+              transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
             />
-            <span
+            <motion.span
               className="absolute h-[2.2px] w-6 rounded-full"
-              style={{ backgroundColor: 'var(--ink)', transform: 'rotate(-45deg)' }}
+              style={{ backgroundColor: 'var(--ink)' }}
+              initial={false}
+              animate={{ rotate: isOpen ? -45 : 0, y: isOpen ? 0 : 5 }}
+              transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
             />
           </span>
         </motion.button>
