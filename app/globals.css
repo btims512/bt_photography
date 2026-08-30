@@ -262,10 +262,20 @@ body {
    for safety margin on both width and height. overflow: hidden on
    .breakout-frame (the parent) clips whatever the box's landscape ratio
    doesn't exactly fill at that peak, the same way object-cover would. */
+/* The pan is downward-only now (8% -> 0 -> 8%) rather than swinging
+   through negative, because the photo grows out of its top-right corner:
+   that corner is the fixed point of the scale, so any vertical offset
+   still in play at the peak is a black gap along the top edge that no
+   amount of zoom can close, and a *negative* offset at rest would push the
+   photo up out of the frame entirely. Sitting 8% low at rest gives it a
+   little breathing room off the top edge, and returning to 0 exactly at
+   the peak is what lets the photo meet the frame's top and right edges
+   while overflowing the other two. */
 @keyframes breakout-fullscreen-zoom-kf {
-  0%   { --breakout-zoom: 1;   --breakout-pan: -12%; }
-  50%  { --breakout-zoom: 2.8; --breakout-pan: 0%; }
-  100% { --breakout-zoom: 1;   --breakout-pan: 12%; }
+  0%   { --breakout-zoom: 1;   --breakout-pan: 8%; }
+  44%  { --breakout-zoom: 2.8; --breakout-pan: -1%; }
+  56%  { --breakout-zoom: 2.8; --breakout-pan: -1%; }
+  100% { --breakout-zoom: 1;   --breakout-pan: 8%; }
 }
 
 .breakout-fullscreen-zoom {
@@ -282,6 +292,14 @@ body {
      zoom had this same gap and it was never quite noticeable. */
   animation-range: contain 0% contain 100%;
   animation-fill-mode: both;
+  /* Grows out of its top-right corner rather than its centre, so the photo
+     starts parked at the frame's top right and spreads left and down
+     across the screen as it zooms, instead of expanding evenly in every
+     direction from the middle. The corner it grows from is the one pinned
+     in place, which is why the box is also anchored to that same corner in
+     BreakoutPhoto.tsx - anchor and origin have to name the same corner or
+     the photo drifts off the edge it is supposed to be hugging. */
+  transform-origin: top right;
   transform: translateY(var(--breakout-pan)) scale(var(--breakout-zoom));
   will-change: transform;
 }
@@ -332,6 +350,19 @@ body {
   view-timeline-axis: block;
 }
 
+/* Breaks the rail out of the section's own px-6 side padding so the
+   backdrop's horizontal stage runs to the screen's edges rather than
+   stopping 24px short on each side and leaving the page colour showing
+   there. Sized off the parent (100% + the two 24px paddings) rather than
+   100vw, which would also count a scrollbar's width and overflow by it.
+   Widening the frame widens its container-query context with it, so the
+   photos - sized in cqw - grow to the new full width automatically. */
+.rail-fullbleed {
+  width: calc(100% + 48px);
+  margin-left: -24px;
+  margin-right: -24px;
+}
+
 /* Establishes the container query context .rail-track's panels size
    themselves against (100cqw = the frame's own width) - see MobileRail.tsx
    for why cqw instead of a percentage of the track.
@@ -360,9 +391,16 @@ body {
   --rail-photo-w: min(100cqw, calc(0.62 * (100svh - var(--header-shrunk-height))));
 }
 
+/* Held at both ends: the slide waits for the backdrop to finish growing
+   and stops before it starts shrinking, so the photos only travel against
+   a fully black frame. MobileRail scales the dwell up by the leftover
+   fraction so this shorter span still gives each photo the same amount of
+   scroll it had before these phases existed. */
 @keyframes rail-slide-kf {
-  from { transform: translateX(0); }
-  to   { transform: translateX(var(--rail-shift, calc(-430cqw))); }
+  0%   { transform: translateX(0); }
+  18%  { transform: translateX(0); }
+  82%  { transform: translateX(var(--rail-shift, calc(-430cqw))); }
+  100% { transform: translateX(var(--rail-shift, calc(-430cqw))); }
 }
 
 /* Box each rail photo is centered in, sized so every photo fills the
@@ -419,6 +457,81 @@ body {
   will-change: transform;
 }
 
+/* The section arrives on the page's own light background and a black
+   square grows out from behind the photo until it has taken over the
+   frame; only then does the slide start and the rules draw on. The whole
+   thing reverses at the end, so the black retreats back behind the photo
+   and the page colour returns before the pin releases. This is why
+   .rail-frame is no longer painted black outright - the backdrop is a
+   phase of the animation now, not a fixed property of the section.
+
+   A square (rather than a frame-shaped rectangle) so it reads as a shape
+   growing rather than a curtain: sized to the larger of the frame's two
+   dimensions so scale(1) covers both, and overflowing into the layer's
+   overflow: hidden on the other axis. Centred on the *content* box, not
+   the frame, so it grows from behind the photo rather than from behind the
+   header. RAIL_INTRO_FRACTION in MobileRail.tsx has to match the 12%/88%
+   stops below - CSS keyframe percentages can't read a custom property, so
+   the two are kept in step by hand. */
+/* Rest size of the black box: exactly the photo's own resting footprint.
+   --rail-photo-w is the photo box's full width and 0.88 its resting scale
+   (rail-photo-zoom-kf), and the box's 66/100 ratio turns that width into
+   its height - so these two expressions land the backdrop precisely
+   behind the photo, hidden by it, before anything moves.
+
+   That starting size is the whole point: the box grows *outward from
+   behind the photo* rather than up from nothing, so the photo is enclosed
+   by black at every single frame. Starting at zero left the photo - which
+   is at full resting height from the outset - sticking out well past the
+   black through the first stage.
+
+   Animating width/height rather than a transform is deliberate here, and
+   is the one place in this file that does so. A scale can't express
+   "start at exactly the photo's height": that would need the ratio of the
+   photo's height to the frame's, and CSS calc() cannot divide a length by
+   a length. Width/height take the expressions directly. The cost is
+   layout work per frame, which is acceptable for one absolutely
+   positioned element that nothing else is sized against. */
+@keyframes rail-backdrop-kf {
+  0%   { width: calc(0.88 * var(--rail-photo-w)); height: calc(0.88 * var(--rail-photo-w) / 0.66); }
+  6%   { width: calc(0.88 * var(--rail-photo-w)); height: 100%; }
+  12%  { width: 100%; height: 100%; }
+  88%  { width: 100%; height: 100%; }
+  94%  { width: calc(0.88 * var(--rail-photo-w)); height: 100%; }
+  100% { width: calc(0.88 * var(--rail-photo-w)); height: calc(0.88 * var(--rail-photo-w) / 0.66); }
+}
+
+.rail-backdrop-layer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: var(--header-shrunk-height);
+  bottom: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Exactly frame-sized rather than an oversized square, so the two scales
+   above mean what they say against the frame: sx 0.88 is the photo's own
+   resting width, sy 1 is the full content height. An oversized square
+   would make both figures arbitrary fractions of something larger than
+   what's visible. */
+.rail-backdrop {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  width: calc(0.88 * var(--rail-photo-w));
+  height: calc(0.88 * var(--rail-photo-w) / 0.66);
+  background-color: #000000;
+  animation: rail-backdrop-kf 1s linear;
+  animation-timeline: --rail-progress;
+  animation-range-start: var(--rail-range-start, cover 29.4118%);
+  animation-range-end: var(--rail-range-end, cover 82.3529%);
+  animation-fill-mode: both;
+  will-change: transform;
+}
+
 /* The photo sits inset from the frame's edges at rest, showing a black
    border down each side, then scales up to meet them ("rises") as the
    pinned dwell begins, holds at full width through the whole horizontal
@@ -442,8 +555,10 @@ body {
 
 @keyframes rail-photo-zoom-kf {
   0%   { --rail-photo-zoom: 0.88; }
-  6%   { --rail-photo-zoom: 1; }
-  94%  { --rail-photo-zoom: 1; }
+  12%  { --rail-photo-zoom: 0.88; }
+  18%  { --rail-photo-zoom: 1; }
+  82%  { --rail-photo-zoom: 1; }
+  88%  { --rail-photo-zoom: 0.88; }
   100% { --rail-photo-zoom: 0.88; }
 }
 
@@ -524,7 +639,16 @@ body {
   animation-name: rail-edge-reverse-kf;
 }
 
-/* The line begins almost immediately (2%) rather than waiting for the
+/* Draw and withdraw are deliberately the same length (34% each, 14->48
+   and 52->86), and start and finish the same distance from their
+   respective ends, so the exit mirrors the entrance instead of snapping
+   away faster than it arrived - an earlier version drew over 36% but
+   withdrew over 22%, which read as the line being yanked off. Withdrawing
+   right out to 86% also keeps the line on screen through the last photo
+   of the slide rather than clearing while photos are still arriving, and
+   hands straight over to the backdrop's own exit at 88%.
+
+   (Superseded note, kept for the reasoning: the line begins almost immediately rather than waiting for the
    photo to finish rising, so it reads as starting the moment the first
    photo moves at all - the slide and the draw share the same timeline, so
    any later start visibly lags the photo it's framing. It then takes a
@@ -534,22 +658,22 @@ body {
    zoom-out begins, so the line is fully gone at the instant the photo
    starts dropping and the two never move together at that end - the rise
    at the other end is quick enough (6%) to be over before the line has
-   travelled any distance worth seeing. */
+   travelled any distance worth seeing.) */
 @keyframes rail-edge-kf {
   0%   { stroke-dashoffset: 1; }
-  2%   { stroke-dashoffset: 1; }
-  44%  { stroke-dashoffset: 0; }
-  62%  { stroke-dashoffset: 0; }
-  94%  { stroke-dashoffset: 1; }
+  20%  { stroke-dashoffset: 1; }
+  48%  { stroke-dashoffset: 0; }
+  52%  { stroke-dashoffset: 0; }
+  80%  { stroke-dashoffset: 1; }
   100% { stroke-dashoffset: 1; }
 }
 
 @keyframes rail-edge-reverse-kf {
   0%   { stroke-dashoffset: -1; }
-  2%   { stroke-dashoffset: -1; }
-  44%  { stroke-dashoffset: 0; }
-  62%  { stroke-dashoffset: 0; }
-  94%  { stroke-dashoffset: -1; }
+  20%  { stroke-dashoffset: -1; }
+  48%  { stroke-dashoffset: 0; }
+  52%  { stroke-dashoffset: 0; }
+  80%  { stroke-dashoffset: -1; }
   100% { stroke-dashoffset: -1; }
 }
 
@@ -573,4 +697,109 @@ body {
   animation-range-end: var(--rail-range-end, cover 82.3529%);
   animation-fill-mode: both;
   will-change: transform;
+}
+
+/* ---------------------------------------------------------------------
+   Desktop vertical rail (components/DesktopRail.tsx). The desktop
+   counterpart to the mobile rail above: same pinned-frame idea, but the
+   track travels vertically and the section opens and closes with a
+   two-stage corner wipe instead of the photo scaling up. See that
+   component's doc comment for the full running order and for why both
+   wipes are clip-path: inset() rather than a scale.
+
+   The keyframe stops here have to stay in step with SLIDE_START/SLIDE_END
+   and the clip stops in DesktopRail.tsx - CSS keyframe percentages can't
+   read a value from JS, so the two are matched by hand.
+   --------------------------------------------------------------------- */
+.dtrail-timeline-subject {
+  view-timeline-name: --dtrail-progress;
+  view-timeline-axis: block;
+}
+
+/* container-type: size, not inline-size, because the panels below size
+   themselves in cqh - the block axis is only queryable when both axes are
+   contained, which is safe here since the frame's height and width are
+   both set explicitly. */
+.dtrail-frame {
+  container-type: size;
+}
+
+/* Black backdrop: wipes in from the top-right, holds, then leaves through
+   the bottom-left. Held at the extremes by animation-fill-mode: both, so
+   the frame is the page's own colour while approaching and again after. */
+@keyframes dtrail-backdrop-kf {
+  0%   { clip-path: inset(0% 0% 100% 100%); }
+  8%   { clip-path: inset(0% 0% 0% 0%); }
+  92%  { clip-path: inset(0% 0% 0% 0%); }
+  100% { clip-path: inset(100% 100% 0% 0%); }
+}
+
+.dtrail-backdrop {
+  position: absolute;
+  inset: 0;
+  background-color: #000000;
+  clip-path: inset(0% 0% 100% 100%);
+  animation: dtrail-backdrop-kf 1s linear;
+  animation-timeline: --dtrail-progress;
+  animation-range: contain 0% contain 100%;
+  animation-fill-mode: both;
+}
+
+/* The photos' viewport, wiping in from the same corner one beat after the
+   backdrop and leaving one beat before it, so the black always arrives
+   first and departs last. */
+@keyframes dtrail-view-kf {
+  0%   { clip-path: inset(0% 0% 100% 100%); }
+  8%   { clip-path: inset(0% 0% 100% 100%); }
+  20%  { clip-path: inset(0% 0% 0% 0%); }
+  80%  { clip-path: inset(0% 0% 0% 0%); }
+  92%  { clip-path: inset(100% 100% 0% 0%); }
+  100% { clip-path: inset(100% 100% 0% 0%); }
+}
+
+.dtrail-view {
+  position: absolute;
+  inset: 0;
+  clip-path: inset(0% 0% 100% 100%);
+  animation: dtrail-view-kf 1s linear;
+  animation-timeline: --dtrail-progress;
+  animation-range: contain 0% contain 100%;
+  animation-fill-mode: both;
+}
+
+/* Held at both ends so the photos only travel once the frame is fully
+   open - DesktopRail scales the dwell up by the leftover span so this
+   shorter window still gives each photo its full share of scroll. */
+@keyframes dtrail-slide-kf {
+  0%   { transform: translateY(0); }
+  20%  { transform: translateY(0); }
+  80%  { transform: translateY(var(--dtrail-shift, calc(-324cqh))); }
+  100% { transform: translateY(var(--dtrail-shift, calc(-324cqh))); }
+}
+
+.dtrail-track {
+  display: flex;
+  flex-direction: column;
+  height: max-content;
+  animation: dtrail-slide-kf 1s linear;
+  animation-timeline: --dtrail-progress;
+  animation-range: contain 0% contain 100%;
+  animation-fill-mode: both;
+  will-change: transform;
+}
+
+.dtrail-panel {
+  flex: 0 0 100cqh;
+  width: 100%;
+}
+
+/* Sized off the frame's height rather than its width: the frame is much
+   wider than it is tall on desktop, so height is the binding dimension
+   for a portrait photo. Every photo in one rail shares an aspect ratio
+   (takeUniformRail in lib/masonry.ts groups them that way), so a single
+   box ratio fits them all without letterboxing varying photo to photo. */
+.dtrail-photo-box {
+  height: 74cqh;
+  aspect-ratio: 2 / 3;
+  width: auto;
 }

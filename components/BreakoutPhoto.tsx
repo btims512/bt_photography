@@ -132,8 +132,8 @@ export default function BreakoutPhoto({ photo, priority, onClick, isDesktop }: B
   const smoothProgress = useSpring(scrollYProgress, { stiffness: 200, damping: 30, mass: 0.5 });
   // Matches the CSS keyframe's peak/pan - see the component doc comment
   // and .breakout-fullscreen-zoom in globals.css.
-  const scale = useTransform(smoothProgress, [0, 0.5, 1], [1, 2.8, 1]);
-  const pan = useTransform(smoothProgress, [0, 0.5, 1], ['-12%', '0%', '12%']);
+  const scale = useTransform(smoothProgress, [0, 0.44, 0.56, 1], [1, 2.8, 2.8, 1]);
+  const pan = useTransform(smoothProgress, [0, 0.44, 0.56, 1], ['8%', '-1%', '-1%', '8%']);
   // Smaller peak than desktop's: this scales the whole contained image
   // (including its letterbox margins), not just a crop-filled frame.
   const mobileScale = useTransform(smoothProgress, [0, 0.5, 1], [1, 1.12, 1]);
@@ -228,7 +228,16 @@ export default function BreakoutPhoto({ photo, priority, onClick, isDesktop }: B
         // the zoom's peak. Still well under the Lightbox's z-[100], so
         // opening a photo from elsewhere on the page still comes out on
         // top of everything.
-        className="breakout-frame sticky top-0 z-[35] flex h-[100svh] w-full cursor-pointer items-center justify-center overflow-hidden bg-black"
+        // items-start/justify-end parks the photo in the frame's top-right
+        // corner at rest instead of the middle, with a small inset so it
+        // doesn't sit flush against the edges. The zoom then grows it out
+        // of that same corner (transform-origin: top right, see
+        // .breakout-fullscreen-zoom in globals.css) so it spreads left and
+        // down to fill the screen. Anchor and transform-origin have to name
+        // the same corner: anchoring here without the matching origin would
+        // grow the photo evenly in all directions and immediately push it
+        // off the top and right edges.
+        className="breakout-frame sticky top-0 z-[35] flex h-[100svh] w-full cursor-pointer items-start justify-end overflow-hidden bg-black"
         initial={{ y: '100%' }}
         animate={{ y: revealed ? '0%' : '100%' }}
         transition={{ duration: 0.85, ease: 'easeOut' }}
@@ -247,6 +256,8 @@ export default function BreakoutPhoto({ photo, priority, onClick, isDesktop }: B
               aspectRatio: '3 / 2',
               y: pan,
               scale,
+              originX: 1,
+              originY: 0,
               willChange: 'transform',
             }}
             className="relative"

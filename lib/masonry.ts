@@ -150,7 +150,20 @@ export type GallerySegment =
  * portraits, a final uneven remainder) rides along in a trailing grid
  * segment rather than being dropped.
  */
-export function chunkWithBreakouts(photos: Photo[], breakoutEvery: number, columnCount = 3): GallerySegment[] {
+export function chunkWithBreakouts(
+  photos: Photo[],
+  breakoutEvery: number,
+  columnCount = 3,
+  /**
+   * When above 1, each interrupt is a `rail` of this many same-shaped
+   * photos (see takeUniformRail) instead of a single `breakout` photo -
+   * what the Classic desktop layout uses for its vertical carousel. Left
+   * at 1, the interrupt stays a single photo, which is what
+   * PortfolioSectionModern still renders; opt-in rather than a change of
+   * behaviour for both callers.
+   */
+  railSize = 1
+): GallerySegment[] {
   const segments: GallerySegment[] = [];
   const breakoutQueue: Photo[] = [];
 
@@ -191,9 +204,16 @@ export function chunkWithBreakouts(photos: Photo[], breakoutEvery: number, colum
         segments.push({ type: 'grid', photos: gridBuffer.slice(0, evenCount) });
         gridBuffer = gridBuffer.slice(evenCount);
       }
-      const breakoutPhoto = breakoutQueue.shift();
-      if (breakoutPhoto) {
-        segments.push({ type: 'breakout', photo: breakoutPhoto });
+      if (railSize > 1) {
+        const rail = takeUniformRail(breakoutQueue, railSize);
+        if (rail) {
+          segments.push({ type: 'rail', photos: rail });
+        }
+      } else {
+        const breakoutPhoto = breakoutQueue.shift();
+        if (breakoutPhoto) {
+          segments.push({ type: 'breakout', photo: breakoutPhoto });
+        }
       }
     }
   }
@@ -218,6 +238,10 @@ const RAIL_RATIO_TOLERANCE = 0.02;
 /** A rail shorter than this isn't worth pinning the viewport for - the
  *  photos fall through to a normal grid segment instead. */
 const MIN_RAIL_PHOTOS = 3;
+
+/** Every rail shows at least this many photos, repeating its own if the
+ *  queue can't supply that many distinct ones yet - see takeUniformRail. */
+const RAIL_MIN_DISPLAY = 4;
 
 /**
  * Clusters photos into groups of near-identical aspect ratio. Sorts by ratio
@@ -290,6 +314,21 @@ function takeUniformRail(queue: Photo[], railSize: number): Photo[] | null {
       // matching entry is equivalent to removing this specific one.
       const idx = queue.indexOf(photo);
       if (idx !== -1) queue.splice(idx, 1);
+    }
+
+    // Supply runs thin early on - the first rail is reached before many
+    // portraits have queued - which is what left the first rail at three
+    // photos while later ones ran to five or six. Top a short rail back up
+    // by cycling the photos it already holds. This consumes nothing
+    // further from the queue, since a rail is only short because its group
+    // had nothing left to give; it just repeats what's there. Padding to
+    // four can't push any photo past two appearances either, because a
+    // group needs two distinct photos to form a rail at all.
+    if (chosen.length < RAIL_MIN_DISPLAY) {
+      const distinct = [...new Map(chosen.map((p) => [p.src, p])).values()];
+      for (let i = 0; chosen.length < RAIL_MIN_DISPLAY; i++) {
+        chosen.push(distinct[i % distinct.length]);
+      }
     }
     return chosen;
   }

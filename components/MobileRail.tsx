@@ -24,6 +24,17 @@ const RAIL_FRAME_SVH = 100;
 // would. Tune this (and RAIL_FRAME_SVH) if the pace feels off either way.
 const RAIL_DWELL_PER_TRANSITION_SVH = 45;
 
+// Fraction of the dwell spent growing the black backdrop in at the start,
+// and again shrinking it out at the end - the slide only runs across the
+// span between them. MUST match the keyframe stops in globals.css
+// (rail-backdrop-kf and friends), which can't read this value: CSS
+// keyframe percentages have to be literals, so the two are kept in step by
+// hand. The dwell below is scaled up by the leftover fraction so the slide
+// itself keeps the same per-photo pace it had before the backdrop phases
+// existed, rather than being squeezed into a shorter span.
+const RAIL_SLIDE_START = 0.18;
+const RAIL_SLIDE_END = 0.82;
+
 // Horizontal gap between photos mid-slide, as cqw (% of the frame's own
 // width, via `.rail-frame`'s container query context below). This is now
 // the *only* thing separating one photo from the next: photos fill their
@@ -118,7 +129,8 @@ export default function MobileRail({ photos, onOpen }: MobileRailProps) {
   const cssSupported = useCssScrollTimelineSupport();
 
   const gapCount = photos.length - 1;
-  const totalDwellSvh = gapCount * RAIL_DWELL_PER_TRANSITION_SVH;
+  const totalDwellSvh =
+    (gapCount * RAIL_DWELL_PER_TRANSITION_SVH) / (RAIL_SLIDE_END - RAIL_SLIDE_START);
   const outerHeightSvh = RAIL_FRAME_SVH + totalDwellSvh;
   // Treating the viewport as "100" in the same svh-based unit system as
   // RAIL_FRAME_SVH/totalDwellSvh, so these ratios hold on any device
@@ -156,14 +168,34 @@ export default function MobileRail({ photos, onOpen }: MobileRailProps) {
   // tuning as BreakoutPhoto's JS path). Only the JS fallback needs it - the
   // CSS path is compositor-driven and has no discrete jumps to smooth.
   const smoothProgress = useSpring(rawProgress, { stiffness: 200, damping: 30, mass: 0.5 });
-  const transform = useTransform(smoothProgress, (v) => `translateX(calc(${(-v).toFixed(4)} * ${shiftCqw}cqw))`);
+  // The slide is held at both ends while the backdrop grows and shrinks,
+  // so progress is remapped onto the span between them before driving the
+  // track - matching rail-slide-kf's own stops.
+  const slideProgress = useTransform(
+    smoothProgress,
+    [0, RAIL_SLIDE_START, RAIL_SLIDE_END, 1],
+    [0, 0, 1, 1]
+  );
+  const transform = useTransform(slideProgress, (v) => `translateX(calc(${(-v).toFixed(4)} * ${shiftCqw}cqw))`);
+  // Mirrors rail-backdrop-kf: the box starts at the photo's own resting
+  // footprint, grows vertically to full height, then opens out sideways;
+  // reversed on the way back. Each axis blends between the photo-sized
+  // expression and the frame's full extent as one calc(), since a motion
+  // value can only tween a number - the number here is how far through
+  // that blend we are.
+  const blend = (t: number, restExpr: string) =>
+    `calc(${(1 - t).toFixed(4)} * (${restExpr}) + ${t.toFixed(4)} * 100%)`;
+  const bdWidthT = useTransform(smoothProgress, [0, 0.06, 0.12, 0.88, 0.94, 1], [0, 0, 1, 1, 0, 0]);
+  const bdHeightT = useTransform(smoothProgress, [0, 0.06, 0.12, 0.88, 0.94, 1], [0, 1, 1, 1, 1, 0]);
+  const backdropWidth = useTransform(() => blend(bdWidthT.get(), '0.88 * var(--rail-photo-w)'));
+  const backdropHeight = useTransform(() => blend(bdHeightT.get(), '0.88 * var(--rail-photo-w) / 0.66'));
   // JS-fallback equivalents of the three scroll-driven CSS animations
   // below - each mirrors its keyframe percentages exactly so both paths
   // look identical. See .rail-photo-zoom-kf / .rail-edge-kf in
   // globals.css for what the stops mean.
-  const photoZoom = useTransform(smoothProgress, [0, 0.06, 0.94, 1], [0.88, 1, 1, 0.88]);
-  const edgeFromLeft = useTransform(smoothProgress, [0, 0.02, 0.44, 0.62, 0.94, 1], [1, 1, 0, 0, 1, 1]);
-  const edgeFromRight = useTransform(smoothProgress, [0, 0.02, 0.44, 0.62, 0.94, 1], [-1, -1, 0, 0, -1, -1]);
+  const photoZoom = useTransform(smoothProgress, [0, 0.12, 0.18, 0.82, 0.88, 1], [0.88, 0.88, 1, 1, 0.88, 0.88]);
+  const edgeFromLeft = useTransform(smoothProgress, [0, 0.2, 0.48, 0.52, 0.8, 1], [1, 1, 0, 0, 1, 1]);
+  const edgeFromRight = useTransform(smoothProgress, [0, 0.2, 0.48, 0.52, 0.8, 1], [-1, -1, 0, 0, -1, -1]);
 
   const isInView = useInView(outerRef, { margin: '200px' });
   const { headerReady } = useLayoutMode();
@@ -224,11 +256,11 @@ export default function MobileRail({ photos, onOpen }: MobileRailProps) {
   return (
     <div
       ref={outerRef}
-      className={`relative w-full ${cssSupported ? 'rail-timeline-subject' : ''}`}
+      className={`rail-fullbleed relative ${cssSupported ? 'rail-timeline-subject' : ''}`}
       style={{ height: `${outerHeightSvh}svh` }}
     >
       <motion.div
-        className="rail-frame sticky top-0 w-full overflow-hidden bg-black"
+        className="rail-frame sticky top-0 w-full overflow-hidden bg-[var(--bg)]"
         style={
           {
             height: `${RAIL_FRAME_SVH}svh`,
@@ -240,6 +272,20 @@ export default function MobileRail({ photos, onOpen }: MobileRailProps) {
         animate={{ opacity: revealed ? 1 : 0 }}
         transition={{ duration: 0.6, ease: 'easeOut' }}
       >
+        {/* Black backdrop, grown in before the slide starts and shrunk out
+            after it ends. First in the DOM so it paints under the photos:
+            everything here is position-auto, so paint order is source
+            order. */}
+        {cssSupported ? (
+          <div className="rail-backdrop-layer">
+            <div className="rail-backdrop" />
+          </div>
+        ) : (
+          <div className="rail-backdrop-layer">
+            <motion.div className="rail-backdrop" style={{ width: backdropWidth, height: backdropHeight }} />
+          </div>
+        )}
+
         {cssSupported ? (
           <div
             className="rail-track relative flex h-full"

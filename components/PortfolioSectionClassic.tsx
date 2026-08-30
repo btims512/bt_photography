@@ -11,6 +11,7 @@ import { useMediaQuery } from '@/lib/use-media-query';
 import { useLayoutMode } from '@/lib/layout-mode';
 import Lightbox from './Lightbox';
 import BreakoutPhoto from './BreakoutPhoto';
+import DesktopRail from './DesktopRail';
 import MobileRail from './MobileRail';
 import type { Photo } from '@/lib/photos';
 
@@ -27,6 +28,10 @@ interface PortfolioSectionProps {
 // unaffected - it keeps the existing single-photo BreakoutPhoto interrupt.
 const MOBILE_LANDSCAPE_EVERY = 9;
 const MOBILE_RAIL_SIZE = 6;
+// Photos per desktop vertical carousel (see DesktopRail.tsx). Desktop
+// draws from the unrepeated catalog, so this is deliberately smaller than
+// mobile's - the portrait supply has to stretch across several rails.
+const DESKTOP_RAIL_SIZE = 4;
 // The real catalog doesn't yet have enough landscape/portrait photos to
 // cycle this pattern more than once or twice, so this repeats the
 // (already genre/orientation-interleaved) photo list a few laps purely to
@@ -53,15 +58,24 @@ const MOBILE_RAIL_LAPS = 4;
  * Drop this once the catalog has enough real landscape photos to not need
  * it.
  */
-function padLandscapeForBreakouts(photos: Photo[], breakoutEvery: number): Photo[] {
+function padLandscapeForBreakouts(photos: Photo[], breakoutEvery: number, railSize = 1): Photo[] {
   const landscape = photos.filter((p) => p.width >= p.height);
   const portraits = photos.filter((p) => p.height > p.width);
   if (landscape.length === 0 || portraits.length === 0) return photos;
 
-  const targetLandscapeCount = breakoutEvery * portraits.length;
+  // Each interrupt is now a carousel of railSize portraits rather than a
+  // single photo, so the portrait pool needs repeating to keep the same
+  // number of interrupts across the page - left unrepeated, the catalog's
+  // handful of portraits fills one carousel and the entire rest of the
+  // page runs without a single interrupt. The landscape target is then
+  // derived from how many interrupts that pool can actually feed, so the
+  // grid still spaces them breakoutEvery apart.
+  const pool = railSize > 1 ? repeatWithOffset(portraits, railSize) : portraits;
+  const interrupts = Math.max(1, Math.ceil(pool.length / railSize));
+  const targetLandscapeCount = breakoutEvery * interrupts;
   const laps = Math.ceil(targetLandscapeCount / landscape.length);
   const paddedLandscape = repeatWithOffset(landscape, laps).slice(0, targetLandscapeCount);
-  return [...portraits, ...paddedLandscape];
+  return [...pool, ...paddedLandscape];
 }
 
 interface GridPhotoProps {
@@ -207,7 +221,7 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery }: P
           MOBILE_LANDSCAPE_EVERY,
           MOBILE_RAIL_SIZE
         )
-      : chunkWithBreakouts(padLandscapeForBreakouts(validPhotos, breakoutEvery), breakoutEvery);
+      : chunkWithBreakouts(padLandscapeForBreakouts(validPhotos, breakoutEvery, DESKTOP_RAIL_SIZE), breakoutEvery, 3, DESKTOP_RAIL_SIZE);
   let index = 0;
 
   // The Lightbox's prev/next order has to match whatever's actually on
@@ -262,9 +276,18 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery }: P
             }
 
             if (segment.type === 'rail') {
+              // Both breakpoints now interrupt the grid with a rail, but
+              // they travel in different directions and open differently -
+              // see each component's doc comment. isDesktop is part of the
+              // key so a breakpoint change remounts rather than re-renders,
+              // for the same reason BreakoutPhoto needed it below: these
+              // components' scroll hooks capture ref.current when their
+              // effects first run, and a swap without a remount would leave
+              // them bound to a node that no longer exists.
+              const RailComponent = isDesktop ? DesktopRail : MobileRail;
               return (
-                <MobileRail
-                  key={`rail-${segmentIndex}-${segment.photos[0]?.src ?? ''}`}
+                <RailComponent
+                  key={`rail-${segmentIndex}-${segment.photos[0]?.src ?? ''}-${isDesktop ? 'd' : 'm'}`}
                   photos={segment.photos}
                   onOpen={(photo) => setOpenIndex(visualOrder.indexOf(photo))}
                 />
