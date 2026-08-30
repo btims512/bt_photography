@@ -177,9 +177,14 @@ export default function HeroSectionClassic() {
         // until the drawer has nearly finished leaving, so this doesn't
         // reappear underneath a panel that's still on screen - the other
         // half of the close-side asymmetry described in MobileMenu.tsx.
+        // Opening, this holds until the bars have finished becoming an X
+        // (0.34s) and only then hands over to the drawer's own X, so the
+        // icon change reads as its own beat before the menu moves.
+        // Closing keeps its previous timing - waiting for the panel to
+        // clear before the bars come back.
         transition={{
-          duration: mobileOpen ? 0.18 : 0.28,
-          delay: mobileOpen ? 0 : 0.34,
+          duration: mobileOpen ? 0.22 : 0.28,
+          delay: mobileOpen ? 0.36 : 0.34,
           ease: 'easeOut',
         }}
         style={{
@@ -191,20 +196,35 @@ export default function HeroSectionClassic() {
           pointerEvents: mobileOpen ? 'none' : 'auto',
         }}
       >
+        {/* The bars carry two independent animations at once: their staggered
+            entrance on page load (opacity and x), and the morph into an X
+            on tap (y and rotate). Per-property transitions keep them
+            apart - one shared transition would either delay the morph by
+            the entrance's 0.42s or strip the entrance of its stagger. */}
         <span className="relative flex h-6 w-6 items-center justify-center">
           <motion.span
             className="absolute h-[2.2px] w-6 rounded-full"
             style={{ backgroundColor: 'var(--ink)' }}
-            initial={{ opacity: 0, x: 40, y: -5 }}
-            animate={{ opacity: 1, x: 0, y: -5 }}
-            transition={{ duration: 0.55, delay: 0.42, ease: 'easeOut' }}
+            initial={{ opacity: 0, x: 40, y: -5, rotate: 0 }}
+            animate={{ opacity: 1, x: 0, y: mobileOpen ? 0 : -5, rotate: mobileOpen ? 45 : 0 }}
+            transition={{
+              opacity: { duration: 0.55, delay: 0.42, ease: 'easeOut' },
+              x: { duration: 0.55, delay: 0.42, ease: 'easeOut' },
+              y: { duration: 0.34, ease: [0.22, 1, 0.36, 1] },
+              rotate: { duration: 0.34, ease: [0.22, 1, 0.36, 1] },
+            }}
           />
           <motion.span
             className="absolute h-[2.2px] w-6 rounded-full"
             style={{ backgroundColor: 'var(--ink)' }}
-            initial={{ opacity: 0, x: 40, y: 5 }}
-            animate={{ opacity: 1, x: 0, y: 5 }}
-            transition={{ duration: 0.55, delay: 0.52, ease: 'easeOut' }}
+            initial={{ opacity: 0, x: 40, y: 5, rotate: 0 }}
+            animate={{ opacity: 1, x: 0, y: mobileOpen ? 0 : 5, rotate: mobileOpen ? -45 : 0 }}
+            transition={{
+              opacity: { duration: 0.55, delay: 0.52, ease: 'easeOut' },
+              x: { duration: 0.55, delay: 0.52, ease: 'easeOut' },
+              y: { duration: 0.34, ease: [0.22, 1, 0.36, 1] },
+              rotate: { duration: 0.34, ease: [0.22, 1, 0.36, 1] },
+            }}
           />
         </span>
       </motion.button>

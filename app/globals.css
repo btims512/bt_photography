@@ -737,8 +737,16 @@ body {
   animation-name: rail-edge-reverse-kf;
 }
 
-/* Draw and withdraw are the same length (26% each, 12->38 and 62->88) and
-   symmetric about the dwell's midpoint, and the hold between them is long
+/* The draw is timed to finish exactly halfway through the photos, not
+   early: the slide runs 18->82% of the dwell, so its midpoint is 50%, and
+   the line reaches its full three-quarter extent right there. That makes
+   the draw 38% of the dwell against the withdraw's 28% - deliberately
+   uneven, because "arrives with the middle photo" and "leaves symmetric
+   to how it came" cannot both hold inside a 12->88 bracket. Arriving on
+   the middle photo is the one that reads.
+
+   Both still start and finish the same distance from their respective
+   ends, and the hold between them is long
    on purpose: the line has to be on screen for the *first and last*
    photos too, not just the ones in the middle. Tucking the cycle inside
    the slide's own span (18->82) put its endpoints exactly where the first
@@ -777,8 +785,8 @@ body {
 @keyframes rail-edge-kf {
   0%   { stroke-dashoffset: 0.75; }
   12%  { stroke-dashoffset: 0.75; }
-  38%  { stroke-dashoffset: 0; }
-  62%  { stroke-dashoffset: 0; }
+  50%  { stroke-dashoffset: 0; }
+  60%  { stroke-dashoffset: 0; }
   88%  { stroke-dashoffset: 0.75; }
   100% { stroke-dashoffset: 0.75; }
 }
@@ -790,8 +798,8 @@ body {
 @keyframes rail-edge-reverse-kf {
   0%   { stroke-dashoffset: -1; }
   12%  { stroke-dashoffset: -1; }
-  38%  { stroke-dashoffset: -0.25; }
-  62%  { stroke-dashoffset: -0.25; }
+  50%  { stroke-dashoffset: -0.25; }
+  60%  { stroke-dashoffset: -0.25; }
   88%  { stroke-dashoffset: -1; }
   100% { stroke-dashoffset: -1; }
 }
