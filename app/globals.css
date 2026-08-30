@@ -96,8 +96,16 @@ body {
        long as it is *already* clear before the nav arrives beside it,
        they never share space. It replaces fading the nav out through the
        crossover, which worked but meant the sections visibly blinked away
-       and back mid-scroll. */
-    --header-logo-shrink: clamp(0, calc(var(--header-shrink) / 0.6), 1);
+       and back mid-scroll.
+
+       What gates the nav is the logo's *width*, not how far left it has
+       got: it has to be ~93% through its own travel before its right edge
+       clears the nav's first item, whatever its position. Running the
+       logo over a shorter window brings that moment forward in scroll
+       terms, which is the only way to shorten the stretch where the logo
+       has arrived and the nav has not yet started - see the merge window
+       on .header-nav-slot, which picks up right where this leaves off. */
+    --header-logo-shrink: clamp(0, calc(var(--header-shrink) / 0.55), 1);
   }
 }
 
@@ -242,8 +250,14 @@ body {
 }
 
 @media (min-width: 768px) {
-  /* Collapses only across the last 30% of the shrink: the logo is still
-     315px wide at the halfway point and sweeps right across "home" and
+  /* Starts at 0.52 - immediately after the logo's right edge clears the
+     nav at 0.513 (0.933 of its own 0.55 window) - so the nav begins
+     rising as the logo is finishing rather than after a visible pause,
+     and the two settle together. A wider rest gap would not buy room
+     here, counter-intuitively: a bigger gap is a longer lift for the same
+     window, so the nav would arrive *sooner*, not later.
+
+     The logo is still 315px wide at the halfway point and sweeps right across "home" and
      "comedy" on its way to the left edge, clearing the nav's first item
      only at the very end of its travel. So the two stay on separate rows
      for nearly all of the transition and merge onto one at the finish;
@@ -259,7 +273,7 @@ body {
      out through the wrapper and re-adding itself to the header. */
   .header-nav-slot {
     display: flow-root;
-    height: clamp(0px, calc(49px * (1 - (var(--header-shrink) - 0.7) / 0.3)), 49px);
+    height: clamp(0px, calc(49px * (1 - (var(--header-shrink) - 0.52) / 0.48)), 49px);
   }
 
   /* -69px lands the nav centred on the shrunk logo's row: with the slot
@@ -268,7 +282,7 @@ body {
      it at 34px. Logo left, nav centred, so sharing a row costs them
      nothing horizontally - and the header drops 151px -> 102px. */
   .header-nav-shrink {
-    transform: translateY(calc(-69px * clamp(0, (var(--header-shrink) - 0.7) / 0.3, 1)));
+    transform: translateY(calc(-69px * clamp(0, (var(--header-shrink) - 0.52) / 0.48, 1)));
   }
 }
 
