@@ -693,10 +693,10 @@ body {
   display: block;
   width: 100%;
   /* Taller than a rule needs, because the coil's loops need vertical room
-     to read as loops rather than as a thick smudge. Still far short of the
-     black band it sits in, so it stays clear of both the photo and the
-     frame's edge. */
-  height: 26px;
+     to read as loops rather than as a thick smudge - but only about a
+     third of the black band it sits in, so it keeps clear of both the
+     photo and the frame's edge. */
+  height: 30px;
   overflow: visible;
 }
 
@@ -721,7 +721,11 @@ body {
 .rail-edge path {
   fill: none;
   stroke: #ffffff;
-  stroke-width: 1.4;
+  /* Lighter than the straight rule's 1.4: the SVG is stretched more
+     vertically now (30px rendered against an 18-unit viewBox), so the
+     same number would paint a visibly heavier stroke. 1 lands the coil at
+     about the weight the line had. */
+  stroke-width: 1;
   stroke-linecap: round;
   /* Dash 0.75 of the path, gap 1 - so "fully drawn" is three quarters of
      the frame's width, leaving a quarter clear, and the pattern's 1.75
