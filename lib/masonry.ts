@@ -208,11 +208,109 @@ export function chunkWithBreakouts(photos: Photo[], breakoutEvery: number, colum
   return segments;
 }
 
+/** How close two photos' aspect ratios must be, proportionally, to count as
+ *  "the same shape" for rail grouping. 2% comfortably clusters photos that
+ *  are nominally the same ratio but differ by a few pixels of crop (e.g.
+ *  2666x4000 = 0.6665 and 2670x4000 = 0.6675) while still separating
+ *  genuinely different shapes (2:3 = 0.667 vs 4:5 = 0.800). */
+const RAIL_RATIO_TOLERANCE = 0.02;
+
+/** A rail shorter than this isn't worth pinning the viewport for - the
+ *  photos fall through to a normal grid segment instead. */
+const MIN_RAIL_PHOTOS = 3;
+
+/**
+ * Clusters photos into groups of near-identical aspect ratio. Sorts by ratio
+ * and starts a new group whenever the next photo drifts more than
+ * RAIL_RATIO_TOLERANCE from the current group's anchor, so every group is
+ * guaranteed internally uniform (rather than rounding to fixed buckets,
+ * where two nearly-identical ratios can land either side of a boundary).
+ */
+function groupByAspectRatio(photos: Photo[]): Photo[][] {
+  const sorted = [...photos].sort((a, b) => a.width / a.height - b.width / b.height);
+  const groups: Photo[][] = [];
+  let current: Photo[] = [];
+  let anchor = 0;
+
+  for (const photo of sorted) {
+    const ratio = photo.width / photo.height;
+    if (current.length === 0) {
+      anchor = ratio;
+      current.push(photo);
+    } else if (Math.abs(ratio - anchor) / anchor <= RAIL_RATIO_TOLERANCE) {
+      current.push(photo);
+    } else {
+      groups.push(current);
+      current = [photo];
+      anchor = ratio;
+    }
+  }
+  if (current.length > 0) groups.push(current);
+
+  return groups;
+}
+
+/**
+ * Pulls one rail's worth of same-shaped photos out of `queue`, mutating it to
+ * remove what it takes. Returns null when no group can fill a worthwhile
+ * rail, in which case the caller leaves everything queued for a later cycle.
+ *
+ * Tries aspect-ratio groups largest-first, so the shape with the most supply
+ * gets used before a thinner one. Within the chosen group it round-robins
+ * across *distinct* photos rather than taking the group in order: the queue
+ * holds several copies of each photo (callers repeat the source list - see
+ * repeatWithOffset), and taking in order would fill a rail with the same
+ * photo repeated. It also caps the rail at twice the distinct count, so no
+ * photo appears more than twice in one rail even when that means a rail
+ * shorter than railSize.
+ */
+function takeUniformRail(queue: Photo[], railSize: number): Photo[] | null {
+  const groups = groupByAspectRatio(queue).sort((a, b) => b.length - a.length);
+
+  for (const group of groups) {
+    const bySrc = new Map<string, Photo[]>();
+    for (const photo of group) {
+      const list = bySrc.get(photo.src);
+      if (list) list.push(photo);
+      else bySrc.set(photo.src, [photo]);
+    }
+
+    const lists = [...bySrc.values()];
+    const take = Math.min(railSize, lists.length * 2, group.length);
+    if (take < MIN_RAIL_PHOTOS) continue;
+
+    const chosen: Photo[] = [];
+    for (let i = 0; chosen.length < take; i++) {
+      const list = lists[i % lists.length];
+      if (list.length > 0) chosen.push(list.shift()!);
+    }
+
+    for (const photo of chosen) {
+      // Repeated copies are the same object reference, so removing any
+      // matching entry is equivalent to removing this specific one.
+      const idx = queue.indexOf(photo);
+      if (idx !== -1) queue.splice(idx, 1);
+    }
+    return chosen;
+  }
+
+  return null;
+}
+
 /**
  * Mobile-only counterpart to chunkWithBreakouts: instead of interrupting the
- * grid with a single full-bleed photo, groups every `railSize` portrait
- * photos into a horizontal-scroll "rail" segment (see
- * components/MobileRail.tsx) after every `landscapeEvery` landscape photos.
+ * grid with a single full-bleed photo, groups portrait photos into a
+ * horizontal-scroll "rail" segment (see components/MobileRail.tsx) after
+ * every `landscapeEvery` landscape photos.
+ *
+ * Every rail holds photos of a single aspect ratio (see takeUniformRail).
+ * MobileRail sizes its photos to fill the frame's width with their natural
+ * height, so a rail mixing a 2:3 photo with a 4:5 one renders them at
+ * visibly different heights as they slide past; grouping by shape means the
+ * photos within any one rail always match each other exactly. The tradeoff
+ * is that a shape without enough supply never forms a rail at all - those
+ * photos fall through to the trailing grid segment instead - so rails can be
+ * fewer, and shorter than `railSize`, than a naive split would produce.
  *
  * No column-count trimming here, unlike chunkWithBreakouts - mobile always
  * renders grid segments as one flat list regardless of segment boundaries,
@@ -239,8 +337,9 @@ export function chunkWithRails(photos: Photo[], landscapeEvery: number, railSize
     if (gridBuffer.length >= landscapeEvery) {
       segments.push({ type: 'grid', photos: gridBuffer });
       gridBuffer = [];
-      if (railQueue.length >= railSize) {
-        segments.push({ type: 'rail', photos: railQueue.splice(0, railSize) });
+      const rail = takeUniformRail(railQueue, railSize);
+      if (rail) {
+        segments.push({ type: 'rail', photos: rail });
       }
     }
   }
