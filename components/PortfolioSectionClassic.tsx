@@ -12,6 +12,7 @@ import { useLayoutMode } from '@/lib/layout-mode';
 import Lightbox from './Lightbox';
 import BreakoutPhoto from './BreakoutPhoto';
 import DesktopRail from './DesktopRail';
+import SplitGrid from './SplitGrid';
 import MobileRail from './MobileRail';
 import type { Photo } from '@/lib/photos';
 
@@ -326,9 +327,24 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery }: P
             // similar heights. Independent per-column flex flow (rather
             // than CSS grid) is what makes a true masonry possible - grid
             // would force every row to the height of its tallest column.
+            // A grid segment sitting either side of a rail draws away from
+            // it as the rail arrives, so the grid parts and the rail's
+            // black frame opens in the gap - see SplitGrid.tsx. Most
+            // segments have a rail on *both* sides, since the page
+            // alternates grid/rail, and those have to push down away from
+            // the rail above and up away from the one below across their
+            // own passage - checking only for a rail below (and so
+            // treating every middle segment as 'up') left the lower half
+            // of every split not moving at all. Desktop only, matching
+            // where DesktopRail renders.
+            const railBelow = segments[segmentIndex + 1]?.type === 'rail';
+            const railAbove = segments[segmentIndex - 1]?.type === 'rail';
+            const splitDirection =
+              railAbove && railBelow ? 'both' : railBelow ? 'up' : railAbove ? 'down' : null;
+
             const columns = distributeToColumns(segment.photos, 3);
-            return (
-              <div key={`grid-${segmentIndex}`} className="flex flex-col gap-[10px] md:flex-row">
+            const gridBody = (
+              <div className="flex flex-col gap-[10px] md:flex-row">
                 {columns.map((column, columnIndex) => (
                   <div key={columnIndex} className="flex flex-1 flex-col gap-[10px]">
                     {column.map((photo) => {
@@ -347,6 +363,14 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery }: P
                   </div>
                 ))}
               </div>
+            );
+
+            return splitDirection ? (
+              <SplitGrid key={`grid-${segmentIndex}`} direction={splitDirection}>
+                {gridBody}
+              </SplitGrid>
+            ) : (
+              <div key={`grid-${segmentIndex}`}>{gridBody}</div>
             );
           })}
         </div>
