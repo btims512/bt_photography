@@ -22,3 +22,21 @@ export function useCssScrollTimelineSupport(): boolean {
 
   return supported;
 }
+
+/**
+ * Same idea, but for `animation-timeline: scroll()` specifically (tied to
+ * the page's own scroll position, not a particular element's passage
+ * through the viewport - used by the shrinking header). Part of the same
+ * overall spec as view(), and every browser tested so far supports both
+ * together, but they're technically separate values, so this checks the
+ * one actually used rather than assuming.
+ */
+export function useCssScrollFunctionSupport(): boolean {
+  const [supported, setSupported] = useState(false);
+
+  useEffect(() => {
+    setSupported(typeof CSS !== 'undefined' && CSS.supports('animation-timeline: scroll()'));
+  }, []);
+
+  return supported;
+}

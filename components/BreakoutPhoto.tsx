@@ -6,28 +6,57 @@ import { motion, useInView, useScroll, useSpring, useTransform } from 'framer-mo
 import { BLUR_DATA_URL } from '@/lib/blur';
 import { useLayoutMode } from '@/lib/layout-mode';
 import { useCssScrollTimelineSupport } from '@/lib/use-css-scroll-support';
-import { useMediaQuery } from '@/lib/use-media-query';
 import type { Photo } from '@/lib/photos';
 
 interface BreakoutPhotoProps {
   photo: Photo;
   priority?: boolean;
   onClick: () => void;
+  /**
+   * Passed in (from the parent's useMediaQuery) rather than derived here on
+   * purpose, and the parent keys this component on it so a change remounts
+   * rather than re-renders. An internal media query would start at its
+   * mobile default on every mount and flip to desktop a render later - and
+   * framer's useInView/useScroll only capture ref.current when their effects
+   * first run, so that flip left them bound to the unmounted mobile branch's
+   * node forever: the desktop frame sat permanently in its hidden
+   * pre-entrance state (a blank 100svh gap where the photo belonged). With
+   * the prop + keyed remount, the first render is already the right branch
+   * and every hook binds to the node that actually stays mounted.
+   */
+  isDesktop: boolean;
 }
 
 /**
- * A photo that breaks up the grid with a scroll-linked pan/zoom instead of
+ * A photo that breaks up the grid with a scroll-linked effect instead of
  * flashing past like a regular grid photo. Sits within the page's normal
  * side padding, same as the grid photos, rather than stretching full-bleed.
  *
  * Desktop and mobile deliberately differ, not just in sizing:
  *
- * Desktop fills its frame with object-cover (cropping to fill) and pans
- * down through an oversized version of the image while zooming in through
- * the first half of the scroll and back out through the second, additionally
- * pinning itself to the viewport (position: sticky) so it holds the screen
- * for an extended "dwell" while you keep scrolling, then releases back into
- * the grid.
+ * Desktop starts the photo at a normal, modest size, centered in the
+ * frame - not filling it, deliberately reading as "one more photo" at
+ * rest - then scales it up via transform: scale() (see
+ * .breakout-fullscreen-zoom in globals.css for the full derivation) to
+ * cover the entire screen at the midpoint of the scroll-linked dwell,
+ * before scaling back down to its starting size by the end. Pinning to
+ * the viewport (position: sticky) the whole time is what makes "cover the
+ * entire screen, then shrink back down" mean anything - without a pin, a
+ * fast scroll would just carry the frame away mid-zoom instead of holding
+ * it through the full cycle. object-cover on the image itself crops to
+ * fill the photo's own box at every size, same as it always has; the box
+ * is portrait-shaped (the breakout queue is portrait-only - see
+ * lib/masonry.ts), so scaling it up to cover the frame's full *width* is
+ * what actually determines the peak scale, and reliably overshoots full
+ * height coverage too on typical desktop aspect ratios (a wide frame vs. a
+ * narrow box needs more scale to satisfy width than height).
+ *
+ * (Two earlier desktop versions: one filled the frame with object-cover
+ * and panned across an oversized crop while zooming subtly - dropped for
+ * this bigger, more theatrical full-screen zoom instead. Before that, an
+ * object-contain version showed the complete uncropped photo - dropped
+ * because a portrait photo, uncropped, inside a wide desktop frame renders
+ * tiny with huge empty margins on both sides.)
  *
  * Mobile shows the complete photo instead (object-contain, full viewport
  * height) with only a gentle zoom pulse - no pan, no crop, no sticky pin,
@@ -64,10 +93,11 @@ interface BreakoutPhotoProps {
  * release point depends on a stable frame/container height relationship -
  * svh avoids that drift (a separate, real fix, unrelated to the mobile gap
  * above, which svh alone didn't resolve since the cause was the sticky bug
- * itself, not a height calculation).
+ * itself, not a height calculation). The 320svh outer height (up from an
+ * original 220svh) gives the dwell more scroll distance so the effect
+ * doesn't finish before you've really registered it.
  */
-export default function BreakoutPhoto({ photo, priority, onClick }: BreakoutPhotoProps) {
-  const isDesktop = useMediaQuery('(min-width: 768px)', false);
+export default function BreakoutPhoto({ photo, priority, onClick, isDesktop }: BreakoutPhotoProps) {
   const pinRef = useRef<HTMLDivElement>(null);
   const cssSupported = useCssScrollTimelineSupport();
 
@@ -86,8 +116,9 @@ export default function BreakoutPhoto({ photo, priority, onClick }: BreakoutPhot
   // path - the CSS path doesn't need it, since a compositor-driven
   // timeline doesn't have discrete "jumps" to smooth in the first place.
   const smoothProgress = useSpring(scrollYProgress, { stiffness: 200, damping: 30, mass: 0.5 });
-  const y = useTransform(smoothProgress, [0, 1], ['25%', '-25%']);
-  const scale = useTransform(smoothProgress, [0, 0.5, 1], [1, 1.18, 1]);
+  // Matches BREAKOUT_FULLSCREEN_PEAK / the CSS keyframe's peak - see the
+  // component doc comment and .breakout-fullscreen-zoom in globals.css.
+  const scale = useTransform(smoothProgress, [0, 0.5, 1], [1, 5.2, 1]);
   // Smaller peak than desktop's: this scales the whole contained image
   // (including its letterbox margins), not just a crop-filled frame.
   const mobileScale = useTransform(smoothProgress, [0, 0.5, 1], [1, 1.12, 1]);
@@ -159,25 +190,40 @@ export default function BreakoutPhoto({ photo, priority, onClick }: BreakoutPhot
     />
   );
 
+  // Starting width as a % of the frame: 100 / the peak scale (5.2, see
+  // globals.css and the scale transform above), so scaling up by exactly
+  // that factor lands the box at 100cqw - full frame width - at the peak.
+  const startWidthCqw = 100 / 5.2;
+
   return (
     <div
       ref={pinRef}
-      className={`relative h-[220svh] ${cssSupported ? 'breakout-timeline-subject' : ''}`}
+      className={`relative h-[320svh] ${cssSupported ? 'breakout-timeline-subject' : ''}`}
     >
       <motion.div
         onClick={onClick}
         onContextMenu={(e) => e.preventDefault()}
-        className="sticky top-0 h-[100svh] w-full cursor-pointer overflow-hidden bg-[var(--bg)]"
+        className="breakout-frame sticky top-0 flex h-[100svh] w-full cursor-pointer items-center justify-center overflow-hidden bg-[var(--bg)]"
         initial={{ y: '100%' }}
         animate={{ y: revealed ? '0%' : '100%' }}
         transition={{ duration: 0.85, ease: 'easeOut' }}
       >
         {cssSupported ? (
-          <div className="breakout-pan-layer absolute inset-x-0 top-[-50%] h-[200%]">{desktopImage}</div>
+          <div
+            className="breakout-fullscreen-zoom relative"
+            style={{ width: `${startWidthCqw}cqw`, aspectRatio: `${photo.width} / ${photo.height}` }}
+          >
+            {desktopImage}
+          </div>
         ) : (
           <motion.div
-            style={{ y, scale, willChange: 'transform' }}
-            className="absolute inset-x-0 top-[-50%] h-[200%]"
+            style={{
+              width: `${startWidthCqw}cqw`,
+              aspectRatio: `${photo.width} / ${photo.height}`,
+              scale,
+              willChange: 'transform',
+            }}
+            className="relative"
           >
             {desktopImage}
           </motion.div>

@@ -39,6 +39,155 @@ body {
   -webkit-user-drag: none;
 }
 
+/* Shrinking header (components/HeroSectionClassic.tsx), based on
+   https://scroll-driven-animations.style/demos/shrinking-header-shadow/css/ -
+   a single scroll-position-driven number (--header-shrink, 0 to 1) tied to
+   the page's own scroll via animation-timeline: scroll() (the root
+   scroller's own position - not a specific element's passage through the
+   viewport, which is what view() tracks elsewhere in this file). Every
+   visual change below (logo scale/position, header padding, nav spacing,
+   shadow) reads this one inherited custom property via calc() rather than
+   being separately animated, so they all stay in sync and the whole thing
+   reverses cleanly scrolling back up - it's just a number tied to scroll
+   position, not a one-way triggered transition. inherits:true (unlike the
+   breakout/rail progress properties above, which are inherits:false since
+   only the one element that declares them consumes them) is what lets the
+   logo/nav/etc below read it despite being descendants, not the element
+   the animation is declared on. */
+@property --header-shrink {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+@keyframes header-shrink-kf {
+  to { --header-shrink: 1; }
+}
+
+.header-shrink-timeline {
+  /* The "1s" is nominal, same as elsewhere in this file - animation-timeline
+     replaces time-based progress with scroll-based progress, but some
+     engines only treat the animation as active with a non-zero duration in
+     the shorthand. */
+  animation: header-shrink-kf 1s linear both;
+  animation-timeline: scroll(root block);
+  /* Reaches --header-shrink: 1 after 220px of page scroll - about one
+     comfortable scroll gesture, not a long drawn-out transition. */
+  animation-range: 0 220px;
+}
+
+/* Establishes the container-query context the logo's translateX below
+   measures against (cqw = % of the header's own content width, i.e. inside
+   its padding) - see HeroSectionClassic.tsx for why cqw instead of a
+   percentage relative to the logo's own box (translateX percentages are
+   relative to the *translated element's own* size, not its container's,
+   which isn't what's needed here). */
+.header-shrink-frame {
+  container-type: inline-size;
+}
+
+/* Moves and shrinks the logo as --header-shrink goes 0 -> 1, using
+   transform (translateX + scale, on .header-logo-shrink) rather than
+   animating real font-size/width/height on the individual lines - an
+   earlier version did the latter to genuinely shrink the header's layout
+   height (transform alone doesn't change the space something occupies,
+   which left a large dead gap below the visibly-shrunk logo), but real
+   layout properties force a reflow on every single scroll frame, which is
+   exactly the kind of main-thread work that reads as jumpy/jank during
+   fast scrolling - transform is compositor-only and doesn't have that
+   cost. .header-logo-frame (the parent, wrapping .header-logo-shrink)
+   solves the dead-gap problem instead, with a real (layout-affecting, but
+   just this one element) shrinking height and overflow: hidden to clip
+   whatever the scaled-down content no longer fills.
+
+   Deliberately two separate elements, not one rule carrying both the
+   frame's height and the content's transform: scale() shrinks an element
+   around its transform-origin relative to its *own* box, so if the same
+   element's height were also shrinking via calc() at the same time, the
+   scale would be compounding against an already-shrinking box instead of
+   the content's true natural size - the content ends up rendering far
+   smaller than intended, and overflow: hidden clips most of it before you
+   ever see the compounding, since the two calc()s aren't guaranteed to
+   track each other frame-for-frame. Splitting the height (frame, no
+   transform) from the scale (shrink, no explicit height - its natural
+   size is what transform-origin: center top scales around) keeps them
+   independent.
+
+   translateX's calc() (on .header-logo-shrink) finds the gap between
+   "centered" (50cqw from the frame's left edge to the logo's own center)
+   and "flush left" (half the *shrunk* logo's own width from that same
+   edge) and closes exactly that gap - not the unshrunk width, since a
+   flush-left target has to account for the logo's final (shrunk) size,
+   not its starting size. --logo-shrunk-half is that shrunk half-width, in
+   px - measured from the actual rendered logo (not the image alone:
+   "PHOTOGRAPHY", thanks to its large letter-spacing, is the widest line,
+   both before and after shrinking uniformly via scale() - using the
+   image's narrower width here previously let PHOTOGRAPHY overhang the
+   frame's left edge and get clipped), overridden per breakpoint below
+   since the logo's rest size (and therefore shrunk size) differs by
+   breakpoint. */
+.header-logo-frame {
+  height: calc(156px - var(--header-shrink) * 112px);
+  overflow: hidden;
+}
+
+.header-logo-shrink {
+  --logo-shrunk-half: 38px;
+  transform:
+    translateX(calc(var(--header-shrink) * -1 * (50cqw - var(--logo-shrunk-half))))
+    scale(calc(1 - var(--header-shrink) * 0.72));
+  transform-origin: center top;
+  will-change: transform;
+}
+
+@media (min-width: 768px) {
+  .header-logo-frame {
+    height: calc(248px - var(--header-shrink) * 178px);
+  }
+  .header-logo-shrink {
+    --logo-shrunk-half: 68px;
+  }
+}
+
+/* Header padding and nav spacing shrink toward the compact "Modern" header
+   layout's own values (see HeroSectionModern.tsx) as the page scrolls,
+   rather than jumping to them - replaces the plain Tailwind padding
+   utilities that used to be here, since Tailwind classes and this calc()
+   would otherwise fight over the same properties. */
+.header-shrink-frame {
+  padding-left: 24px;
+  padding-right: 24px;
+  padding-top: calc(18px - var(--header-shrink) * 4px);
+  padding-bottom: calc(20px - var(--header-shrink) * 6px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, calc(var(--header-shrink) * 0.1));
+}
+
+@media (min-width: 768px) {
+  .header-shrink-frame {
+    padding-left: 50px;
+    padding-right: 50px;
+    padding-top: calc(22px - var(--header-shrink) * 8px);
+    padding-bottom: calc(24px - var(--header-shrink) * 10px);
+  }
+}
+
+/* translateY, not an animated margin-top, for the same reason the logo
+   uses transform instead of real font-size/height above - margin is a
+   layout property, forcing a reflow every scroll frame (this is
+   specifically what was still making the *desktop* header feel jumpy on
+   fast scrolls after the logo fix below - nav is desktop-only, hidden on
+   mobile, so mobile was never affected by this). column-gap isn't
+   animated at all here for the same reason, but doesn't have as clean a
+   transform equivalent for a multi-item flex row (each item would need
+   its own individually-computed offset) - it just keeps its original
+   static spacing throughout, which is a small enough visual difference
+   from Modern's own tighter gap to not be worth the added complexity. */
+.header-nav-shrink {
+  margin-top: 15px;
+  transform: translateY(calc(var(--header-shrink) * -11px));
+  will-change: transform;
+}
+
 /* Scroll-driven pan/zoom for the breakout photo (components/BreakoutPhoto.tsx),
    used instead of a JS scroll listener wherever the browser supports it (see
    lib/use-css-scroll-support.ts) - it runs entirely on the compositor thread,
@@ -50,36 +199,57 @@ body {
   initial-value: 1;
 }
 
-@property --breakout-pan {
-  syntax: '<percentage>';
-  inherits: false;
-  initial-value: 0%;
-}
-
 .breakout-timeline-subject {
   view-timeline-name: --breakout-progress;
   view-timeline-axis: block;
 }
 
-@keyframes breakout-zoom-kf {
+/* Establishes the container-query context .breakout-fullscreen-zoom's
+   width below measures against (cqw = % of the sticky frame's own width) -
+   same reasoning as the header/rail's own use of cqw elsewhere in this
+   file: a scale target expressed as a ratio between two cqw values holds
+   at any viewport size, without measuring actual pixels in JS. */
+.breakout-frame {
+  container-type: inline-size;
+}
+
+/* Desktop breakout: starts as a normal-sized, centered photo (not filling
+   the frame), scales up to cover the full screen at the midpoint of the
+   scroll-linked dwell, then scales back down to its starting size - a
+   single transform: scale(), not real width/height, for the same
+   compositor-only reasoning as the header's shrink (see the
+   .header-logo-shrink comment). BREAKOUT_FULLSCREEN_PEAK's value: the box
+   starts at 100/BREAKOUT_FULLSCREEN_PEAK = ~22cqw wide, so scaling it by
+   that peak lands it at 100cqw (full frame width) with a little overshoot
+   for safety margin - full width is the binding constraint for a portrait-
+   oriented box (see BreakoutPhoto.tsx - the breakout queue is
+   portrait-only) inside a wider-than-tall frame, so reaching full *width*
+   coverage reliably overshoots full *height* coverage too on typical
+   desktop aspect ratios, without needing to separately reason about cqh.
+   overflow: hidden on .breakout-frame (the parent) clips whatever the
+   photo's own aspect ratio doesn't exactly fill at that peak, the same way
+   object-cover would. */
+@keyframes breakout-fullscreen-zoom-kf {
   0% { --breakout-zoom: 1; }
-  50% { --breakout-zoom: 1.18; }
+  50% { --breakout-zoom: 5.2; }
   100% { --breakout-zoom: 1; }
 }
 
-@keyframes breakout-pan-kf {
-  0% { --breakout-pan: 25%; }
-  100% { --breakout-pan: -25%; }
-}
-
-.breakout-pan-layer {
-  /* The "1s" is nominal - animation-timeline replaces time-based progress
-     with scroll-based progress, but some engines only treat the animation
-     as active with a non-zero/non-auto duration in the shorthand. */
-  animation: breakout-zoom-kf 1s linear, breakout-pan-kf 1s linear;
+.breakout-fullscreen-zoom {
+  animation: breakout-fullscreen-zoom-kf 1s linear;
   animation-timeline: --breakout-progress;
+  /* Scopes the zoom to exactly the pin's dwell (sticky engage to sticky
+     release), matching the JS fallback's 'start start'/'end end' offset -
+     without this, the default `cover` range also spends progress on the
+     entrance-from-below and exit-above portions before/after the frame is
+     actually pinned, so the zoom is mid-cycle (already partway zoomed in,
+     or already zooming back out) right as the pin engages instead of
+     starting/ending exactly at rest size. Only matters as much as it does
+     here because the peak is now dramatic (5.2x) - the old, subtle 1.18x
+     desktop zoom had this same gap and it was never quite noticeable. */
+  animation-range: contain 0% contain 100%;
   animation-fill-mode: both;
-  transform: translateY(var(--breakout-pan)) scale(var(--breakout-zoom));
+  transform: scale(var(--breakout-zoom));
   will-change: transform;
 }
 
@@ -100,5 +270,51 @@ body {
   animation-timeline: --breakout-progress;
   animation-fill-mode: both;
   transform: scale(var(--breakout-zoom));
+  will-change: transform;
+}
+
+/* Mobile-only horizontal rail (components/MobileRail.tsx), pinned to the
+   viewport (position: sticky, on the frame nested inside this timeline
+   subject) while its inner track slides left as you scroll through the
+   dwell - using the same named-view-timeline technique as the breakout
+   above (and the same CSS/JS fallback split). Its own timeline name since
+   it tracks a different, unrelated element's passage through the viewport
+   than --breakout-progress does. */
+.rail-timeline-subject {
+  view-timeline-name: --rail-progress;
+  view-timeline-axis: block;
+}
+
+/* Establishes the container query context .rail-track's panels size
+   themselves against (100cqw = the frame's own width) - see MobileRail.tsx
+   for why cqw instead of a percentage of the track. */
+.rail-frame {
+  container-type: inline-size;
+}
+
+@keyframes rail-slide-kf {
+  from { transform: translateX(0); }
+  to   { transform: translateX(var(--rail-shift, calc(-430cqw))); }
+}
+
+.rail-track {
+  /* Sized to its flex children's natural (cqw-based) widths plus the gaps
+     between them, rather than a percentage that would need to already
+     know how much space the gaps eat into. Gap is set inline per-instance
+     (MobileRail.tsx); --rail-shift too, from the actual photo count - the
+     fallback here matches the default 5 photos. */
+  width: max-content;
+  animation: rail-slide-kf 1s linear;
+  animation-timeline: --rail-progress;
+  /* NOT the `contain` range - that only lines up with the pinned frame's
+     actual engage/release points when the frame is exactly full viewport
+     height, which it deliberately isn't here (see MobileRail.tsx). These
+     two custom properties hold the specific `cover X%` points MobileRail
+     computed to match the real sticky dwell for this frame's height; the
+     fallback values match the component's own defaults (60svh frame,
+     180svh dwell for 5 photos). */
+  animation-range-start: var(--rail-range-start, cover 29.4118%);
+  animation-range-end: var(--rail-range-end, cover 82.3529%);
+  animation-fill-mode: both;
   will-change: transform;
 }

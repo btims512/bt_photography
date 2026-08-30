@@ -75,6 +75,25 @@ export function interleaveByCategory(photos: Photo[]): Photo[] {
 }
 
 /**
+ * Repeats a photo list `laps` times, offsetting each lap's starting point
+ * so consecutive laps don't visibly replay the exact same block back to
+ * back. For padding out a thin real catalog to preview a cadence that
+ * needs more supply than currently exists (see callers) - drop once the
+ * catalog has enough real photos of the relevant kind to not need it.
+ */
+export function repeatWithOffset(photos: Photo[], laps: number): Photo[] {
+  if (photos.length === 0) return [];
+  const result: Photo[] = [];
+  for (let lap = 0; lap < laps; lap++) {
+    const offset = (lap * 3) % photos.length;
+    for (let i = 0; i < photos.length; i++) {
+      result.push(photos[(offset + i) % photos.length]);
+    }
+  }
+  return result;
+}
+
+/**
  * Round-robin distribution: photo i always goes to column i % columnCount.
  * Unlike distributeToColumns, this preserves the exact left-to-right reading
  * order of the source array (e.g. landscape/portrait/landscape per row),
@@ -90,7 +109,8 @@ export function distributeRoundRobin(photos: Photo[], columnCount = 3): Photo[][
 
 export type GallerySegment =
   | { type: 'grid'; photos: Photo[] }
-  | { type: 'breakout'; photo: Photo };
+  | { type: 'breakout'; photo: Photo }
+  | { type: 'rail'; photos: Photo[] };
 
 /**
  * Splits a flat photo list into masonry-grid segments of `breakoutEvery`
@@ -183,6 +203,53 @@ export function chunkWithBreakouts(photos: Photo[], breakoutEvery: number, colum
   }
   if (breakoutQueue.length > 0) {
     segments.push({ type: 'grid', photos: breakoutQueue });
+  }
+
+  return segments;
+}
+
+/**
+ * Mobile-only counterpart to chunkWithBreakouts: instead of interrupting the
+ * grid with a single full-bleed photo, groups every `railSize` portrait
+ * photos into a horizontal-scroll "rail" segment (see
+ * components/MobileRail.tsx) after every `landscapeEvery` landscape photos.
+ *
+ * No column-count trimming here, unlike chunkWithBreakouts - mobile always
+ * renders grid segments as one flat list regardless of segment boundaries,
+ * so there's no packed-column layout to keep even. No category round-robin
+ * either: it just walks `photos` in the order given, so callers should pass
+ * an already-interleaved list (e.g. interleaveByCategory's output) - the
+ * landscape/portrait alternation that produces is also what keeps enough
+ * portraits queued by the time each landscapeEvery threshold hits, rather
+ * than all landscape draining first and dumping every portrait into one
+ * trailing rail-less segment at the end.
+ */
+export function chunkWithRails(photos: Photo[], landscapeEvery: number, railSize: number): GallerySegment[] {
+  const segments: GallerySegment[] = [];
+  const railQueue: Photo[] = [];
+  let gridBuffer: Photo[] = [];
+
+  for (const photo of photos) {
+    if (photo.height > photo.width) {
+      railQueue.push(photo);
+      continue;
+    }
+
+    gridBuffer.push(photo);
+    if (gridBuffer.length >= landscapeEvery) {
+      segments.push({ type: 'grid', photos: gridBuffer });
+      gridBuffer = [];
+      if (railQueue.length >= railSize) {
+        segments.push({ type: 'rail', photos: railQueue.splice(0, railSize) });
+      }
+    }
+  }
+
+  if (gridBuffer.length > 0) {
+    segments.push({ type: 'grid', photos: gridBuffer });
+  }
+  if (railQueue.length > 0) {
+    segments.push({ type: 'grid', photos: railQueue });
   }
 
   return segments;

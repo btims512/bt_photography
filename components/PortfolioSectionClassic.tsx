@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { chunkWithBreakouts, distributeToColumns } from '@/lib/masonry';
+import { chunkWithBreakouts, chunkWithRails, distributeToColumns, repeatWithOffset } from '@/lib/masonry';
 import { BLUR_DATA_URL } from '@/lib/blur';
 import { useRevealWhenReady } from '@/lib/use-reveal';
 import { useWasInitiallyVisible } from '@/lib/use-was-initially-visible';
@@ -11,6 +11,7 @@ import { useMediaQuery } from '@/lib/use-media-query';
 import { useLayoutMode } from '@/lib/layout-mode';
 import Lightbox from './Lightbox';
 import BreakoutPhoto from './BreakoutPhoto';
+import MobileRail from './MobileRail';
 import type { Photo } from '@/lib/photos';
 
 interface PortfolioSectionProps {
@@ -18,6 +19,49 @@ interface PortfolioSectionProps {
   photos: Photo[];
   /** Interrupt the grid with a full-bleed photo every N photos. Omit to disable. */
   breakoutEvery?: number;
+}
+
+// Mobile-only cadence for the horizontal photo rail (see MobileRail.tsx):
+// every MOBILE_LANDSCAPE_EVERY landscape photos, insert a rail of
+// MOBILE_RAIL_SIZE portrait photos, then resume the grid. Desktop is
+// unaffected - it keeps the existing single-photo BreakoutPhoto interrupt.
+const MOBILE_LANDSCAPE_EVERY = 9;
+const MOBILE_RAIL_SIZE = 5;
+// The real catalog doesn't yet have enough landscape/portrait photos to
+// cycle this pattern more than once or twice, so this repeats the
+// (already genre/orientation-interleaved) photo list a few laps purely to
+// preview the cadence - offsetting each lap's start so consecutive laps
+// don't visibly replay in the exact same order. Drop this once there are
+// enough real photos of each orientation to not need padding.
+const MOBILE_RAIL_LAPS = 4;
+
+/**
+ * chunkWithBreakouts (lib/masonry.ts) dispenses one portrait photo per
+ * breakoutEvery landscape photos; whatever's left once landscape supply
+ * runs out gets dumped into a single trailing grid segment instead of a
+ * breakout each. The real catalog only has a handful of landscape photos -
+ * nowhere near enough for more than one breakoutEvery cycle - so without
+ * this, only the first real portrait ever got a breakout and the rest
+ * piled up together at the end, reading as "all landscape, then all
+ * portrait." This pads landscape up to breakoutEvery * portraitCount so
+ * every real portrait gets its own turn, spread through the page, with a
+ * rotating offset (repeatWithOffset) so cycles don't visibly replay the
+ * same block back to back. Scoped to desktop's own segmentation, not the
+ * shared photos prop - mobile builds its own repeated pool on top of
+ * whatever's passed in (see MOBILE_RAIL_LAPS above), so padding this list
+ * further here would also multiply mobile's rail count as a side effect.
+ * Drop this once the catalog has enough real landscape photos to not need
+ * it.
+ */
+function padLandscapeForBreakouts(photos: Photo[], breakoutEvery: number): Photo[] {
+  const landscape = photos.filter((p) => p.width >= p.height);
+  const portraits = photos.filter((p) => p.height > p.width);
+  if (landscape.length === 0 || portraits.length === 0) return photos;
+
+  const targetLandscapeCount = breakoutEvery * portraits.length;
+  const laps = Math.ceil(targetLandscapeCount / landscape.length);
+  const paddedLandscape = repeatWithOffset(landscape, laps).slice(0, targetLandscapeCount);
+  return [...portraits, ...paddedLandscape];
 }
 
 interface GridPhotoProps {
@@ -130,6 +174,19 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery }: P
   // desktop is "not yet packed into columns" rather than "3 columns crammed
   // onto a phone screen" for mobile visitors, who are the majority case.
   const isDesktop = useMediaQuery('(min-width: 768px)', false);
+  // False on the server and the hydration render (where isDesktop is still
+  // its mobile default even on a desktop viewport), true from the first
+  // post-mount render, once isDesktop reflects the real viewport. Gates the
+  // mobile rail layout below: without it, desktop's initial render would
+  // produce the rail segment list (repeated photos, multi-screen-tall rail
+  // shells) and then swap to the breakout layout after mount - a large,
+  // visibly broken-looking flash. Gated this way, every first paint is the
+  // original breakout layout, and only real phones swap to rails (a swap
+  // that happens below the fold, since rails never sit at the very top).
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Filter out photos without src URLs (placeholders)
   const validPhotos = photos.filter((photo) => photo.src.trim() !== '');
@@ -142,10 +199,37 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery }: P
     );
   }
 
-  const segments = breakoutEvery
-    ? chunkWithBreakouts(validPhotos, breakoutEvery)
-    : [{ type: 'grid' as const, photos: validPhotos }];
+  const segments = !breakoutEvery
+    ? [{ type: 'grid' as const, photos: validPhotos }]
+    : mounted && !isDesktop
+      ? chunkWithRails(
+          repeatWithOffset(validPhotos, MOBILE_RAIL_LAPS),
+          MOBILE_LANDSCAPE_EVERY,
+          MOBILE_RAIL_SIZE
+        )
+      : chunkWithBreakouts(padLandscapeForBreakouts(validPhotos, breakoutEvery), breakoutEvery);
   let index = 0;
+
+  // The Lightbox's prev/next order has to match whatever's actually on
+  // screen, not validPhotos' original order - which stopped being the same
+  // thing once desktop's segments started padding/repeating landscape
+  // photos (padLandscapeForBreakouts above) and packing them into columns
+  // (distributeToColumns below), and mobile's started repeating everything
+  // for the rail (repeatWithOffset above). Walking segments the same way
+  // the JSX below does - including desktop's own column-packing - keeps
+  // this from drifting out of sync with a future change to either.
+  const visualOrder: Photo[] = [];
+  for (const segment of segments) {
+    if (segment.type === 'breakout') {
+      visualOrder.push(segment.photo);
+    } else if (segment.type === 'rail' || !isDesktop) {
+      visualOrder.push(...segment.photos);
+    } else {
+      for (const column of distributeToColumns(segment.photos, 3)) {
+        visualOrder.push(...column);
+      }
+    }
+  }
 
   return (
     <section id={id} style={{backgroundColor: 'var(--bg)'}}>
@@ -154,12 +238,35 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery }: P
           {segments.map((segment, segmentIndex) => {
             if (segment.type === 'breakout') {
               const currentIndex = index++;
+              // isDesktop is part of the key on purpose: BreakoutPhoto
+              // renders completely different DOM per branch, but framer's
+              // useInView/useScroll only capture ref.current when their
+              // effects first run - for a component that hydrates in the
+              // mobile branch (isDesktop's SSR default) and then flips to
+              // desktop, they'd keep observing the unmounted mobile node
+              // forever, leaving the desktop frame permanently stuck in its
+              // hidden pre-entrance state (a blank 100svh gap where the
+              // photo belongs). Changing the key forces a remount on the
+              // flip so every hook re-binds to the real node. Grid photos
+              // don't need this only because their keys happen to change
+              // across the flip anyway (column packing renumbers them).
               return (
                 <BreakoutPhoto
-                  key={`breakout-${segmentIndex}-${segment.photo.src}`}
+                  key={`breakout-${segmentIndex}-${segment.photo.src}-${isDesktop ? 'd' : 'm'}`}
                   photo={segment.photo}
                   priority={currentIndex === 0}
-                  onClick={() => setOpenIndex(validPhotos.indexOf(segment.photo))}
+                  onClick={() => setOpenIndex(visualOrder.indexOf(segment.photo))}
+                  isDesktop={isDesktop}
+                />
+              );
+            }
+
+            if (segment.type === 'rail') {
+              return (
+                <MobileRail
+                  key={`rail-${segmentIndex}-${segment.photos[0]?.src ?? ''}`}
+                  photos={segment.photos}
+                  onOpen={(photo) => setOpenIndex(visualOrder.indexOf(photo))}
                 />
               );
             }
@@ -182,7 +289,7 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery }: P
                         photo={photo}
                         currentIndex={currentIndex}
                         priority={currentIndex === 0}
-                        onOpen={() => setOpenIndex(validPhotos.indexOf(photo))}
+                        onOpen={() => setOpenIndex(visualOrder.indexOf(photo))}
                         isDesktop={isDesktop}
                       />
                     );
@@ -209,7 +316,7 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery }: P
                           photo={photo}
                           currentIndex={currentIndex}
                           priority={currentIndex === 0}
-                          onOpen={() => setOpenIndex(validPhotos.indexOf(photo))}
+                          onOpen={() => setOpenIndex(visualOrder.indexOf(photo))}
                           isDesktop={isDesktop}
                         />
                       );
@@ -222,7 +329,7 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery }: P
         </div>
       </main>
       <Lightbox
-        photos={validPhotos}
+        photos={visualOrder}
         index={openIndex}
         onClose={() => setOpenIndex(null)}
         onNavigate={setOpenIndex}

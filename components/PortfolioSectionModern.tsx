@@ -156,10 +156,15 @@ export default function PortfolioSectionModern({ id, photos, breakoutEvery }: Po
               const currentIndex = index++;
               return (
                 <BreakoutPhoto
-                  key={`breakout-${segmentIndex}-${segment.photo.src}`}
+                  // isDesktop in the key + as a prop for the same reason as
+                  // PortfolioSectionClassic: a mobile->desktop flip must
+                  // remount so framer's ref-bound hooks re-bind to the
+                  // branch that actually stays mounted.
+                  key={`breakout-${segmentIndex}-${segment.photo.src}-${isDesktop ? 'd' : 'm'}`}
                   photo={segment.photo}
                   priority={currentIndex === 0}
                   onClick={() => setOpenIndex(validPhotos.indexOf(segment.photo))}
+                  isDesktop={isDesktop}
                 />
               );
             }
