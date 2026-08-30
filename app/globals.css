@@ -429,9 +429,11 @@ body {
    after it ends. scale() rather than an animated width keeps this
    compositor-only, and leaves the *layout* box at full size the whole
    time - which is what lets .rail-squiggle-spacer match the gaps the
-   squiggles sit in without tracking the zoom itself. The zoom finishes
-   well before the squiggles start drawing (8% vs 14%) and restarts after
-   they've fully retracted (92% vs 88%), so the two never move at once. */
+   squiggles sit in without tracking the zoom itself. The rise is quick
+   (6%) so it is over before the squiggle that starts at 2% has covered
+   any noticeable distance, and the drop begins at 94%, exactly where that
+   squiggle finishes withdrawing - see rail-squiggle-kf for why the line's
+   own timing is what these two numbers are chosen around. */
 @property --rail-photo-zoom {
   syntax: '<number>';
   inherits: false;
@@ -440,8 +442,8 @@ body {
 
 @keyframes rail-photo-zoom-kf {
   0%   { --rail-photo-zoom: 0.88; }
-  8%   { --rail-photo-zoom: 1; }
-  92%  { --rail-photo-zoom: 1; }
+  6%   { --rail-photo-zoom: 1; }
+  94%  { --rail-photo-zoom: 1; }
   100% { --rail-photo-zoom: 0.88; }
 }
 
@@ -522,21 +524,32 @@ body {
   animation-name: rail-squiggle-reverse-kf;
 }
 
+/* The line begins almost immediately (2%) rather than waiting for the
+   photo to finish rising, so it reads as starting the moment the first
+   photo moves at all - the slide and the draw share the same timeline, so
+   any later start visibly lags the photo it's framing. It then takes a
+   long time to cross (2->44%, over twice its first tuning) and an equally
+   long time to withdraw (62->94%), which is what makes the line feel drawn
+   rather than snapped into place. The 94% end is also where the photo's
+   zoom-out begins, so the line is fully gone at the instant the photo
+   starts dropping and the two never move together at that end - the rise
+   at the other end is quick enough (6%) to be over before the line has
+   travelled any distance worth seeing. */
 @keyframes rail-squiggle-kf {
   0%   { stroke-dashoffset: 1; }
-  14%  { stroke-dashoffset: 1; }
-  30%  { stroke-dashoffset: 0; }
-  72%  { stroke-dashoffset: 0; }
-  88%  { stroke-dashoffset: 1; }
+  2%   { stroke-dashoffset: 1; }
+  44%  { stroke-dashoffset: 0; }
+  62%  { stroke-dashoffset: 0; }
+  94%  { stroke-dashoffset: 1; }
   100% { stroke-dashoffset: 1; }
 }
 
 @keyframes rail-squiggle-reverse-kf {
   0%   { stroke-dashoffset: -1; }
-  14%  { stroke-dashoffset: -1; }
-  30%  { stroke-dashoffset: 0; }
-  72%  { stroke-dashoffset: 0; }
-  88%  { stroke-dashoffset: -1; }
+  2%   { stroke-dashoffset: -1; }
+  44%  { stroke-dashoffset: 0; }
+  62%  { stroke-dashoffset: 0; }
+  94%  { stroke-dashoffset: -1; }
   100% { stroke-dashoffset: -1; }
 }
 

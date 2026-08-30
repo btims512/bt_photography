@@ -158,9 +158,9 @@ export default function MobileRail({ photos, onOpen }: MobileRailProps) {
   // below - each mirrors its keyframe percentages exactly so both paths
   // look identical. See .rail-photo-zoom-kf / .rail-squiggle-kf in
   // globals.css for what the stops mean.
-  const photoZoom = useTransform(smoothProgress, [0, 0.08, 0.92, 1], [0.88, 1, 1, 0.88]);
-  const squiggleFromLeft = useTransform(smoothProgress, [0, 0.14, 0.3, 0.72, 0.88, 1], [1, 1, 0, 0, 1, 1]);
-  const squiggleFromRight = useTransform(smoothProgress, [0, 0.14, 0.3, 0.72, 0.88, 1], [-1, -1, 0, 0, -1, -1]);
+  const photoZoom = useTransform(smoothProgress, [0, 0.06, 0.94, 1], [0.88, 1, 1, 0.88]);
+  const squiggleFromLeft = useTransform(smoothProgress, [0, 0.02, 0.44, 0.62, 0.94, 1], [1, 1, 0, 0, 1, 1]);
+  const squiggleFromRight = useTransform(smoothProgress, [0, 0.02, 0.44, 0.62, 0.94, 1], [-1, -1, 0, 0, -1, -1]);
 
   const isInView = useInView(outerRef, { margin: '200px' });
   const { headerReady } = useLayoutMode();
