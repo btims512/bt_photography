@@ -78,6 +78,27 @@ body {
    which isn't what's needed here). */
 .header-shrink-frame {
   container-type: inline-size;
+  /* The logo's own progress through the shrink, which mobile keeps
+     identical to --header-shrink and desktop runs ahead of it (see the
+     media query below). Everything the logo does - its frame's height,
+     its scale, its slide to the left - reads this instead, so the two can
+     be re-timed independently of the header's other animated values. */
+  --header-logo-shrink: var(--header-shrink);
+}
+
+@media (min-width: 768px) {
+  .header-shrink-frame {
+    /* Desktop finishes the logo by 60% of the shrink, well before the nav
+       merges onto its row at 70-100%. That ordering is what stops the two
+       ever colliding: the logo is 315px wide at the halfway point and
+       sweeps right across "home" and "comedy" on its way left, clearing
+       the nav's first item only at the very end of its travel - so as
+       long as it is *already* clear before the nav arrives beside it,
+       they never share space. It replaces fading the nav out through the
+       crossover, which worked but meant the sections visibly blinked away
+       and back mid-scroll. */
+    --header-logo-shrink: clamp(0, calc(var(--header-shrink) / 0.6), 1);
+  }
 }
 
 /* Moves and shrinks the logo as --header-shrink goes 0 -> 1, using
@@ -121,7 +142,7 @@ body {
    since the logo's rest size (and therefore shrunk size) differs by
    breakpoint. */
 .header-logo-frame {
-  height: calc(156px - var(--header-shrink) * 112px);
+  height: calc(156px - var(--header-logo-shrink) * 112px);
   overflow: hidden;
 }
 
@@ -139,8 +160,8 @@ body {
      needing a much bigger reduction than mobile's to still fit). */
   --logo-shrink-max: 0.72;
   transform:
-    translateX(calc(var(--header-shrink) * -1 * (50cqw - var(--logo-shrunk-half))))
-    scale(calc(1 - var(--header-shrink) * var(--logo-shrink-max)));
+    translateX(calc(var(--header-logo-shrink) * -1 * (50cqw - var(--logo-shrunk-half))))
+    scale(calc(1 - var(--header-logo-shrink) * var(--logo-shrink-max)));
   transform-origin: center top;
   will-change: transform;
 }
@@ -165,7 +186,7 @@ body {
    uneven, pushed-into-the-corner look. */
 @media (min-width: 768px) {
   .header-logo-frame {
-    height: calc(248px - var(--header-shrink) * 174px);
+    height: calc(248px - var(--header-logo-shrink) * 174px);
   }
   .header-logo-shrink {
     --logo-shrunk-half: 73px;
@@ -206,38 +227,49 @@ body {
    its own individually-computed offset) - it just keeps its original
    static spacing throughout, which is a small enough visual difference
    from Modern's own tighter gap to not be worth the added complexity. */
-/* The nav's reserved space in the header's flow. Collapsing it to zero as
-   the header shrinks is what actually shortens the header: the nav itself
-   moves by transform, which paints in a new place but still occupies its
-   original box, so on its own it could never reclaim a single pixel of
-   height. Height on this one wrapper is a layout property and does cost a
-   reflow per scroll frame, but it is one element that nothing else is
-   sized against - the same trade .header-logo-frame already makes, and
-   the only way to trade header height for grid visibility at all.
+/* The nav's reserved space in the header's flow, and the nav's lift onto
+   the logo's row - both desktop-only, and both scoped to the media query
+   below rather than living out here. That scoping is not tidiness: this
+   wrapper carries Tailwind's `hidden md:block`, and a bare
+   `.header-nav-slot { display: flow-root }` is a single-class selector
+   sitting after Tailwind in the cascade, so it beat `.hidden` and put the
+   desktop nav on screen on mobile. Anything that sets `display` here has
+   to stay behind the breakpoint. */
 
-   49px is the nav's own footprint at rest: 15px margin-top plus its 34px
-   line. Desktop-only, like the nav it wraps. */
-.header-nav-slot {
-  height: calc(49px - var(--header-shrink) * 49px);
-  /* Establishes a block formatting context purely to stop the nav's own
-     15px margin-top collapsing out through this wrapper and re-adding
-     itself to the header's height - which it did, leaving the header 15px
-     taller than the slot's arithmetic says at both ends. overflow stays
-     visible, so the nav can still be lifted out of this box by transform
-     once the slot has collapsed. */
-  display: flow-root;
-}
-
-/* -69px lands the nav vertically centred on the shrunk logo's row rather
-   than below it: with the slot collapsed the nav's box starts 15px under
-   the 74px logo frame (at 103px from the header's top edge), and centring
-   its 34px line in that frame wants it at 34px - a 69px lift. The logo
-   sits left and the nav centred, so sharing a row costs them nothing
-   horizontally, and the header drops from 151px to 102px. */
 .header-nav-shrink {
   margin-top: 15px;
-  transform: translateY(calc(var(--header-shrink) * -69px));
   will-change: transform;
+}
+
+@media (min-width: 768px) {
+  /* Collapses only across the last 30% of the shrink: the logo is still
+     315px wide at the halfway point and sweeps right across "home" and
+     "comedy" on its way to the left edge, clearing the nav's first item
+     only at the very end of its travel. So the two stay on separate rows
+     for nearly all of the transition and merge onto one at the finish;
+     the sliver of overlap left while the nav lifts into a logo that is
+     not quite clear yet no longer exists, since the logo now finishes
+     its travel before the nav arrives. 49px is the nav's own footprint at rest -
+     15px margin-top plus its 34px line.
+
+     Collapsing this wrapper is what actually shortens the header. The nav
+     itself moves by transform, which paints in a new place but still
+     occupies its original box, so on its own it could never reclaim a
+     pixel of height. flow-root stops the nav's 15px margin-top collapsing
+     out through the wrapper and re-adding itself to the header. */
+  .header-nav-slot {
+    display: flow-root;
+    height: clamp(0px, calc(49px * (1 - (var(--header-shrink) - 0.7) / 0.3)), 49px);
+  }
+
+  /* -69px lands the nav centred on the shrunk logo's row: with the slot
+     collapsed its box starts 15px under the 74px logo frame, at 103px
+     from the header's top, and centring its 34px line in that frame wants
+     it at 34px. Logo left, nav centred, so sharing a row costs them
+     nothing horizontally - and the header drops 151px -> 102px. */
+  .header-nav-shrink {
+    transform: translateY(calc(-69px * clamp(0, (var(--header-shrink) - 0.7) / 0.3, 1)));
+  }
 }
 
 /* Scroll-driven pan/zoom for the breakout photo (components/BreakoutPhoto.tsx),
@@ -839,8 +871,8 @@ body {
 @keyframes dtrail-slide-kf {
   0%   { transform: translateY(0); }
   20%  { transform: translateY(0); }
-  80%  { transform: translateY(var(--dtrail-shift, calc(-324cqh))); }
-  100% { transform: translateY(var(--dtrail-shift, calc(-324cqh))); }
+  80%  { transform: translateY(var(--dtrail-shift, -300vh)); }
+  100% { transform: translateY(var(--dtrail-shift, -300vh)); }
 }
 
 .dtrail-track {
@@ -854,8 +886,14 @@ body {
   will-change: transform;
 }
 
+/* Each panel is the photo's own full-bleed height - full viewport width
+   divided by the photo's aspect ratio - not one viewport tall. That is
+   what removes the cropping: a box already matching the photo's shape has
+   nothing left to crop, and the strip simply travels past the frame so
+   every photo is seen end to end. --dtrail-photo-h is set per instance in
+   DesktopRail.tsx, since only it knows the rail's ratio. */
 .dtrail-panel {
-  flex: 0 0 100cqh;
+  flex: 0 0 var(--dtrail-photo-h);
   width: 100%;
 }
 

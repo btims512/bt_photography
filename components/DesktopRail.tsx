@@ -19,14 +19,18 @@ interface DesktopRailProps {
 // full viewport height (MobileRail has to compute `cover X%` positions by
 // hand precisely because that assumption doesn't hold there).
 const FRAME_SVH = 100;
-// Scroll consumed per photo-to-photo transition while pinned, as svh.
-const DWELL_PER_TRANSITION_SVH = 60;
-// Vertical gap between photos mid-slide, as cqh (% of the frame's own
-// height - the frame sets container-type: size so both axes are
-// queryable). Small, because the photos either side of it are now
-// full-screen: at 8 the black band between them read as a pause in the
-// slide rather than a seam.
-const GAP_CQH = 3;
+// How fast the strip travels against the scroll. 1 would be exactly
+// 1:1 - the photo moving with your finger - but a portrait photo at full
+// desktop width is about 2.4 viewports tall, so revealing four of them
+// end to end at 1:1 would make one carousel roughly ten viewports of
+// scroll. 2 halves that while still reading as a scroll rather than a
+// jump. Raise it for a shorter, faster section; lower it toward 1 for a
+// more literal, slower one.
+const PAN_RATE = 2;
+// Vertical gap between photos, in px. Small, because the photos either
+// side of it are full-bleed: a wide band between them reads as a pause in
+// the travel rather than a seam.
+const GAP_PX = 28;
 
 // Where the slide sits within the dwell. Everything before SLIDE_START is
 // the two staged reveals (backdrop, then photos); everything after
@@ -85,14 +89,20 @@ export default function DesktopRail({ photos, onOpen }: DesktopRailProps) {
 
   const gapCount = photos.length - 1;
   const slideSpan = SLIDE_END - SLIDE_START;
-  const totalDwellSvh = (gapCount * DWELL_PER_TRANSITION_SVH) / slideSpan;
-  const outerHeightSvh = FRAME_SVH + totalDwellSvh;
 
-  // Each panel is a full frame-height, so the track travels one panel plus
-  // one gap per transition - in cqh so it stays correct at any frame size
-  // without measuring pixels.
-  const shiftCqh = gapCount * (100 + GAP_CQH);
-  const cssShiftValue = `calc(-${shiftCqh}cqh)`;
+  // Every photo in a rail shares an aspect ratio (takeUniformRail groups
+  // them that way), so one ratio sizes them all. At full-bleed width the
+  // frame spans the viewport, which is what lets these be written in vw
+  // and stay correct at any window size without measuring anything.
+  const ratio = photos[0].width / photos[0].height;
+  const photoHeight = `(100vw / ${ratio.toFixed(4)})`;
+  // The strip is taller than the frame by exactly what has to travel past
+  // it for every photo to be seen end to end.
+  const travel = `(${photos.length} * ${photoHeight} + ${gapCount * GAP_PX}px - 100svh)`;
+  const cssShiftValue = `calc(-1 * ${travel})`;
+  // Scroll needed for that travel at PAN_RATE, then widened so the slide
+  // occupies only its share of the dwell and the wipes keep the rest.
+  const outerHeight = `calc(${FRAME_SVH}svh + ${travel} / ${PAN_RATE} / ${slideSpan.toFixed(4)})`;
 
   const { scrollYProgress } = useScroll({
     target: outerRef,
@@ -105,7 +115,7 @@ export default function DesktopRail({ photos, onOpen }: DesktopRailProps) {
   // from a plain number rather than interpolated between two inset()
   // values, since a motion value can only tween numbers.
   const slide = useTransform(smoothProgress, [0, SLIDE_START, SLIDE_END, 1], [0, 0, 1, 1]);
-  const trackTransform = useTransform(slide, (v) => `translateY(calc(${(-v).toFixed(4)} * ${shiftCqh}cqh))`);
+  const trackTransform = useTransform(slide, (v) => `translateY(calc(${(-v).toFixed(4)} * ${travel}))`);
   const clipFrom = (inPct: number, outPct: number) =>
     `inset(${outPct.toFixed(2)}% ${outPct.toFixed(2)}% ${inPct.toFixed(2)}% ${inPct.toFixed(2)}%)`;
   const backdropIn = useTransform(smoothProgress, [0, 0.08, 1], [100, 0, 0]);
@@ -150,11 +160,11 @@ export default function DesktopRail({ photos, onOpen }: DesktopRailProps) {
     <div
       ref={outerRef}
       className={`dtrail-fullbleed relative ${cssSupported ? 'dtrail-timeline-subject' : ''}`}
-      style={{ height: `${outerHeightSvh}svh` }}
+      style={{ height: outerHeight }}
     >
       <motion.div
         className="dtrail-frame sticky top-0 z-[35] w-full overflow-hidden bg-[var(--bg)]"
-        style={{ height: `${FRAME_SVH}svh` }}
+        style={{ height: `${FRAME_SVH}svh`, '--dtrail-photo-h': `calc(${photoHeight})` } as CSSProperties}
         initial={{ opacity: 0 }}
         animate={{ opacity: revealed ? 1 : 0 }}
         transition={{ duration: 0.6, ease: 'easeOut' }}
@@ -169,7 +179,7 @@ export default function DesktopRail({ photos, onOpen }: DesktopRailProps) {
           <div className="dtrail-view">
             <div
               className="dtrail-track"
-              style={{ gap: `${GAP_CQH}cqh`, '--dtrail-shift': cssShiftValue } as CSSProperties}
+              style={{ gap: `${GAP_PX}px`, '--dtrail-shift': cssShiftValue } as CSSProperties}
             >
               {panels}
             </div>
@@ -178,7 +188,7 @@ export default function DesktopRail({ photos, onOpen }: DesktopRailProps) {
           <motion.div className="dtrail-view" style={{ clipPath: viewClip }}>
             <motion.div
               className="dtrail-track"
-              style={{ gap: `${GAP_CQH}cqh`, transform: trackTransform, willChange: 'transform' }}
+              style={{ gap: `${GAP_PX}px`, transform: trackTransform, willChange: 'transform' }}
             >
               {panels}
             </motion.div>
