@@ -59,6 +59,17 @@ body {
   initial-value: 0;
 }
 
+/* The mobile header's height once fully shrunk, i.e. everything below with
+   --header-shrink at 1: padding-top (18 - 4) + .header-logo-frame
+   (156 - 112) + padding-bottom (20 - 6) = 72. Nav is desktop-only so it
+   contributes nothing here. Kept as a named value because .rail-frame
+   needs it to offset the header it sits behind (see that rule) - anything
+   that changes the three numbers above has to change this to match, since
+   nothing derives it automatically. */
+:root {
+  --header-shrunk-height: 72px;
+}
+
 /* Establishes the container-query context the logo's translateX below
    measures against (cqw = % of the header's own content width, i.e. inside
    its padding) - see HeroSectionClassic.tsx for why cqw instead of a
@@ -305,7 +316,7 @@ body {
    padding, so this fills its frame's width the same way. */
 .breakout-mobile-box {
   aspect-ratio: 66 / 100;
-  width: min(calc(100vw - 48px), 51svh);
+  width: min(calc(100vw - 48px), 45svh);
   height: auto;
 }
 
@@ -323,9 +334,22 @@ body {
 
 /* Establishes the container query context .rail-track's panels size
    themselves against (100cqw = the frame's own width) - see MobileRail.tsx
-   for why cqw instead of a percentage of the track. */
+   for why cqw instead of a percentage of the track.
+
+   padding-top offsets the sticky header, which paints over this frame's
+   top edge (the header is z-30 and this is z-auto, so it wins) while the
+   rail is pinned. Without it, the panels centre their photo within the
+   frame's full 100svh - but the top slice of that is hidden behind the
+   header, so the *visible* gap above the photo comes out exactly one
+   header-height shorter than the gap below. Padding shrinks the content
+   box the panels actually centre within, and since it starts below the
+   header, centring in it means centring in what you can see. The header
+   is always fully shrunk by the time any rail is pinned (its shrink
+   completes within the first 220px of scroll, and rails sit far below
+   that), so its collapsed height is the only value this needs. */
 .rail-frame {
   container-type: inline-size;
+  padding-top: var(--header-shrunk-height);
 }
 
 @keyframes rail-slide-kf {
@@ -360,11 +384,17 @@ body {
    panel exactly and the flex gap between panels (RAIL_GAP_CQW in
    MobileRail.tsx) is what keeps neighbours apart while sliding - that gap
    is now the only separation, since the side bars that used to add to it
-   are gone. 51svh caps the derived height at ~77svh so a wide-but-short
-   viewport can't resolve 100cqw into a box taller than the screen. */
+   are gone. 45svh caps the derived height at ~68svh so a wide-but-short
+   viewport can't resolve 100cqw into a box taller than the screen; it has
+   to leave room for .rail-frame's header padding as well, which eats a
+   far larger share of a short viewport (72px of 375 is 19%, against 8% of
+   844), so this sits low enough that the photo still clears the header
+   with visible space instead of butting up against it. Only short
+   viewports are affected - at ordinary phone-portrait sizes 100cqw is the
+   smaller of the two and this cap never binds. */
 .rail-photo-box {
   aspect-ratio: 66 / 100;
-  width: min(100cqw, 51svh);
+  width: min(100cqw, 45svh);
   height: auto;
 }
 
