@@ -25,8 +25,13 @@ const RAIL_FRAME_SVH = 100;
 const RAIL_DWELL_PER_TRANSITION_SVH = 45;
 
 // Horizontal gap between photos mid-slide, as cqw (% of the frame's own
-// width, via `.rail-frame`'s container query context below).
-const RAIL_GAP_CQW = 7.5;
+// width, via `.rail-frame`'s container query context below). This is now
+// the *only* thing separating one photo from the next: photos fill their
+// panel's full width (see .rail-photo-box in globals.css), so the
+// letterbox bars that used to sit inside each panel's edges and pad this
+// out by another ~60px are gone. Raised from 7.5 to compensate - at 7.5
+// the photos read as nearly touching once they filled their panels.
+const RAIL_GAP_CQW = 12;
 
 /**
  * Mobile-only interlude between grid segments: a horizontal strip of

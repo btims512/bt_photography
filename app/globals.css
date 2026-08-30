@@ -296,14 +296,16 @@ body {
 }
 
 /* Same technique and ratio as .rail-photo-box below (see its comment for
-   the full derivation of why 81/100 produces uniform heights with nothing
-   cropped) - kept in step with it deliberately, since on mobile this
-   branch and the rail render the same portrait photos and shouldn't size
-   them differently. vw rather than cqw only because this frame doesn't
-   establish a container-query context the way .rail-frame does. */
+   the full derivation of why a box narrower than every photo makes them
+   fill the width with nothing cropped) - kept in step with it
+   deliberately, since on mobile this branch and the rail render the same
+   portrait photos and shouldn't size them differently. vw rather than cqw
+   only because this frame doesn't establish a container-query context the
+   way .rail-frame does; 100vw - 48px matches the section's own px-6
+   padding, so this fills its frame's width the same way. */
 .breakout-mobile-box {
-  aspect-ratio: 81 / 100;
-  width: min(94vw, 63svh);
+  aspect-ratio: 66 / 100;
+  width: min(calc(100vw - 48px), 51svh);
   height: auto;
 }
 
@@ -331,30 +333,38 @@ body {
   to   { transform: translateX(var(--rail-shift, calc(-430cqw))); }
 }
 
-/* Box each rail photo is centered in, sized so every photo renders at the
-   same HEIGHT with its own natural width and nothing ever cropped.
-   object-contain fits a photo by whichever axis runs out first, so the
-   axis that ends up uniform is decided entirely by how this box's ratio
-   compares to the photos': make the box *wider* than every photo and each
-   one is height-constrained, landing on identical heights with widths
-   varying by their own shape (top and bottom edges line up as they slide
-   past); make it narrower than every photo and the reverse happens. The
-   rail's photos run 0.6665 (2:3) to 0.8003 (4:5), so 81/100 clears the
-   widest with a small margin - raise it if a wider photo is ever added,
-   or that photo alone becomes width-constrained and breaks the uniform
-   height. Nothing here can crop: cropping would need object-cover, which
-   is the only way to make the widths uniform *too*, since the photos are
-   genuinely three different shapes (a deliberate tradeoff - uniform size
-   and zero cropping are mutually exclusive with mixed source ratios).
+/* Box each rail photo is centered in, sized so every photo fills the
+   frame's full width edge to edge - no letterbox bars down the sides -
+   with its own natural height and nothing ever cropped.
 
-   Two ceilings: 100cqw keeps the widest photo inside its own panel so it
-   can't spill into the gap and touch a neighbour (cqw measures against
-   .rail-frame's container-query context), and 63svh caps the derived
-   height at ~78svh for short viewports - without it, a wide-but-short
-   viewport resolves 100cqw to something far taller than the screen. */
+   object-contain fits a photo by whichever axis runs out first, and which
+   axis that is depends entirely on how this box's ratio compares to the
+   photo's. A box *wider* than the photo constrains it by height, leaving
+   bars on the left and right; a box *narrower* constrains it by width,
+   filling side to side and leaving space above and below instead. So the
+   ratio here has to sit at or below the narrowest photo in the set: the
+   rail's run 0.6665 (2:3) to 0.8003 (4:5), and 66/100 clears the
+   narrowest with a small margin. Lower it if a narrower photo is ever
+   added, or that photo alone flips back to height-constrained and gets
+   its side bars back.
+
+   The tradeoff this accepts: rendered heights now vary (roughly 428-513
+   at phone width) where they used to be uniform. Filling the width,
+   holding one height, and never cropping cannot all hold at once while
+   the source photos are three different shapes - only two of the three
+   are ever available, and this picks fill + no-crop. Uniform height is
+   the 81/100-style box (bars on the sides); uniform *both* needs
+   object-cover, which crops.
+
+   Two ceilings: 100cqw is the panel's own width, so a photo fills its
+   panel exactly and the flex gap between panels (RAIL_GAP_CQW in
+   MobileRail.tsx) is what keeps neighbours apart while sliding - that gap
+   is now the only separation, since the side bars that used to add to it
+   are gone. 51svh caps the derived height at ~77svh so a wide-but-short
+   viewport can't resolve 100cqw into a box taller than the screen. */
 .rail-photo-box {
-  aspect-ratio: 81 / 100;
-  width: min(100cqw, 63svh);
+  aspect-ratio: 66 / 100;
+  width: min(100cqw, 51svh);
   height: auto;
 }
 
