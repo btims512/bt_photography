@@ -26,7 +26,7 @@ interface PortfolioSectionProps {
 // MOBILE_RAIL_SIZE portrait photos, then resume the grid. Desktop is
 // unaffected - it keeps the existing single-photo BreakoutPhoto interrupt.
 const MOBILE_LANDSCAPE_EVERY = 9;
-const MOBILE_RAIL_SIZE = 5;
+const MOBILE_RAIL_SIZE = 6;
 // The real catalog doesn't yet have enough landscape/portrait photos to
 // cycle this pattern more than once or twice, so this repeats the
 // (already genre/orientation-interleaved) photo list a few laps purely to
