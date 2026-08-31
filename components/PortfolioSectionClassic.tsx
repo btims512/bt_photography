@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { chunkWithBreakouts, chunkWithRails, distributeToColumns, repeatWithOffset } from '@/lib/masonry';
+import { chunkWithRails, distributeToColumns, repeatWithOffset } from '@/lib/masonry';
 import { BLUR_DATA_URL } from '@/lib/blur';
 import { useRevealWhenReady } from '@/lib/use-reveal';
 import { useWasInitiallyVisible } from '@/lib/use-was-initially-visible';
@@ -11,10 +11,51 @@ import { useMediaQuery } from '@/lib/use-media-query';
 import { useLayoutMode } from '@/lib/layout-mode';
 import Lightbox from './Lightbox';
 import BreakoutPhoto from './BreakoutPhoto';
-import DesktopRail from './DesktopRail';
-import SplitGrid from './SplitGrid';
-import MobileRail from './MobileRail';
+import MobileRail, { type PeekColumn } from './MobileRail';
 import type { Photo } from '@/lib/photos';
+
+/**
+ * Describes the row of a grid segment that adjoins a rail, so the rail can
+ * redraw it as a stand-in while it's pinned over the real thing (see
+ * MobileRail's prevRow/nextRow). `edge` says which end of each column
+ * touches the rail: 'bottom' for the segment above it, 'top' for below.
+ *
+ * The column packing has to be the one the real grid used, or the copies
+ * would be of the wrong photos - hence distributeToColumns here with the
+ * same count the grid renders at. It tracks column heights in units of
+ * column width, which is the same currency PeekColumn.heightUnits wants,
+ * though the gaps between photos are counted separately since packing
+ * ignores them and the rendered column doesn't.
+ */
+function peekRow(photos: Photo[], columnCount: number, edge: 'top' | 'bottom'): PeekColumn[] {
+  const columns = columnCount === 1 ? [photos] : distributeToColumns(photos, columnCount);
+  return columns
+    .filter((column) => column.length > 0)
+    .map((column) => ({
+      photo: edge === 'bottom' ? column[column.length - 1] : column[0],
+      heightUnits: column.reduce((sum, p) => sum + p.height / p.width, 0),
+      count: column.length,
+    }));
+}
+
+/**
+ * Stand-in for a rail with no grid segment on one side at all - the very
+ * first or last thing on the page, which peekRow has nothing to draw from.
+ * Repeats one photo (the gallery's own first/last, passed in by the
+ * caller) across every column the rail needs, so that side still reads as
+ * "the grid continues" rather than leaving the row empty. Each column gets
+ * its own PeekColumn (same photo, count 1) rather than one shared across a
+ * wider flex child, so it lays out identically to a real peekRow result -
+ * MobileRail.tsx and .rail-peek-layer don't need to know this row isn't
+ * backed by a real segment.
+ */
+function fallbackRow(photo: Photo, columnCount: number): PeekColumn[] {
+  return Array.from({ length: columnCount }, () => ({
+    photo,
+    heightUnits: photo.height / photo.width,
+    count: 1,
+  }));
+}
 
 interface PortfolioSectionProps {
   id: string;
@@ -29,10 +70,6 @@ interface PortfolioSectionProps {
 // unaffected - it keeps the existing single-photo BreakoutPhoto interrupt.
 const MOBILE_LANDSCAPE_EVERY = 9;
 const MOBILE_RAIL_SIZE = 6;
-// Photos per desktop vertical carousel (see DesktopRail.tsx). Desktop
-// draws from the unrepeated catalog, so this is deliberately smaller than
-// mobile's - the portrait supply has to stretch across several rails.
-const DESKTOP_RAIL_SIZE = 4;
 // The real catalog doesn't yet have enough landscape/portrait photos to
 // cycle this pattern more than once or twice, so this repeats the
 // (already genre/orientation-interleaved) photo list a few laps purely to
@@ -40,44 +77,6 @@ const DESKTOP_RAIL_SIZE = 4;
 // don't visibly replay in the exact same order. Drop this once there are
 // enough real photos of each orientation to not need padding.
 const MOBILE_RAIL_LAPS = 4;
-
-/**
- * chunkWithBreakouts (lib/masonry.ts) dispenses one portrait photo per
- * breakoutEvery landscape photos; whatever's left once landscape supply
- * runs out gets dumped into a single trailing grid segment instead of a
- * breakout each. The real catalog only has a handful of landscape photos -
- * nowhere near enough for more than one breakoutEvery cycle - so without
- * this, only the first real portrait ever got a breakout and the rest
- * piled up together at the end, reading as "all landscape, then all
- * portrait." This pads landscape up to breakoutEvery * portraitCount so
- * every real portrait gets its own turn, spread through the page, with a
- * rotating offset (repeatWithOffset) so cycles don't visibly replay the
- * same block back to back. Scoped to desktop's own segmentation, not the
- * shared photos prop - mobile builds its own repeated pool on top of
- * whatever's passed in (see MOBILE_RAIL_LAPS above), so padding this list
- * further here would also multiply mobile's rail count as a side effect.
- * Drop this once the catalog has enough real landscape photos to not need
- * it.
- */
-function padLandscapeForBreakouts(photos: Photo[], breakoutEvery: number, railSize = 1): Photo[] {
-  const landscape = photos.filter((p) => p.width >= p.height);
-  const portraits = photos.filter((p) => p.height > p.width);
-  if (landscape.length === 0 || portraits.length === 0) return photos;
-
-  // Each interrupt is now a carousel of railSize portraits rather than a
-  // single photo, so the portrait pool needs repeating to keep the same
-  // number of interrupts across the page - left unrepeated, the catalog's
-  // handful of portraits fills one carousel and the entire rest of the
-  // page runs without a single interrupt. The landscape target is then
-  // derived from how many interrupts that pool can actually feed, so the
-  // grid still spaces them breakoutEvery apart.
-  const pool = railSize > 1 ? repeatWithOffset(portraits, railSize) : portraits;
-  const interrupts = Math.max(1, Math.ceil(pool.length / railSize));
-  const targetLandscapeCount = breakoutEvery * interrupts;
-  const laps = Math.ceil(targetLandscapeCount / landscape.length);
-  const paddedLandscape = repeatWithOffset(landscape, laps).slice(0, targetLandscapeCount);
-  return [...pool, ...paddedLandscape];
-}
 
 interface GridPhotoProps {
   photo: Photo;
@@ -214,15 +213,21 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery }: P
     );
   }
 
-  const segments = !breakoutEvery
+  // Desktop is archived on a plain grid for now - one segment, every photo,
+  // the same masonry columns the 'grid' segment type already renders below.
+  // This used to be chunkWithBreakouts (rail interrupts + full-bleed
+  // breakout photos), which is what mounted && !isDesktop being false also
+  // fell through to *before* mount (there being no confirmed breakpoint
+  // yet) - so this branch already doubled as the pre-hydration default for
+  // every visitor, not just confirmed desktop ones; it still does. The
+  // rail/breakout machinery itself - chunkWithBreakouts, DesktopRail,
+  // SplitGrid, padLandscapeForBreakouts, the CSS driving all of it - is
+  // untouched and still imported/exported where it was; only this call
+  // site stopped reaching for it, so bringing desktop's scrolling
+  // treatment back later is a one-line change here, not a rebuild.
+  const segments = !breakoutEvery || isDesktop || !mounted
     ? [{ type: 'grid' as const, photos: validPhotos }]
-    : mounted && !isDesktop
-      ? chunkWithRails(
-          repeatWithOffset(validPhotos, MOBILE_RAIL_LAPS),
-          MOBILE_LANDSCAPE_EVERY,
-          MOBILE_RAIL_SIZE
-        )
-      : chunkWithBreakouts(padLandscapeForBreakouts(validPhotos, breakoutEvery, DESKTOP_RAIL_SIZE), breakoutEvery, 3, DESKTOP_RAIL_SIZE);
+    : chunkWithRails(repeatWithOffset(validPhotos, MOBILE_RAIL_LAPS), MOBILE_LANDSCAPE_EVERY, MOBILE_RAIL_SIZE);
   let index = 0;
 
   // The Lightbox's prev/next order has to match whatever's actually on
@@ -277,55 +282,51 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery }: P
             }
 
             if (segment.type === 'rail') {
-              // Both breakpoints now interrupt the grid with a rail, but
-              // they travel in different directions and open differently -
-              // see each component's doc comment. isDesktop is part of the
-              // key so a breakpoint change remounts rather than re-renders,
-              // for the same reason BreakoutPhoto needed it below: these
-              // components' scroll hooks capture ref.current when their
-              // effects first run, and a swap without a remount would leave
-              // them bound to a node that no longer exists.
-              const railKey = `rail-${segmentIndex}-${segment.photos[0]?.src ?? ''}-${isDesktop ? 'd' : 'm'}`;
-              if (isDesktop) {
-                return (
-                  <DesktopRail
-                    key={railKey}
-                    photos={segment.photos}
-                    onOpen={(photo) => setOpenIndex(visualOrder.indexOf(photo))}
-                  />
-                );
-              }
-              // Every mobile rail now runs MobileRail's 'fill' variant:
-              // no black backdrop or edge rules, the photo itself swells
-              // from grid size to full-bleed between two stand-ins for
-              // its neighbouring grid photos. The 'classic' variant it
-              // replaced (black stage, white edge rules) is deliberately
-              // left intact in MobileRail.tsx and globals.css rather than
-              // deleted - nothing on the page selects it today, but it's
-              // still a complete working treatment to come back to, and
-              // switching a rail back is a one-line change here.
+              // Both breakpoints now run the same rail on the same 'fill'
+              // treatment - the photo rests at grid-photo size between
+              // stand-ins for the grid rows either side of it, swells,
+              // slides sideways through the set, then settles back into
+              // the flow. Only the scale differs: "one grid photo" is the
+              // whole content width on mobile's single column and one
+              // column of three on desktop, which is the single number
+              // (--rail-grid-w) everything else follows from.
               //
-              // prevPhoto/nextPhoto are the neighbouring grid segments'
-              // adjoining photos, which 'fill' renders as its stand-ins.
-              // In practice both neighbours are always grid segments, the
-              // page alternating grid/rail; the type checks guard a rail
-              // that ends up first or last with no grid on one side, in
-              // which case that side simply renders no stand-in.
+              // isDesktop stays in the key so a breakpoint change remounts
+              // rather than re-renders - the scroll hooks capture
+              // ref.current when their effects first run, and the two
+              // breakpoints hand it different neighbour rows, so a swap
+              // without a remount would leave it bound to stale geometry.
+              //
+              // DesktopRail (vertical travel, black backdrop, corner
+              // wipes) and MobileRail's own 'classic' variant are both
+              // left intact rather than deleted: nothing selects either
+              // today, but they're finished treatments to come back to.
+              const railKey = `rail-${segmentIndex}-${segment.photos[0]?.src ?? ''}-${isDesktop ? 'd' : 'm'}`;
+              // The grid rows the rail adjoins, which it redraws as
+              // stand-ins while it's pinned over them.
               const prevSegment = segments[segmentIndex - 1];
               const nextSegment = segments[segmentIndex + 1];
-              const prevPhoto =
+              const railColumns = isDesktop ? 3 : 1;
+              // A rail with no grid segment on one side - the page's very
+              // first or last thing - falls back to the gallery's own
+              // first/last photo (see fallbackRow) rather than rendering
+              // no stand-in at all.
+              const prevRow =
                 prevSegment?.type === 'grid'
-                  ? prevSegment.photos[prevSegment.photos.length - 1]
-                  : undefined;
-              const nextPhoto = nextSegment?.type === 'grid' ? nextSegment.photos[0] : undefined;
+                  ? peekRow(prevSegment.photos, railColumns, 'bottom')
+                  : fallbackRow(validPhotos[0], railColumns);
+              const nextRow =
+                nextSegment?.type === 'grid'
+                  ? peekRow(nextSegment.photos, railColumns, 'top')
+                  : fallbackRow(validPhotos[validPhotos.length - 1], railColumns);
               return (
                 <MobileRail
                   key={railKey}
                   photos={segment.photos}
                   onOpen={(photo) => setOpenIndex(visualOrder.indexOf(photo))}
                   variant="fill"
-                  prevPhoto={prevPhoto}
-                  nextPhoto={nextPhoto}
+                  prevRow={prevRow}
+                  nextRow={nextRow}
                 />
               );
             }
@@ -362,24 +363,32 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery }: P
             // similar heights. Independent per-column flex flow (rather
             // than CSS grid) is what makes a true masonry possible - grid
             // would force every row to the height of its tallest column.
-            // A grid segment sitting either side of a rail draws away from
-            // it as the rail arrives, so the grid parts and the rail's
-            // black frame opens in the gap - see SplitGrid.tsx. Most
-            // segments have a rail on *both* sides, since the page
-            // alternates grid/rail, and those have to push down away from
-            // the rail above and up away from the one below across their
-            // own passage - checking only for a rail below (and so
-            // treating every middle segment as 'up') left the lower half
-            // of every split not moving at all. Desktop only, matching
-            // where DesktopRail renders.
-            const railBelow = segments[segmentIndex + 1]?.type === 'rail';
-            const railAbove = segments[segmentIndex - 1]?.type === 'rail';
-            const splitDirection =
-              railAbove && railBelow ? 'both' : railBelow ? 'up' : railAbove ? 'down' : null;
-
+            // items-start on the row is what actually delivers that: a
+            // flex row's default cross-axis behaviour is stretch, which
+            // silently re-imposes the exact "every column matches the
+            // tallest one" grid forces - inflating the shorter columns
+            // with blank space below their real last photo rather than
+            // clipping anything, so it went unnoticed while photos were
+            // split across many small segments (each column's natural
+            // imbalance only a photo or two) and only became obvious once
+            // desktop's rail/breakout interrupts were archived (below)
+            // and every photo landed in one large segment instead, where
+            // shortest-column packing's own imperfection compounds over
+            // more photos.
+            //
+            // These segments used to be wrapped in SplitGrid, which drew
+            // the halves either side of a rail apart so the rail's black
+            // frame opened in the widening gap. The fill rail has no
+            // black frame to reveal, and - more decisively - it now draws
+            // copies of these very photos as its stand-ins, positioned to
+            // land exactly on the originals. A transform on the real ones
+            // moves them out from under their copies and the seam opens
+            // up, so the parting had to go with the backdrop that
+            // motivated it. SplitGrid.tsx is left in the tree alongside
+            // DesktopRail for whenever that treatment comes back.
             const columns = distributeToColumns(segment.photos, 3);
             const gridBody = (
-              <div className="flex flex-col gap-[10px] md:flex-row">
+              <div className="flex flex-col gap-[10px] md:flex-row md:items-start">
                 {columns.map((column, columnIndex) => (
                   <div key={columnIndex} className="flex flex-1 flex-col gap-[10px]">
                     {column.map((photo) => {
@@ -400,13 +409,7 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery }: P
               </div>
             );
 
-            return splitDirection ? (
-              <SplitGrid key={`grid-${segmentIndex}`} direction={splitDirection}>
-                {gridBody}
-              </SplitGrid>
-            ) : (
-              <div key={`grid-${segmentIndex}`}>{gridBody}</div>
-            );
+            return <div key={`grid-${segmentIndex}`}>{gridBody}</div>;
           })}
         </div>
       </main>

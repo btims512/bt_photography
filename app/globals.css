@@ -59,15 +59,25 @@ body {
   initial-value: 0;
 }
 
-/* The mobile header's height once fully shrunk, i.e. everything below with
-   --header-shrink at 1: padding-top (18 - 4) + .header-logo-frame
-   (156 - 112) + padding-bottom (20 - 6) = 72. Nav is desktop-only so it
-   contributes nothing here. Kept as a named value because .rail-frame
-   needs it to offset the header it sits behind (see that rule) - anything
-   that changes the three numbers above has to change this to match, since
-   nothing derives it automatically. */
+/* The header's height once fully shrunk, i.e. everything below with
+   --header-shrink at 1: padding-top + .header-logo-frame's shrunk height +
+   padding-bottom. Mobile: (18-4) + (156-112) + (20-6) = 72. Nav is
+   desktop-only so it contributes nothing at that breakpoint. Desktop's own
+   numbers differ (its .header-shrink-frame padding and .header-logo-frame
+   height are both overridden in the 768px media queries) and land on 102:
+   (22-8) + (248-174) + (24-10). Kept as named values, one per breakpoint,
+   because .rail-frame-fill needs this to offset the header it pins below
+   (see that rule) - anything that changes either breakpoint's three
+   numbers above has to change the matching value here too, since nothing
+   derives it automatically. */
 :root {
   --header-shrunk-height: 72px;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --header-shrunk-height: 102px;
+  }
 }
 
 /* Establishes the container-query context the logo's translateX below
@@ -449,10 +459,22 @@ body {
    100vw, which would also count a scrollbar's width and overflow by it.
    Widening the frame widens its container-query context with it, so the
    photos - sized in cqw - grow to the new full width automatically. */
+/* --rail-gutter is the section's own side padding (px-6 / md:px-[50px] in
+   PortfolioSectionClassic.tsx). Breaking out by exactly it puts the frame
+   edge to edge; every other measurement that has to agree with the page's
+   margins - the peek layers' inset, the slide's gap - is written in terms
+   of it rather than repeating the number. */
 .rail-fullbleed {
-  width: calc(100% + 48px);
-  margin-left: -24px;
-  margin-right: -24px;
+  --rail-gutter: 24px;
+  width: calc(100% + 2 * var(--rail-gutter));
+  margin-left: calc(-1 * var(--rail-gutter));
+  margin-right: calc(-1 * var(--rail-gutter));
+}
+
+@media (min-width: 768px) {
+  .rail-fullbleed {
+    --rail-gutter: 50px;
+  }
 }
 
 /* Fill variant's geometry, declared on the container rather than the
@@ -464,8 +486,19 @@ body {
    100vw rather than the frame's 100cqw: this element doesn't establish
    the container-query context (its child .rail-frame does), and it is
    exactly viewport-wide anyway, being the section's content box plus
-   the two 24px paddings it just broke out of. Mobile-only, so no
-   scrollbar to account for.
+   the two gutters it just broke out of. No scrollbar to account for on
+   the touch breakpoint, and desktop's is overlaid.
+
+   --rail-grid-w is the width one ordinary grid photo occupies, which is
+   what the rail's photo shrinks to at rest so it reads as part of the
+   grid. That's the whole content width on mobile's single column, and
+   one column of three on desktop - the only structural difference
+   between the two breakpoints, and everything else here follows from
+   it. --rail-fill-w, by contrast, is the *peak* width, bounded by
+   whichever runs out first: the viewport's width (mobile, where these
+   portrait photos go edge to edge) or its height (desktop, where a
+   full-width portrait would be twice the screen tall, so the photo
+   fills the height instead and never crops).
 
    --rail-fill-inset is the space above (and below) the resting photo
    once it's centred in the pinned frame: half of whatever the frame has
@@ -492,11 +525,52 @@ body {
    timeline's `cover` range - and every animation-range percentage
    derived from it in MobileRail.tsx - is unaffected. */
 .rail-fullbleed-fill {
-  --rail-fill-w: min(100vw, calc(var(--rail-fill-r, 0.66) * 0.94 * (100svh - var(--header-shrunk-height))));
+  /* Single column: one grid photo spans the whole content width. */
+  --rail-grid-gap: 10px;
+  --rail-grid-w: calc(100vw - 2 * var(--rail-gutter));
+  --rail-frame-h: calc(100svh - var(--header-shrunk-height));
+  --rail-fill-w: min(100vw, calc(var(--rail-fill-r, 0.66) * 0.94 * var(--rail-frame-h)));
   --rail-fill-h: calc(var(--rail-fill-w) / var(--rail-fill-r, 0.66));
-  --rail-fill-inset: calc((100svh - var(--header-shrunk-height) - 0.88 * var(--rail-fill-h)) / 2);
+  /* The photo's resting size, and the scale that gets it there from the
+     peak size the box is actually laid out at. Derived rather than the
+     flat 0.88 this used when only mobile existed: there the two happened
+     to sit a fixed ratio apart (both bounded by width), but on desktop
+     the rest width is a grid column and the peak is bounded by height,
+     so the ratio between them depends on the window's proportions. */
+  --rail-rest-h: calc(var(--rail-grid-w) / var(--rail-fill-r, 0.66));
+  --rail-rest-scale: calc(var(--rail-grid-w) / var(--rail-fill-w));
+  --rail-fill-inset: calc((var(--rail-frame-h) - var(--rail-rest-h)) / 2);
   margin-top: calc(-1 * var(--rail-fill-inset));
   margin-bottom: calc(-1 * var(--rail-fill-inset));
+}
+
+/* Clips the sliding track to exactly one photo's width, centred in the
+   frame - the frame itself stays full width (the peek rows need that, to
+   span all 3 grid columns), but the track's own panels are each only
+   --rail-fill-w wide. On mobile those two widths are the same (a peak
+   photo already goes edge to edge), so this is a no-op there. On desktop
+   they're very different: a peak photo is bounded by the frame's height,
+   landing well under a third of a 3-column-wide frame, so without this
+   the frame's own overflow: hidden does nothing to hide the *next* panel
+   sitting in the empty space beside the current one - both are inside
+   the full-width frame at once, which breaks the "one photo at a time"
+   read the slide depends on. Centred via margin: auto rather than
+   MobileRail.tsx's old trackPad (padding on the track itself, sized to
+   match): that worked only for the very first panel, since padding
+   doesn't recur between later ones - a plain narrower box that all N
+   panels shift equally inside handles every panel the same way. */
+.rail-slide-viewport {
+  width: var(--rail-fill-w);
+  height: 100%;
+  margin: 0 auto;
+  overflow: hidden;
+}
+
+@media (min-width: 768px) {
+  .rail-fullbleed-fill {
+    /* Three columns: the content width less the two gaps between them. */
+    --rail-grid-w: calc((100vw - 2 * var(--rail-gutter) - 2 * var(--rail-grid-gap)) / 3);
+  }
 }
 
 /* Establishes the container query context .rail-track's panels size
@@ -699,29 +773,25 @@ body {
 }
 
 /* ------------------------------------------------------------------ */
-/* "Fill" rail variant (MobileRail's variant="fill" - currently the
-   second rail on the homepage, as an experiment next to the classic
-   one). No black backdrop, no edge rules: the photo itself is the
-   whole event. At rest it masquerades as one more grid photo - same
-   width (0.88 of the full-bleed frame is the page's content width, to
-   within a pixel: 0.88 * 100vw vs 100vw - 48px at phone widths), same
-   10px gap to the photo above - then swells to full-bleed as the pin
-   engages, slides through the set, and shrinks back into the flow at
-   the bottom so the next grid photo follows it with the same even gap.
+/* "Fill" rail variant (MobileRail's variant="fill" - every rail on the
+   page). No black backdrop, no edge rules: the photo itself is the
+   whole event. At rest it masquerades as one more grid photo - exactly
+   --rail-grid-w wide, one grid gap from the photos above and below it -
+   then swells as the pin engages, slides through the set, and shrinks
+   back into the flow so the next grid photo follows it with the same
+   even gap.
 
-   The new trick versus the classic variant is the animated `translate`:
-   the photo's vertical anchor travels top -> center -> bottom across
-   the dwell. Top-anchored at 0% so that during the whole approach
-   (fill-mode holds the 0% frame below the animation range) the photo's
-   visible top edge sits exactly at the frame's top - i.e. one flex-gap
-   below the previous grid photo, reading as inline rather than floating
-   in the middle of an empty viewport-tall frame. Bottom-anchored at
-   100% for the mirror-image exit. `translate` (the independent
-   property) rather than folding into `transform` so it can carry its
-   own keyframes alongside the scale without the two fighting over one
-   property; on the JS fallback Framer's inline transform overrides the
-   class scale but NOT this, so MobileRail.tsx zeroes `translate` inline
-   there and drives y itself.
+   Both breakpoints run this same choreography off the same numbers;
+   the only thing that differs is what "one grid photo" means, which
+   --rail-grid-w carries (see .rail-fullbleed-fill). On mobile that's
+   the full content width and the photo ends up edge to edge at its
+   peak; on desktop it's one column of three and the peak is bounded by
+   the frame's height instead, since a full-width portrait would stand
+   twice the screen tall.
+
+   `translate` (the independent property) rather than folding into
+   `transform` so the rise can carry its own keyframes alongside the
+   scale without the two fighting over one property.
 
    --rail-fill-r is the rail's aspect ratio (w/h, from its first photo -
    rails are uniform-ratio by construction, see takeUniformRail in
@@ -798,7 +868,7 @@ body {
    number and would drift apart from it otherwise. */
 .rail-fill-photo-box-css {
   translate: 0 0;
-  scale: 0.88;
+  scale: var(--rail-rest-scale);
   animation: rail-fill-kf 1s linear;
   animation-timeline: --rail-progress;
   animation-range-start: var(--rail-range-start, cover 29.4118%);
@@ -813,10 +883,10 @@ body {
    photos are travelling, and back to its resting grid size and position
    before the pin releases. */
 @keyframes rail-fill-kf {
-  0%   { translate: 0 0; scale: 0.88; }
+  0%   { translate: 0 0; scale: var(--rail-rest-scale); }
   18%  { translate: 0 calc(-1 * var(--rail-fill-rise)); scale: 1; }
   82%  { translate: 0 calc(-1 * var(--rail-fill-rise)); scale: 1; }
-  100% { translate: 0 0; scale: 0.88; }
+  100% { translate: 0 0; scale: var(--rail-rest-scale); }
 }
 
 /* Peek layers: copies of the real grid photos immediately before and
@@ -843,10 +913,17 @@ body {
    than replaying it. No opacity anywhere - each leaves by *travelling*
    out of view, the way the grid would if it were being shoved aside,
    rather than dissolving on the spot. */
+/* A row of columns rather than a single element, because that's what a
+   row of the grid is: one column on mobile, three on desktop, laid out
+   at the same width and gap the real grid uses so the copies land on
+   their originals. The flex row does the widths; each child carries only
+   its own vertical correction (below). */
 .rail-peek-layer {
   position: absolute;
-  left: 24px;
-  right: 24px;
+  left: var(--rail-gutter);
+  right: var(--rail-gutter);
+  display: flex;
+  gap: var(--rail-grid-gap);
   pointer-events: none;
   /* Exactly the distance from a peek's resting position to the frame
      edge it exits through: its own visible band. Travelling this far
@@ -855,14 +932,23 @@ body {
      enough to be *gone*, however tall the photo itself happens to be
      (unknown here: it's a real grid photo of any aspect ratio, which is
      why an arbitrary nudge couldn't be relied on to clear the frame).
-     One value serves both, each sitting the same 10px from the opposite
-     edge of the same resting photo. */
-  --rail-peek-travel: calc(var(--rail-fill-inset) - 10px);
+     One value serves both, each sitting the same grid gap from the
+     opposite edge of the same resting photo. */
+  --rail-peek-travel: calc(var(--rail-fill-inset) - var(--rail-grid-gap));
   will-change: transform;
 }
 
+.rail-peek-layer > * {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
 .rail-peek-below {
-  top: calc(var(--rail-fill-inset) + 0.88 * var(--rail-fill-h) + 10px);
+  top: calc(var(--rail-fill-inset) + var(--rail-rest-h) + var(--rail-grid-gap));
+  /* The grid segment after a rail starts all three of its columns on the
+     same line, so this row needs no per-column correction - its children
+     top-align and that's already right. */
+  align-items: flex-start;
   animation: rail-peek-below-kf 1s linear;
   animation-timeline: --rail-progress;
   animation-range-start: var(--rail-range-start, cover 29.4118%);
@@ -871,12 +957,40 @@ body {
 }
 
 .rail-peek-above {
-  bottom: calc(var(--rail-fill-inset) + 0.88 * var(--rail-fill-h) + 10px);
+  bottom: calc(var(--rail-fill-inset) + var(--rail-rest-h) + var(--rail-grid-gap));
+  /* The segment *before* a rail ends ragged - shortest-column packing
+     evens the columns out but never exactly - so the row bottom-aligns
+     to the deepest column and each shallower one is lifted back toward
+     where its own last photo really ends by --rail-peek-delta, which
+     MobileRail.tsx computes per column from the photos' own ratios.
+     Without any lift, every column's copy sits at the deepest column's
+     baseline and a shallower one shows a slice of the wrong part of its
+     own photo - visible as a small jump right at the frame edge. The
+     lift lives on the child so the parent keeps `transform` free for the
+     push-out animation. */
+  align-items: flex-end;
   animation: rail-peek-above-kf 1s linear;
   animation-timeline: --rail-progress;
   animation-range-start: var(--rail-range-start, cover 29.4118%);
   animation-range-end: var(--rail-range-end, cover 82.3529%);
   animation-fill-mode: both;
+}
+
+.rail-peek-above > * {
+  /* Capped at --rail-peek-travel minus a floor (12px), rather than
+     applied in full: this row's own visible band is already only
+     --rail-peek-travel tall (whatever the frame's leftover height around
+     the rest photo comes to - see .rail-fullbleed-fill, where a portrait
+     rail photo at one grid column's width can leave very little), and an
+     uncapped lift pushes a column up by however uneven the real grid
+     happened to be, with no relation to how much room there was to lose.
+     Once the lift alone would exceed that budget, the column goes fully
+     transparent - not "a little off", not visible at all - which reads
+     as a genuine gap in the row rather than a minor seam. Trading perfect
+     alignment for a guaranteed sliver is the better failure mode: at
+     worst this shows a handful of the wrong pixels from the same real
+     photo, not an empty column next to two full ones. */
+  transform: translateY(calc(-1 * min(var(--rail-peek-delta, 0px), var(--rail-peek-travel) - 12px)));
 }
 
 /* Leaves second (9-18%, after the top has gone) and returns first

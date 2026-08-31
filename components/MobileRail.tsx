@@ -28,17 +28,37 @@ interface MobileRailProps {
    */
   variant?: 'classic' | 'fill';
   /**
-   * Fill variant only: the real grid photos immediately before and after
-   * this whole rail in the page (from the neighbouring grid segments,
-   * not this rail's own photo list). Neither is reachable on screen
-   * while the frame is pinned - see .rail-peek-layer in globals.css -
-   * so each renders as a stand-in in the band of frame either side of
-   * the resting photo, then gets pushed out as that photo swells and
-   * brought back as it settles. Omitted (that layer simply not
-   * rendered) when the rail has no grid segment on that side.
+   * Fill variant only: the row of the real grid immediately before and
+   * after this whole rail in the page (from the neighbouring grid
+   * segments, not this rail's own photo list) - one column on mobile,
+   * three on desktop. Neither row is reachable on screen while the frame
+   * is pinned - see .rail-peek-layer in globals.css - so each renders as
+   * a stand-in in the band of frame either side of the resting photo,
+   * then gets pushed out as that photo swells and brought back as it
+   * settles. Omitted (that layer simply not rendered) when the rail has
+   * no grid segment on that side.
    */
-  prevPhoto?: Photo;
-  nextPhoto?: Photo;
+  prevRow?: PeekColumn[];
+  nextRow?: PeekColumn[];
+}
+
+/**
+ * One column's worth of a neighbouring grid row: the photo whose edge
+ * actually adjoins the rail, plus enough about the column it came from
+ * to work out where that edge really falls.
+ *
+ * The measurements are deliberately unit-less multiples of the column
+ * width rather than pixels, since the column width is a viewport
+ * expression (--rail-grid-w) that only CSS can resolve: a photo rendered
+ * at column width stands `height / width` of that width tall, so
+ * `heightUnits` summed over the column plus `count - 1` gaps *is* the
+ * column's height, and CSS can finish the arithmetic at any window size
+ * without anything being measured or re-measured on resize.
+ */
+export interface PeekColumn {
+  photo: Photo;
+  heightUnits: number;
+  count: number;
 }
 
 // The pinned frame's height, as svh - full viewport, so there's no empty
@@ -84,16 +104,15 @@ const RAIL_SLIDE_END = 0.82;
 // the photos read as nearly touching once they filled their panels.
 const RAIL_GAP_CQW = 12;
 
-// The fill variant's gap instead, in px: exactly the page's own side
-// gutter (the section's px-6, the same 24px .rail-fullbleed breaks out
-// of). Its photos travel at full-bleed width, so this gap is the only
-// thing between one and the next, and matching the gutter makes the
-// spacing between sliding photos read as the same spacing the grid uses
-// everywhere else on the page. Fixed px rather than the classic
-// variant's cqw for that reason - the gutter it's matching is itself a
-// fixed 24px at every viewport width, so a proportional gap would only
-// agree with it at one screen size.
-const RAIL_FILL_GAP_PX = 24;
+// The fill variant's gap instead: exactly the page's own side gutter
+// (--rail-gutter, set from the section's px-6 / md:px-[50px] - see
+// .rail-fullbleed in globals.css). Its photos travel at their peak
+// width, so this gap is the only thing between one and the next, and
+// matching the gutter makes the spacing between sliding photos read as
+// the same spacing the page uses at its own margins. Handed straight to
+// CSS rather than resolved here, so it picks up the breakpoint's value
+// without this component having to know which breakpoint it's on.
+const RAIL_FILL_GAP = 'var(--rail-gutter)';
 
 // The shape drawn across the black band above and below the photo. A plain
 // horizontal rule at the viewBox's midline: quiet and editorial, staying
@@ -112,6 +131,32 @@ const RAIL_FILL_GAP_PX = 24;
 const EDGE_VIEW_W = 240;
 const EDGE_VIEW_H = 12;
 const EDGE_PATH = `M0 6 L${EDGE_VIEW_W} 6`;
+
+// The peek stand-ins are sized by their flex column, but next/image still
+// wants to know how wide that lands so it fetches the right file: one
+// column of three on desktop, the whole content width below that.
+const peekSizes = '(min-width: 768px) calc((100vw - 120px) / 3), calc(100vw - 48px)';
+
+/** One column's height, as a CSS length: `heightUnits` column-widths of
+ *  photo plus the gaps between them. */
+const columnHeight = (col: PeekColumn) =>
+  `(var(--rail-grid-w) * ${col.heightUnits.toFixed(4)} + var(--rail-grid-gap) * ${col.count - 1})`;
+
+/**
+ * How far column `i` has to be lifted for its stand-in to sit on its real
+ * counterpart: the difference between the deepest column in the row and
+ * this one. Zero for the deepest, and zero throughout a single-column
+ * (mobile) row, where the only column is trivially the deepest.
+ *
+ * Emitted as a CSS expression rather than a number because every term is
+ * a viewport expression - the arithmetic can only be finished once the
+ * browser knows the column width, and doing it there means it stays
+ * right through a resize with nothing to recompute.
+ */
+const peekDelta = (row: PeekColumn[], i: number) =>
+  row.length < 2
+    ? '0px'
+    : `calc(max(${row.map(columnHeight).join(', ')}) - ${columnHeight(row[i])})`;
 
 /**
  * Mobile-only interlude between grid segments: a horizontal strip of
@@ -180,8 +225,8 @@ export default function MobileRail({
   photos,
   onOpen,
   variant = 'classic',
-  prevPhoto,
-  nextPhoto,
+  prevRow,
+  nextRow,
 }: MobileRailProps) {
   const outerRef = useRef<HTMLDivElement>(null);
   const cssSupported = useCssScrollTimelineSupport();
@@ -213,8 +258,19 @@ export default function MobileRail({
   // variant's fixed-px gap and the classic variant's proportional one
   // can share the arithmetic below - both stay correct at any frame size
   // without measuring anything in JS.
-  const railGap = isFill ? `${RAIL_FILL_GAP_PX}px` : `${RAIL_GAP_CQW}cqw`;
-  const panelStep = isFill ? `(100cqw + ${RAIL_FILL_GAP_PX}px)` : `${100 + RAIL_GAP_CQW}cqw`;
+  const railGap = isFill ? RAIL_FILL_GAP : `${RAIL_GAP_CQW}cqw`;
+  // Each fill panel is exactly as wide as the photo at its peak, so the
+  // gap between panels *is* the gap you see between photos. Sizing them
+  // to the frame instead (which is what the classic variant does, and
+  // what this did while only mobile existed) is invisible on a phone,
+  // where a peak-width photo already fills the frame - but on desktop
+  // the photo is bounded by height at around a third of the frame's
+  // width, and the leftover slack either side of it lands in the gap,
+  // pushing the photos most of a screen apart.
+  const panelWidth = isFill ? 'var(--rail-fill-w)' : '100cqw';
+  const panelStep = isFill
+    ? `(var(--rail-fill-w) + ${RAIL_FILL_GAP})`
+    : `${100 + RAIL_GAP_CQW}cqw`;
   // Total distance the track travels: (N-1) of those steps.
   const cssShiftValue = `calc(-1 * ${gapCount} * ${panelStep})`;
 
@@ -275,26 +331,39 @@ export default function MobileRail({
   // innerWidth stands in for 100cqw (the frame is full-bleed) and
   // innerHeight for 100svh - a close-enough approximation for the
   // fallback path, which no current mobile browser takes.
-  const fillZoom = useTransform(smoothProgress, [0, 0.18, 0.82, 1], [0.88, 1, 1, 0.88]);
   // Pixel equivalents of the CSS custom properties the fill variant's
-  // keyframes run on (--rail-fill-rise, --rail-fill-inset,
-  // --rail-peek-travel). The fill frame is a header shorter than the
-  // viewport and pins below it, so frameH here is its whole height -
-  // there's no separate content inset (see .rail-frame-fill).
+  // keyframes run on (--rail-rest-scale, --rail-fill-rise,
+  // --rail-fill-inset, --rail-peek-travel), mirroring the calc chain in
+  // .rail-fullbleed-fill exactly - including its breakpoint, since the
+  // gutter and what counts as one grid photo both change at 768px. The
+  // fill frame is a header shorter than the viewport and pins below it,
+  // so frameH here is its whole height (see .rail-frame-fill).
   const fillMetrics = () => {
-    if (typeof window === 'undefined') return { rise: 0, travel: 0 };
+    if (typeof window === 'undefined') return { rise: 0, travel: 0, restScale: 1 };
     const headerPx =
       parseFloat(
         getComputedStyle(document.documentElement).getPropertyValue('--header-shrunk-height')
       ) || 72;
+    const vw = window.innerWidth;
+    const wide = vw >= 768;
+    const gutter = wide ? 50 : 24;
+    const gridGap = 10;
+    const gridW = wide ? (vw - 2 * gutter - 2 * gridGap) / 3 : vw - 2 * gutter;
     const frameH = window.innerHeight - headerPx;
-    const w = Math.min(window.innerWidth, fillRatio * 0.94 * frameH);
-    const h = w / fillRatio;
+    const peakW = Math.min(vw, fillRatio * 0.94 * frameH);
+    const restH = gridW / fillRatio;
     return {
-      rise: Math.max(0, (frameH - h) / 2),
-      travel: Math.max(0, (frameH - 0.88 * h) / 2 - 10),
+      rise: Math.max(0, (frameH - peakW / fillRatio) / 2),
+      travel: Math.max(0, (frameH - restH) / 2 - gridGap),
+      restScale: peakW > 0 ? gridW / peakW : 1,
     };
   };
+  const fillZoom = useTransform(smoothProgress, (p) => {
+    const { restScale } = fillMetrics();
+    if (p <= 0.18) return restScale + (1 - restScale) * (p / 0.18);
+    if (p >= 0.82) return restScale + (1 - restScale) * (1 - (p - 0.82) / 0.18);
+    return 1;
+  });
   // Centred at rest, risen flush to the frame's top across the slide.
   const fillY = useTransform(smoothProgress, (p) => {
     const { rise } = fillMetrics();
@@ -343,7 +412,7 @@ export default function MobileRail({
     <div
       key={`${photo.src}-${i}`}
       className="relative flex h-full cursor-pointer items-center justify-center"
-      style={{ flex: '0 0 100cqw' }}
+      style={{ flex: `0 0 ${panelWidth}` }}
       onClick={() => onOpen(photo)}
       onContextMenu={(e) => e.preventDefault()}
     >
@@ -469,72 +538,97 @@ export default function MobileRail({
           </div>
         )}
 
-        {/* Stand-ins for the real grid photos either side of this whole
-            rail - see the prevPhoto/nextPhoto doc comment above and
+        {/* Stand-ins for the real grid rows either side of this whole rail
+            - see the prevRow/nextRow doc comment above and
             .rail-peek-layer in globals.css. Before the swelling photo in
             the DOM, so that photo paints on top once they overlap. */}
-        {isFill && prevPhoto && (
+        {isFill && prevRow && prevRow.length > 0 && (
           <motion.div
             className="rail-peek-layer rail-peek-above"
             style={cssSupported ? undefined : fallbackReady ? { y: peekAboveY } : undefined}
           >
-            <Image
-              src={prevPhoto.src}
-              alt={prevPhoto.alt}
-              width={prevPhoto.width}
-              height={prevPhoto.height}
-              sizes="calc(100vw - 48px)"
-              className="photo-protected block h-auto w-full"
-              draggable={false}
-              loading="eager"
-              quality={82}
-              placeholder="blur"
-              blurDataURL={BLUR_DATA_URL}
-            />
+            {prevRow.map((col, i) => (
+              <div
+                key={`${col.photo.src}-${i}`}
+                style={{ '--rail-peek-delta': peekDelta(prevRow, i) } as CSSProperties}
+              >
+                <Image
+                  src={col.photo.src}
+                  alt={col.photo.alt}
+                  width={col.photo.width}
+                  height={col.photo.height}
+                  sizes={peekSizes}
+                  className="photo-protected block h-auto w-full"
+                  draggable={false}
+                  loading="eager"
+                  quality={82}
+                  placeholder="blur"
+                  blurDataURL={BLUR_DATA_URL}
+                />
+              </div>
+            ))}
           </motion.div>
         )}
-        {isFill && nextPhoto && (
+        {isFill && nextRow && nextRow.length > 0 && (
           <motion.div
             className="rail-peek-layer rail-peek-below"
             style={cssSupported ? undefined : fallbackReady ? { y: peekBelowY } : undefined}
           >
-            <Image
-              src={nextPhoto.src}
-              alt={nextPhoto.alt}
-              width={nextPhoto.width}
-              height={nextPhoto.height}
-              sizes="calc(100vw - 48px)"
-              className="photo-protected block h-auto w-full"
-              draggable={false}
-              loading="eager"
-              quality={82}
-              placeholder="blur"
-              blurDataURL={BLUR_DATA_URL}
-            />
+            {nextRow.map((col, i) => (
+              <div key={`${col.photo.src}-${i}`}>
+                <Image
+                  src={col.photo.src}
+                  alt={col.photo.alt}
+                  width={col.photo.width}
+                  height={col.photo.height}
+                  sizes={peekSizes}
+                  className="photo-protected block h-auto w-full"
+                  draggable={false}
+                  loading="eager"
+                  quality={82}
+                  placeholder="blur"
+                  blurDataURL={BLUR_DATA_URL}
+                />
+              </div>
+            ))}
           </motion.div>
         )}
 
-        {cssSupported ? (
+        {/* Fill variant only: clips the track to one photo's width,
+            centred - see .rail-slide-viewport in globals.css for why the
+            frame alone (full width, for the peek rows) isn't enough to
+            keep adjacent panels hidden. A plain div, not part of the
+            cssSupported/fallback split below - its width is a static
+            calc(), nothing here needs to animate. */}
+        {isFill ? (
+          <div className="rail-slide-viewport">
+            {cssSupported ? (
+              <div
+                className="rail-track relative flex h-full"
+                style={{ gap: railGap, '--rail-shift': cssShiftValue } as CSSProperties}
+              >
+                {panels}
+              </div>
+            ) : (
+              <motion.div
+                className="relative flex h-full"
+                style={{ width: 'max-content', gap: railGap, transform, willChange: 'transform' }}
+              >
+                {panels}
+              </motion.div>
+            )}
+          </div>
+        ) : cssSupported ? (
           <div
             className="rail-track relative flex h-full"
-            style={
-              {
-                gap: railGap,
-                '--rail-shift': cssShiftValue,
-              } as CSSProperties
-            }
+            style={{ gap: railGap, '--rail-shift': cssShiftValue } as CSSProperties}
           >
             {panels}
           </div>
         ) : (
           <motion.div
             className="relative flex h-full"
-            style={{
-              width: 'max-content',
-              gap: railGap,
-              transform,
-              willChange: 'transform',
-            }}
+            style={{ width: 'max-content', gap: railGap, transform, willChange: 'transform' }}
           >
             {panels}
           </motion.div>
