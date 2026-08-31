@@ -12,13 +12,19 @@ interface MobileRailProps {
   photos: Photo[];
   onOpen: (photo: Photo) => void;
   /**
-   * 'classic' is the original treatment: black backdrop growing in
-   * behind a fixed-ratio boxed photo, white edge rules. 'fill' drops
-   * all of that - the photo itself swells from grid-photo width to
-   * full-bleed and its vertical anchor travels top -> center -> bottom
-   * so it reads as inline with the grid at both ends of the dwell. See
-   * .rail-fill-photo-box in globals.css for the full story. Currently
-   * an experiment on the homepage's second rail only.
+   * 'fill' is what every rail on the page uses today: no backdrop or
+   * edge rules, the photo resting centred at grid-photo width between
+   * stand-ins for its two neighbouring grid photos, then swelling to
+   * full-bleed as those are pushed out of frame. See
+   * .rail-fill-photo-box in globals.css for the full story.
+   *
+   * 'classic' is the original treatment - a black backdrop growing in
+   * behind a fixed-ratio boxed photo, with white edge rules drawing
+   * across the bands above and below it. Nothing selects it at the
+   * moment (see PortfolioSectionClassic.tsx), but it's kept whole and
+   * working rather than deleted: it's a finished alternative to come
+   * back to, and every piece of it - the backdrop stages, the edge
+   * rules, --rail-photo-zoom - is still wired up behind this prop.
    */
   variant?: 'classic' | 'fill';
   /**
