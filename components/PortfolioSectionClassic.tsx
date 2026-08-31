@@ -224,6 +224,9 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery }: P
         )
       : chunkWithBreakouts(padLandscapeForBreakouts(validPhotos, breakoutEvery, DESKTOP_RAIL_SIZE), breakoutEvery, 3, DESKTOP_RAIL_SIZE);
   let index = 0;
+  // Counts rail segments in render order, so one of them can be singled
+  // out for MobileRail's experimental 'fill' variant below.
+  let railOrdinal = 0;
 
   // The Lightbox's prev/next order has to match whatever's actually on
   // screen, not validPhotos' original order - which stopped being the same
@@ -285,12 +288,45 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery }: P
               // components' scroll hooks capture ref.current when their
               // effects first run, and a swap without a remount would leave
               // them bound to a node that no longer exists.
-              const RailComponent = isDesktop ? DesktopRail : MobileRail;
+              const currentRailOrdinal = railOrdinal++;
+              const railKey = `rail-${segmentIndex}-${segment.photos[0]?.src ?? ''}-${isDesktop ? 'd' : 'm'}`;
+              if (isDesktop) {
+                return (
+                  <DesktopRail
+                    key={railKey}
+                    photos={segment.photos}
+                    onOpen={(photo) => setOpenIndex(visualOrder.indexOf(photo))}
+                  />
+                );
+              }
+              // The first rail runs MobileRail's 'fill' variant, the
+              // second the original 'classic' one - no black backdrop or
+              // edge rules on fill, the photo itself swells to
+              // full-bleed - so both treatments still appear on one page.
+              // See MobileRail.tsx. prevPhoto and nextPhoto (the
+              // neighbouring grid segments' adjoining photos) only matter
+              // to that variant - passed regardless, since MobileRail
+              // ignores them for 'classic' - and in practice both
+              // neighbours are grid segments, the page alternating
+              // grid/rail; the type checks guard the page's first and
+              // last rail, which have no grid on one side.
+              const isFillRail = currentRailOrdinal === 0;
+              const prevSegment = segments[segmentIndex - 1];
+              const nextSegment = segments[segmentIndex + 1];
+              const prevPhoto =
+                isFillRail && prevSegment?.type === 'grid'
+                  ? prevSegment.photos[prevSegment.photos.length - 1]
+                  : undefined;
+              const nextPhoto =
+                isFillRail && nextSegment?.type === 'grid' ? nextSegment.photos[0] : undefined;
               return (
-                <RailComponent
-                  key={`rail-${segmentIndex}-${segment.photos[0]?.src ?? ''}-${isDesktop ? 'd' : 'm'}`}
+                <MobileRail
+                  key={railKey}
                   photos={segment.photos}
                   onOpen={(photo) => setOpenIndex(visualOrder.indexOf(photo))}
+                  variant={isFillRail ? 'fill' : 'classic'}
+                  prevPhoto={prevPhoto}
+                  nextPhoto={nextPhoto}
                 />
               );
             }

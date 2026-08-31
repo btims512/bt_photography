@@ -455,6 +455,50 @@ body {
   margin-right: -24px;
 }
 
+/* Fill variant's geometry, declared on the container rather than the
+   frame because the negative margins below need it and they apply out
+   here. --rail-fill-r (the rail's own aspect ratio) is set inline by
+   MobileRail.tsx; everything downstream - the photo box, both peek
+   layers - inherits these.
+
+   100vw rather than the frame's 100cqw: this element doesn't establish
+   the container-query context (its child .rail-frame does), and it is
+   exactly viewport-wide anyway, being the section's content box plus
+   the two 24px paddings it just broke out of. Mobile-only, so no
+   scrollbar to account for.
+
+   --rail-fill-inset is the space above (and below) the resting photo
+   once it's centred in the pinned frame: half of whatever the frame has
+   left over after the photo's resting height. That single number is
+   what makes the whole illusion line up, because it is *also* how far
+   the container has to be pulled out of flow at each end.
+
+   Why pull it out of flow at all: the resting photo is centred in a
+   viewport-tall frame, so there's a band of frame either side of it
+   that has to show the neighbouring grid photos - but the real ones are
+   outside the frame entirely (above the container, and below it), so
+   the frame renders its own copies (.rail-peek-above/below). Left in
+   normal flow, the real photo above would sit a full inset higher than
+   the copy of it inside the frame, and you'd see the same photo twice.
+   Pulling the container up by exactly the inset lands the copy's bottom
+   edge precisely on the real photo's bottom edge - same image, same
+   width, same place, so the frame's opaque background hiding the real
+   one's last few pixels is invisible. The bottom margin does the mirror
+   image for the photo after the rail: it lifts that photo to exactly
+   where the frame's own copy of it already sits, so the hand-off back
+   to normal scrolling has nothing to reconcile.
+
+   Neither margin changes the container's own height, so the view
+   timeline's `cover` range - and every animation-range percentage
+   derived from it in MobileRail.tsx - is unaffected. */
+.rail-fullbleed-fill {
+  --rail-fill-w: min(100vw, calc(var(--rail-fill-r, 0.66) * 0.94 * (100svh - var(--header-shrunk-height))));
+  --rail-fill-h: calc(var(--rail-fill-w) / var(--rail-fill-r, 0.66));
+  --rail-fill-inset: calc((100svh - var(--header-shrunk-height) - 0.88 * var(--rail-fill-h)) / 2);
+  margin-top: calc(-1 * var(--rail-fill-inset));
+  margin-bottom: calc(-1 * var(--rail-fill-inset));
+}
+
 /* Establishes the container query context .rail-track's panels size
    themselves against (100cqw = the frame's own width) - see MobileRail.tsx
    for why cqw instead of a percentage of the track.
@@ -652,6 +696,206 @@ body {
   82%  { --rail-photo-zoom: 1; }
   88%  { --rail-photo-zoom: 0.88; }
   100% { --rail-photo-zoom: 0.88; }
+}
+
+/* ------------------------------------------------------------------ */
+/* "Fill" rail variant (MobileRail's variant="fill" - currently the
+   second rail on the homepage, as an experiment next to the classic
+   one). No black backdrop, no edge rules: the photo itself is the
+   whole event. At rest it masquerades as one more grid photo - same
+   width (0.88 of the full-bleed frame is the page's content width, to
+   within a pixel: 0.88 * 100vw vs 100vw - 48px at phone widths), same
+   10px gap to the photo above - then swells to full-bleed as the pin
+   engages, slides through the set, and shrinks back into the flow at
+   the bottom so the next grid photo follows it with the same even gap.
+
+   The new trick versus the classic variant is the animated `translate`:
+   the photo's vertical anchor travels top -> center -> bottom across
+   the dwell. Top-anchored at 0% so that during the whole approach
+   (fill-mode holds the 0% frame below the animation range) the photo's
+   visible top edge sits exactly at the frame's top - i.e. one flex-gap
+   below the previous grid photo, reading as inline rather than floating
+   in the middle of an empty viewport-tall frame. Bottom-anchored at
+   100% for the mirror-image exit. `translate` (the independent
+   property) rather than folding into `transform` so it can carry its
+   own keyframes alongside the scale without the two fighting over one
+   property; on the JS fallback Framer's inline transform overrides the
+   class scale but NOT this, so MobileRail.tsx zeroes `translate` inline
+   there and drives y itself.
+
+   --rail-fill-r is the rail's aspect ratio (w/h, from its first photo -
+   rails are uniform-ratio by construction, see takeUniformRail in
+   lib/masonry.ts), set inline on .rail-frame by MobileRail.tsx. The box
+   takes the photo's own shape instead of the classic fixed 66/100, so
+   there's no internal letterboxing to expose now that there's no black
+   to hide it (the up-to-2.5% ratio drift within a rail leaves at most a
+   hairline of transparent slack, invisible on the page background).
+
+   The photo rests *centred* in the frame - which the flex panel already
+   does for it, hence no translate at either end - with a band of frame
+   either side showing the neighbouring grid photos (.rail-peek-above
+   and .rail-peek-below). That resting arrangement is deliberately
+   indistinguishable from three ordinary grid photos in a row, and
+   .rail-fullbleed-fill's negative margins are what make the copies land
+   exactly on the real photos they stand in for.
+
+   --rail-fill-rise is the only travel: it lifts the photo from centred
+   to flush against the frame's top edge across the swell, and lowers it
+   back at the end. That distance is half the frame's leftover height at
+   full size, which is as far as the photo can rise without either
+   cropping it (this variant shows the whole photo) or opening a band of
+   empty frame beneath it larger than the one it just closed above. On a
+   phone in portrait that leftover is small - the full-width photo very
+   nearly fills the frame's height already - so the rise is modest by
+   construction; it reads as the photo lifting into place rather than as
+   a journey up the screen. (0.94 of the frame height keeps the photo
+   bounded by height the same way --rail-photo-w is, so it never
+   outgrows the room the header leaves.) */
+/* The fill frame pins below the header instead of at the viewport top
+   (its `top` and `height` are set inline by MobileRail.tsx, since the
+   height shares RAIL_FRAME_SVH with the classic variant), and drops
+   .rail-frame's header padding since that offset now lives in `top`.
+   The classic variant can't do this - its black backdrop is supposed to
+   run to the viewport's top edge, behind the header - but for fill it
+   makes the photo's resting position and the header's lower edge the
+   same line, so the photo's resting band above it - and the peek layer
+   living in that band - can never slide under the header.
+
+   The frame ends up ~1 header-height shorter than the JS range math
+   assumes, and pins ~1 header-height earlier than it assumes; those
+   two cancel exactly in rangeEndPct (both enter it with opposite
+   signs), and in rangeStartPct they leave the animation held at its 0%
+   frame for the first header-height of pinned scroll - during which the
+   photo simply sits flush and still, exactly as it did a moment
+   earlier in flow. Correcting it would mean converting a px custom
+   property into a fraction of the container's cover range, which JS
+   can't do before mount without measuring. */
+.rail-frame-fill {
+  padding-top: 0;
+}
+
+.rail-fill-photo-box {
+  --rail-fill-rise: calc((100svh - var(--header-shrunk-height) - var(--rail-fill-h)) / 2);
+  width: var(--rail-fill-w);
+  aspect-ratio: var(--rail-fill-r);
+  height: auto;
+}
+
+/* The animated half, split out so the JS fallback can take the sizing
+   above without inheriting a resting `scale`/`translate` it would then
+   compose with its own inline transform (Framer writes `scale` into
+   `transform`, which multiplies with these rather than replacing them).
+
+   `scale` and `translate` as their own properties rather than one
+   `transform`, and - unlike the classic variant next door - NOT routed
+   through a registered custom property. A custom property feeding
+   `transform: scale(var(--x))` has to be interpolated in style
+   resolution and the transform rebuilt from it every frame, which puts
+   the whole animation on the main thread; animating `scale` and
+   `translate` directly keeps it on the compositor, where a scroll-driven
+   animation belongs. The classic variant keeps its custom property
+   because .rail-edge-spacer and the backdrop are sized off the same
+   number and would drift apart from it otherwise. */
+.rail-fill-photo-box-css {
+  translate: 0 0;
+  scale: 0.88;
+  animation: rail-fill-kf 1s linear;
+  animation-timeline: --rail-progress;
+  animation-range-start: var(--rail-range-start, cover 29.4118%);
+  animation-range-end: var(--rail-range-end, cover 82.3529%);
+  animation-fill-mode: both;
+  will-change: translate, scale;
+}
+
+/* Swell and rise finish together at 18%, where the slide takes over
+   (rail-slide-kf's own first stop), and reverse together from 82% - so
+   the photo is at full width and fully risen for exactly as long as the
+   photos are travelling, and back to its resting grid size and position
+   before the pin releases. */
+@keyframes rail-fill-kf {
+  0%   { translate: 0 0; scale: 0.88; }
+  18%  { translate: 0 calc(-1 * var(--rail-fill-rise)); scale: 1; }
+  82%  { translate: 0 calc(-1 * var(--rail-fill-rise)); scale: 1; }
+  100% { translate: 0 0; scale: 0.88; }
+}
+
+/* Peek layers: copies of the real grid photos immediately before and
+   after this whole rail (prevPhoto / nextPhoto - MobileRail.tsx renders
+   each only when it has one). Neither real photo is on screen while the
+   frame is pinned - the container is many screens tall to make room for
+   the dwell, so both sit far outside the viewport the whole time - so
+   without these there'd be empty frame background either side of the
+   resting photo where the grid should continue.
+
+   Each sits exactly where an ordinary GridPhoto would: full content
+   width (inset by the same 24px the section's own px-6 uses, since
+   .rail-fullbleed has already broken this frame out of that padding), a
+   10px gap from .rail-fill-photo-box's own resting edge. Only a band of
+   each is ever visible - one --rail-fill-inset less its 10px gap - the
+   rest being clipped by the frame; that band is precisely the sliver of
+   the real photo the container's negative margin tucked behind the
+   frame, so the copy and the original are the same pixels in the same
+   place. See .rail-fullbleed-fill for that alignment.
+
+   They leave in one order and return in the other: top out first, then
+   bottom, so the composition opens downward as the photo takes over;
+   bottom back first, then top, so it closes the way it opened rather
+   than replaying it. No opacity anywhere - each leaves by *travelling*
+   out of view, the way the grid would if it were being shoved aside,
+   rather than dissolving on the spot. */
+.rail-peek-layer {
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  pointer-events: none;
+  /* Exactly the distance from a peek's resting position to the frame
+     edge it exits through: its own visible band. Travelling this far
+     puts the peek's leading edge precisely on that boundary, and
+     .rail-frame's overflow: hidden hides everything past it - so this is
+     enough to be *gone*, however tall the photo itself happens to be
+     (unknown here: it's a real grid photo of any aspect ratio, which is
+     why an arbitrary nudge couldn't be relied on to clear the frame).
+     One value serves both, each sitting the same 10px from the opposite
+     edge of the same resting photo. */
+  --rail-peek-travel: calc(var(--rail-fill-inset) - 10px);
+  will-change: transform;
+}
+
+.rail-peek-below {
+  top: calc(var(--rail-fill-inset) + 0.88 * var(--rail-fill-h) + 10px);
+  animation: rail-peek-below-kf 1s linear;
+  animation-timeline: --rail-progress;
+  animation-range-start: var(--rail-range-start, cover 29.4118%);
+  animation-range-end: var(--rail-range-end, cover 82.3529%);
+  animation-fill-mode: both;
+}
+
+.rail-peek-above {
+  bottom: calc(var(--rail-fill-inset) + 0.88 * var(--rail-fill-h) + 10px);
+  animation: rail-peek-above-kf 1s linear;
+  animation-timeline: --rail-progress;
+  animation-range-start: var(--rail-range-start, cover 29.4118%);
+  animation-range-end: var(--rail-range-end, cover 82.3529%);
+  animation-fill-mode: both;
+}
+
+/* Leaves second (9-18%, after the top has gone) and returns first
+   (82-91%, before the top comes back). */
+@keyframes rail-peek-below-kf {
+  0%   { transform: translateY(0); }
+  9%   { transform: translateY(0); }
+  18%  { transform: translateY(var(--rail-peek-travel)); }
+  82%  { transform: translateY(var(--rail-peek-travel)); }
+  91%  { transform: translateY(0); }
+  100% { transform: translateY(0); }
+}
+
+/* Leaves first (0-9%) and returns last (91-100%). */
+@keyframes rail-peek-above-kf {
+  0%   { transform: translateY(0); }
+  9%   { transform: translateY(calc(-1 * var(--rail-peek-travel))); }
+  91%  { transform: translateY(calc(-1 * var(--rail-peek-travel))); }
+  100% { transform: translateY(0); }
 }
 
 /* White rule drawn across the black band above and below the photo,

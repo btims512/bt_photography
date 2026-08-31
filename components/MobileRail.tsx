@@ -11,6 +11,28 @@ import type { Photo } from '@/lib/photos';
 interface MobileRailProps {
   photos: Photo[];
   onOpen: (photo: Photo) => void;
+  /**
+   * 'classic' is the original treatment: black backdrop growing in
+   * behind a fixed-ratio boxed photo, white edge rules. 'fill' drops
+   * all of that - the photo itself swells from grid-photo width to
+   * full-bleed and its vertical anchor travels top -> center -> bottom
+   * so it reads as inline with the grid at both ends of the dwell. See
+   * .rail-fill-photo-box in globals.css for the full story. Currently
+   * an experiment on the homepage's second rail only.
+   */
+  variant?: 'classic' | 'fill';
+  /**
+   * Fill variant only: the real grid photos immediately before and after
+   * this whole rail in the page (from the neighbouring grid segments,
+   * not this rail's own photo list). Neither is reachable on screen
+   * while the frame is pinned - see .rail-peek-layer in globals.css -
+   * so each renders as a stand-in in the band of frame either side of
+   * the resting photo, then gets pushed out as that photo swells and
+   * brought back as it settles. Omitted (that layer simply not
+   * rendered) when the rail has no grid segment on that side.
+   */
+  prevPhoto?: Photo;
+  nextPhoto?: Photo;
 }
 
 // The pinned frame's height, as svh - full viewport, so there's no empty
@@ -29,6 +51,12 @@ const RAIL_FRAME_SVH = 100;
 // Still well short of a full screen per photo, which would hold the rest
 // of the page off-screen for an uncomfortable stretch.
 const RAIL_DWELL_PER_TRANSITION_SVH = 65;
+
+// The fill variant runs its slide this much slower than the classic one
+// - the same animation spread over 25% more scroll, so each swipe
+// advances it less. Scoped to the variant rather than folded into the
+// constant above so the classic rail keeps the pace it was tuned at.
+const RAIL_FILL_DWELL_SCALE = 1.25;
 
 // Fraction of the dwell spent growing the black backdrop in at the start,
 // and again shrinking it out at the end - the slide only runs across the
@@ -49,6 +77,17 @@ const RAIL_SLIDE_END = 0.82;
 // out by another ~60px are gone. Raised from 7.5 to compensate - at 7.5
 // the photos read as nearly touching once they filled their panels.
 const RAIL_GAP_CQW = 12;
+
+// The fill variant's gap instead, in px: exactly the page's own side
+// gutter (the section's px-6, the same 24px .rail-fullbleed breaks out
+// of). Its photos travel at full-bleed width, so this gap is the only
+// thing between one and the next, and matching the gutter makes the
+// spacing between sliding photos read as the same spacing the grid uses
+// everywhere else on the page. Fixed px rather than the classic
+// variant's cqw for that reason - the gutter it's matching is itself a
+// fixed 24px at every viewport width, so a proportional gap would only
+// agree with it at one screen size.
+const RAIL_FILL_GAP_PX = 24;
 
 // The shape drawn across the black band above and below the photo. A plain
 // horizontal rule at the viewBox's midline: quiet and editorial, staying
@@ -131,13 +170,26 @@ const EDGE_PATH = `M0 6 L${EDGE_VIEW_W} 6`;
  * scroll into it - see the NOTE ON THE DARK BACKDROP in globals.css for
  * why this deliberately isn't scroll-driven.
  */
-export default function MobileRail({ photos, onOpen }: MobileRailProps) {
+export default function MobileRail({
+  photos,
+  onOpen,
+  variant = 'classic',
+  prevPhoto,
+  nextPhoto,
+}: MobileRailProps) {
   const outerRef = useRef<HTMLDivElement>(null);
   const cssSupported = useCssScrollTimelineSupport();
+  const isFill = variant === 'fill';
+  // Rails are uniform-ratio by construction (takeUniformRail groups to
+  // within 2.5%), so the first photo's ratio stands in for the whole
+  // set - it feeds the CSS math (--rail-fill-r) and the JS fallback's
+  // pixel version of the same anchors below.
+  const fillRatio = photos[0] ? photos[0].width / photos[0].height : 0.66;
 
   const gapCount = photos.length - 1;
   const totalDwellSvh =
-    (gapCount * RAIL_DWELL_PER_TRANSITION_SVH) / (RAIL_SLIDE_END - RAIL_SLIDE_START);
+    (gapCount * RAIL_DWELL_PER_TRANSITION_SVH * (isFill ? RAIL_FILL_DWELL_SCALE : 1)) /
+    (RAIL_SLIDE_END - RAIL_SLIDE_START);
   const outerHeightSvh = RAIL_FRAME_SVH + totalDwellSvh;
   // Treating the viewport as "100" in the same svh-based unit system as
   // RAIL_FRAME_SVH/totalDwellSvh, so these ratios hold on any device
@@ -150,11 +202,15 @@ export default function MobileRail({ photos, onOpen }: MobileRailProps) {
   const rangeStartPct = (100 * VIEWPORT_SVH) / (outerHeightSvh + VIEWPORT_SVH);
   const rangeEndPct = (100 * (VIEWPORT_SVH - RAIL_FRAME_SVH + outerHeightSvh)) / (outerHeightSvh + VIEWPORT_SVH);
 
-  // Total scroll distance the track travels: (N-1) panel-widths plus (N-1)
-  // gaps, all in cqw so it stays correct at any frame size without
-  // measuring anything in JS.
-  const shiftCqw = gapCount * (100 + RAIL_GAP_CQW);
-  const cssShiftValue = `calc(-${shiftCqw}cqw)`;
+  // One panel's worth of travel: its own width plus the gap after it.
+  // Left as a CSS length expression rather than a number so the fill
+  // variant's fixed-px gap and the classic variant's proportional one
+  // can share the arithmetic below - both stay correct at any frame size
+  // without measuring anything in JS.
+  const railGap = isFill ? `${RAIL_FILL_GAP_PX}px` : `${RAIL_GAP_CQW}cqw`;
+  const panelStep = isFill ? `(100cqw + ${RAIL_FILL_GAP_PX}px)` : `${100 + RAIL_GAP_CQW}cqw`;
+  // Total distance the track travels: (N-1) of those steps.
+  const cssShiftValue = `calc(-1 * ${gapCount} * ${panelStep})`;
 
   // scrollY as a plain motion value; rawProgress below reads the outer
   // element's live position off it each tick rather than relying on
@@ -183,7 +239,10 @@ export default function MobileRail({ photos, onOpen }: MobileRailProps) {
     [0, RAIL_SLIDE_START, RAIL_SLIDE_END, 1],
     [0, 0, 1, 1]
   );
-  const transform = useTransform(slideProgress, (v) => `translateX(calc(${(-v).toFixed(4)} * ${shiftCqw}cqw))`);
+  const transform = useTransform(
+    slideProgress,
+    (v) => `translateX(calc(${(-v).toFixed(4)} * ${gapCount} * ${panelStep}))`
+  );
   // Mirrors rail-backdrop-kf: the box starts at the photo's own resting
   // footprint, grows vertically to full height, then opens out sideways;
   // reversed on the way back. Each axis blends between the photo-sized
@@ -204,12 +263,75 @@ export default function MobileRail({ photos, onOpen }: MobileRailProps) {
   const edgeFromLeft = useTransform(smoothProgress, [0, 0.12, 0.82, 0.88, 1], [1, 1, 0, 1, 1]);
   const edgeFromRight = useTransform(smoothProgress, [0, 0.12, 0.82, 0.88, 1], [-1, -1, 0, -1, -1]);
 
+  // Fill-variant fallback equivalents of rail-fill-kf (globals.css):
+  // same 0/18/82/100 stops, with the translate anchors computed in
+  // pixels from the live viewport instead of the CSS calc chain.
+  // innerWidth stands in for 100cqw (the frame is full-bleed) and
+  // innerHeight for 100svh - a close-enough approximation for the
+  // fallback path, which no current mobile browser takes.
+  const fillZoom = useTransform(smoothProgress, [0, 0.18, 0.82, 1], [0.88, 1, 1, 0.88]);
+  // Pixel equivalents of the CSS custom properties the fill variant's
+  // keyframes run on (--rail-fill-rise, --rail-fill-inset,
+  // --rail-peek-travel). The fill frame is a header shorter than the
+  // viewport and pins below it, so frameH here is its whole height -
+  // there's no separate content inset (see .rail-frame-fill).
+  const fillMetrics = () => {
+    if (typeof window === 'undefined') return { rise: 0, travel: 0 };
+    const headerPx =
+      parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue('--header-shrunk-height')
+      ) || 72;
+    const frameH = window.innerHeight - headerPx;
+    const w = Math.min(window.innerWidth, fillRatio * 0.94 * frameH);
+    const h = w / fillRatio;
+    return {
+      rise: Math.max(0, (frameH - h) / 2),
+      travel: Math.max(0, (frameH - 0.88 * h) / 2 - 10),
+    };
+  };
+  // Centred at rest, risen flush to the frame's top across the slide.
+  const fillY = useTransform(smoothProgress, (p) => {
+    const { rise } = fillMetrics();
+    if (p <= 0.18) return -rise * (p / 0.18);
+    if (p >= 0.82) return -rise * (1 - (p - 0.82) / 0.18);
+    return -rise;
+  });
+  // JS-fallback equivalents of rail-peek-above-kf / rail-peek-below-kf -
+  // pure travel, no opacity, same stops as the CSS: top out first
+  // (0-9%) and back last (91-100%), bottom out second (9-18%) and back
+  // first (82-91%).
+  const peekAboveY = useTransform(smoothProgress, (p) => {
+    const { travel } = fillMetrics();
+    if (p <= 0.09) return -travel * (p / 0.09);
+    if (p >= 0.91) return -travel * (1 - (p - 0.91) / 0.09);
+    return -travel;
+  });
+  const peekBelowY = useTransform(smoothProgress, (p) => {
+    const { travel } = fillMetrics();
+    if (p <= 0.09) return 0;
+    if (p <= 0.18) return travel * ((p - 0.09) / 0.09);
+    if (p >= 0.91) return 0;
+    if (p >= 0.82) return travel * (1 - (p - 0.82) / 0.09);
+    return travel;
+  });
+
   const isInView = useInView(outerRef, { margin: '200px' });
   const { headerReady } = useLayoutMode();
   const [revealed, setRevealed] = useState(false);
   useEffect(() => {
     if (isInView && headerReady) setRevealed(true);
   }, [isInView, headerReady]);
+
+  // The fill variant's fallback y is viewport-derived, so its first
+  // client render disagrees with the server's (which has no viewport) -
+  // a hydration mismatch. Holding the inline fallback style off until
+  // after mount sidesteps that: pre-mount, the CSS class's own static
+  // approach anchor (translate + 0.88 initial zoom) paints the identical
+  // resting state, so nothing visibly changes when the style lands.
+  const [fallbackReady, setFallbackReady] = useState(false);
+  useEffect(() => {
+    setFallbackReady(true);
+  }, []);
 
   const panels = photos.map((photo, i) => (
     <div
@@ -219,20 +341,36 @@ export default function MobileRail({ photos, onOpen }: MobileRailProps) {
       onClick={() => onOpen(photo)}
       onContextMenu={(e) => e.preventDefault()}
     >
-      {/* scale comes from the CSS class where scroll-timelines are
-          supported; on the fallback Framer writes an inline transform,
-          which takes precedence over the class's own - the class's
-          animation is inert there anyway, since its timeline doesn't
-          resolve. */}
+      {/* Motion comes from the CSS class where scroll-timelines are
+          supported; on the fallback Framer writes an inline transform
+          instead. The fill variant keeps its animated half in a separate
+          class (.rail-fill-photo-box-css) applied only on the CSS path,
+          so the fallback inherits the sizing without a resting
+          scale/translate that Framer's own transform would compose with
+          rather than replace. The classic variant needs no such split -
+          its class animates `transform`, which Framer's inline transform
+          simply overrides. */}
       <motion.div
-        className="rail-photo-box relative"
-        style={cssSupported ? undefined : { scale: photoZoom }}
+        className={`${
+          isFill
+            ? `rail-fill-photo-box ${cssSupported ? 'rail-fill-photo-box-css' : ''}`
+            : 'rail-photo-box'
+        } relative`}
+        style={
+          cssSupported
+            ? undefined
+            : isFill
+              ? fallbackReady
+                ? { scale: fillZoom, y: fillY }
+                : undefined
+              : { scale: photoZoom }
+        }
       >
         <Image
           src={photo.src}
           alt={photo.alt}
           fill
-          sizes="calc(100vw - 48px)"
+          sizes={isFill ? '100vw' : 'calc(100vw - 48px)'}
           className="photo-protected object-contain"
           draggable={false}
           loading="eager"
@@ -263,27 +401,59 @@ export default function MobileRail({ photos, onOpen }: MobileRailProps) {
   return (
     <div
       ref={outerRef}
-      className={`rail-fullbleed relative ${cssSupported ? 'rail-timeline-subject' : ''}`}
-      style={{ height: `${outerHeightSvh}svh` }}
+      className={`rail-fullbleed relative ${cssSupported ? 'rail-timeline-subject' : ''} ${
+        isFill ? 'rail-fullbleed-fill' : ''
+      }`}
+      // --rail-fill-r lives out here rather than on the frame because
+      // .rail-fullbleed-fill's negative margins are derived from it; the
+      // frame and everything inside inherit it.
+      style={
+        {
+          height: `${outerHeightSvh}svh`,
+          ...(isFill ? { '--rail-fill-r': fillRatio.toFixed(4) } : null),
+        } as CSSProperties
+      }
     >
       <motion.div
-        className="rail-frame sticky top-0 w-full overflow-hidden bg-[var(--bg)]"
+        className={`rail-frame sticky top-0 w-full overflow-hidden bg-[var(--bg)] ${
+          isFill ? 'rail-frame-fill' : ''
+        }`}
         style={
           {
-            height: `${RAIL_FRAME_SVH}svh`,
+            // The fill variant pins below the header rather than at the
+            // viewport top, and is shorter by the same amount so it still
+            // reaches the viewport's bottom edge while pinned - see
+            // .rail-frame-fill in globals.css for why, and for what that
+            // does to the range math below. Inline rather than in the
+            // class because `top` has to beat Tailwind's own top-0 and
+            // the height shares RAIL_FRAME_SVH with the classic branch.
+            height: isFill
+              ? `calc(${RAIL_FRAME_SVH}svh - var(--header-shrunk-height))`
+              : `${RAIL_FRAME_SVH}svh`,
+            ...(isFill ? { top: 'var(--header-shrunk-height)' } : null),
             '--rail-range-start': `cover ${rangeStartPct.toFixed(4)}%`,
             '--rail-range-end': `cover ${rangeEndPct.toFixed(4)}%`,
           } as CSSProperties
         }
-        initial={{ opacity: 0 }}
-        animate={{ opacity: revealed ? 1 : 0 }}
-        transition={{ duration: 0.6, ease: 'easeOut' }}
+        // The classic variant fades its frame in as it comes into view -
+        // it arrives as a distinct black stage, so announcing itself
+        // suits it. The fill variant deliberately doesn't: its resting
+        // state is meant to be indistinguishable from three ordinary
+        // grid photos, and those don't fade in on mobile either (see
+        // GridPhoto - anything below the fold appears the instant it's
+        // ready). A fade here also risks being caught mid-flight on a
+        // fast scroll, which reads as exactly the flicker this is
+        // supposed to avoid.
+        initial={{ opacity: isFill ? 1 : 0 }}
+        animate={{ opacity: isFill || revealed ? 1 : 0 }}
+        transition={{ duration: isFill ? 0 : 0.6, ease: 'easeOut' }}
       >
         {/* Black backdrop, grown in before the slide starts and shrunk out
             after it ends. First in the DOM so it paints under the photos:
             everything here is position-auto, so paint order is source
-            order. */}
-        {cssSupported ? (
+            order. The fill variant has no backdrop at all - the swelling
+            photo is the whole event, on the page's own background. */}
+        {isFill ? null : cssSupported ? (
           <div className="rail-backdrop-layer">
             <div className="rail-backdrop" />
           </div>
@@ -293,12 +463,57 @@ export default function MobileRail({ photos, onOpen }: MobileRailProps) {
           </div>
         )}
 
+        {/* Stand-ins for the real grid photos either side of this whole
+            rail - see the prevPhoto/nextPhoto doc comment above and
+            .rail-peek-layer in globals.css. Before the swelling photo in
+            the DOM, so that photo paints on top once they overlap. */}
+        {isFill && prevPhoto && (
+          <motion.div
+            className="rail-peek-layer rail-peek-above"
+            style={cssSupported ? undefined : fallbackReady ? { y: peekAboveY } : undefined}
+          >
+            <Image
+              src={prevPhoto.src}
+              alt={prevPhoto.alt}
+              width={prevPhoto.width}
+              height={prevPhoto.height}
+              sizes="calc(100vw - 48px)"
+              className="photo-protected block h-auto w-full"
+              draggable={false}
+              loading="eager"
+              quality={82}
+              placeholder="blur"
+              blurDataURL={BLUR_DATA_URL}
+            />
+          </motion.div>
+        )}
+        {isFill && nextPhoto && (
+          <motion.div
+            className="rail-peek-layer rail-peek-below"
+            style={cssSupported ? undefined : fallbackReady ? { y: peekBelowY } : undefined}
+          >
+            <Image
+              src={nextPhoto.src}
+              alt={nextPhoto.alt}
+              width={nextPhoto.width}
+              height={nextPhoto.height}
+              sizes="calc(100vw - 48px)"
+              className="photo-protected block h-auto w-full"
+              draggable={false}
+              loading="eager"
+              quality={82}
+              placeholder="blur"
+              blurDataURL={BLUR_DATA_URL}
+            />
+          </motion.div>
+        )}
+
         {cssSupported ? (
           <div
             className="rail-track relative flex h-full"
             style={
               {
-                gap: `${RAIL_GAP_CQW}cqw`,
+                gap: railGap,
                 '--rail-shift': cssShiftValue,
               } as CSSProperties
             }
@@ -310,7 +525,7 @@ export default function MobileRail({ photos, onOpen }: MobileRailProps) {
             className="relative flex h-full"
             style={{
               width: 'max-content',
-              gap: `${RAIL_GAP_CQW}cqw`,
+              gap: railGap,
               transform,
               willChange: 'transform',
             }}
@@ -321,12 +536,16 @@ export default function MobileRail({ photos, onOpen }: MobileRailProps) {
 
         {/* Overlaid on the frame rather than nested in the track, so the
             rules hold still across the screen while the photos slide
-            underneath them. */}
-        <div className="rail-edge-layer">
-          <div className="rail-edge-band">{edgeLine(false)}</div>
-          <div className="rail-edge-spacer" />
-          <div className="rail-edge-band">{edgeLine(true)}</div>
-        </div>
+            underneath them. Dropped entirely for the fill variant - the
+            rules were designed against the black bands, which it doesn't
+            have. */}
+        {!isFill && (
+          <div className="rail-edge-layer">
+            <div className="rail-edge-band">{edgeLine(false)}</div>
+            <div className="rail-edge-spacer" />
+            <div className="rail-edge-band">{edgeLine(true)}</div>
+          </div>
+        )}
       </motion.div>
     </div>
   );

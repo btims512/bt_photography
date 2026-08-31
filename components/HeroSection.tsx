@@ -1,7 +1,7 @@
 'use client';
 
 import { useLayoutMode } from '@/lib/layout-mode';
-import HeroSectionClassic from './HeroSectionClassic';
+import HeroSectionClassic from './HeroSectionClassic';  
 import HeroSectionModern from './HeroSectionModern';
 
 export default function HeroSection() {
