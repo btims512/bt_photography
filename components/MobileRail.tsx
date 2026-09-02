@@ -465,6 +465,11 @@ export default function MobileRail({
     startX: 0,
     startY: 0,
     startDrag: 0,
+    // Where the finger has asked the track to be, before the clamp that
+    // keeps it from running past the last photo. Once the track has run
+    // out these two part company, and the difference is the push that
+    // gets spent on closing the rail - see releaseSwipe.
+    wantX: 0,
     lastX: 0,
     lastT: 0,
     velocity: 0,
@@ -516,10 +521,6 @@ export default function MobileRail({
       1,
       Math.max(0, (Math.min(1, Math.max(0, progressAt(scrollY, m))) - RAIL_SLIDE_START) / (RAIL_SLIDE_END - RAIL_SLIDE_START))
     );
-  /** The scroll position at which photo `i` sits centred in the frame -
-   *  wanted only for the two ends, 0 and gapCount. */
-  const scrollForIndex = (i: number, m: Geom) =>
-    m.docTop + (RAIL_SLIDE_START + (i / gapCount) * (RAIL_SLIDE_END - RAIL_SLIDE_START)) * m.dwellPx;
 
   /**
    * Hand the gesture back to the scroll position on release, carrying its
@@ -555,12 +556,18 @@ export default function MobileRail({
     const st = swipe.current;
     const stale = performance.now() - st.lastT > SWIPE_VELOCITY_STALE_MS;
     const fling = stale ? 0 : st.velocity * SWIPE_FLING_TAU_MS;
-    // Clamped to the slide's own span: a throw runs to the end of the
-    // gallery and stops there. Leaving the rail either way stays the
-    // page's own scroll's job.
+    // `wantX` rather than the clamped `dragX`, so a push that ran past
+    // the last photo still counts for something: with no track left to
+    // move it is spent here instead, carrying the rail through its
+    // closing phase. Which is what lets a swipe finish the animation the
+    // same way scrolling down does - hence the bounds being the whole
+    // dwell (photo swelling in through to fully settled) rather than just
+    // the span the photos slide across. A throw ends at the point the
+    // frame unpins and hands you back to the page; going further down the
+    // page from there is the page's own scroll's job.
     const toScroll = Math.min(
-      scrollForIndex(gapCount, m),
-      Math.max(scrollForIndex(0, m), fromScroll - (fromDrag + fling) * scrollPerPx)
+      m.docTop + m.dwellPx,
+      Math.max(m.docTop, fromScroll - (st.wantX + fling) * scrollPerPx)
     );
     if (Math.abs(toScroll - fromScroll) < 0.5 && Math.abs(fromDrag) < 0.5) {
       dragX.set(0);
@@ -590,12 +597,15 @@ export default function MobileRail({
     st.axis = 'y';
     if (gapCount < 1 || e.touches.length !== 1) return;
     const m = measure();
-    // Only while the frame is actually pinned - outside the dwell the
-    // rail is just an ordinary part of the page and a sideways flick
-    // there should do nothing.
     if (!m) return;
+    // From the moment the photo has finished swelling out - that is what
+    // makes a rail a gallery rather than a grid photo mid-zoom, and
+    // sliding the track sideways before then would drag the next photo in
+    // underneath one that is still growing. The upper end runs to the
+    // whole dwell rather than to the slide, so a swipe can still be used
+    // to pull the rail back open while it is closing.
     const p = progressAt(window.scrollY, m);
-    if (p <= 0 || p >= 1) return;
+    if (p < RAIL_SLIDE_START || p >= 1) return;
     cancelSettle();
     const t = e.touches[0];
     st.axis = null;
@@ -605,6 +615,7 @@ export default function MobileRail({
     st.lastT = performance.now();
     st.velocity = 0;
     st.startDrag = dragX.get();
+    st.wantX = st.startDrag;
   };
 
   const onTouchMove = (e: ReactTouchEvent) => {
@@ -637,12 +648,15 @@ export default function MobileRail({
     }
     st.lastX = t.clientX;
     st.lastT = now;
-    // Clamped so the composite of scroll and finger can't run off either
-    // end of the track - at the last photo there is nothing further left
-    // to pull in, and the rubber-band that would imply isn't this rail's
-    // idiom (the ends belong to the page's own scroll).
+    // What the finger has asked for is kept whole in `wantX`; what the
+    // track can actually show is the clamped version of it. Past the last
+    // photo there is nothing further to pull into view, so the track
+    // holds still there rather than hauling blank space across the frame
+    // - but the push is not thrown away, it stays in `wantX` and pays for
+    // closing the rail on release.
+    st.wantX = st.startDrag + dx;
     const s = slideAt(window.scrollY, m);
-    dragX.set(Math.max(-(1 - s) * m.travel, Math.min(s * m.travel, st.startDrag + dx)));
+    dragX.set(Math.max(-(1 - s) * m.travel, Math.min(s * m.travel, st.wantX)));
   };
 
   const onTouchEnd = () => {
