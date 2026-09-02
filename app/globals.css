@@ -831,18 +831,21 @@ body {
    .rail-fullbleed-fill's negative margins are what make the copies land
    exactly on the real photos they stand in for.
 
-   --rail-fill-rise is the only travel: it lifts the photo from centred
-   to flush against the frame's top edge across the swell, and lowers it
-   back at the end. That distance is half the frame's leftover height at
-   full size, which is as far as the photo can rise without either
-   cropping it (this variant shows the whole photo) or opening a band of
-   empty frame beneath it larger than the one it just closed above. On a
-   phone in portrait that leftover is small - the full-width photo very
-   nearly fills the frame's height already - so the rise is modest by
-   construction; it reads as the photo lifting into place rather than as
-   a journey up the screen. (0.94 of the frame height keeps the photo
-   bounded by height the same way --rail-photo-w is, so it never
-   outgrows the room the header leaves.) */
+   Scale is the only thing animated, so the photo grows about its own
+   centre and stays centred in the frame from beginning to end - whatever
+   height the frame has left over at full size is split evenly above and
+   below it. Since the frame spans exactly the header's lower edge to the
+   viewport's bottom, centred in the frame is centred in everything you
+   can actually see.
+
+   It used to also rise flush against the frame's top edge across the
+   swell, which put every pixel of that leftover height into one band
+   underneath: the photo read as sitting high with a white gap below it
+   rather than as a photo centred on the screen. The gap was easiest to
+   see once the row below had been pushed clear and nothing else was left
+   in that band. (0.94 of the frame height keeps the photo bounded by
+   height the same way --rail-photo-w is, so it never outgrows the room
+   the header leaves.) */
 /* The fill frame pins below the header instead of at the viewport top
    (its `top` and `height` are set inline by MobileRail.tsx, since the
    height shares RAIL_FRAME_SVH with the classic variant), and drops
@@ -867,7 +870,6 @@ body {
 }
 
 .rail-fill-photo-box {
-  --rail-fill-rise: calc((100svh - var(--header-shrunk-height) - var(--rail-fill-h)) / 2);
   width: var(--rail-fill-w);
   aspect-ratio: var(--rail-fill-r);
   height: auto;
@@ -889,26 +891,25 @@ body {
    because .rail-edge-spacer and the backdrop are sized off the same
    number and would drift apart from it otherwise. */
 .rail-fill-photo-box-css {
-  translate: 0 0;
   scale: var(--rail-rest-scale);
   animation: rail-fill-kf 1s linear;
   animation-timeline: --rail-progress;
   animation-range-start: var(--rail-range-start, cover 29.4118%);
   animation-range-end: var(--rail-range-end, cover 82.3529%);
   animation-fill-mode: both;
-  will-change: translate, scale;
+  will-change: scale;
 }
 
-/* Swell and rise finish together at 18%, where the slide takes over
-   (rail-slide-kf's own first stop), and reverse together from 82% - so
-   the photo is at full width and fully risen for exactly as long as the
-   photos are travelling, and back to its resting grid size and position
-   before the pin releases. */
+/* The swell finishes at 18%, where the slide takes over (rail-slide-kf's
+   own first stop), and reverses from 82% - so the photo is at full width
+   for exactly as long as the photos are travelling, and back to its
+   resting grid size before the pin releases. The same stops the peek
+   rows part and return on, so the three read as one movement. */
 @keyframes rail-fill-kf {
-  0%   { translate: 0 0; scale: var(--rail-rest-scale); }
-  18%  { translate: 0 calc(-1 * var(--rail-fill-rise)); scale: 1; }
-  82%  { translate: 0 calc(-1 * var(--rail-fill-rise)); scale: 1; }
-  100% { translate: 0 0; scale: var(--rail-rest-scale); }
+  0%   { scale: var(--rail-rest-scale); }
+  18%  { scale: 1; }
+  82%  { scale: 1; }
+  100% { scale: var(--rail-rest-scale); }
 }
 
 /* Peek layers: copies of the real grid photos immediately before and

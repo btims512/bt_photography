@@ -347,20 +347,22 @@ export default function MobileRail({
   const edgeFromRight = useTransform(smoothProgress, [0, 0.12, 0.82, 0.88, 1], [-1, -1, 0, -1, -1]);
 
   // Fill-variant fallback equivalents of rail-fill-kf (globals.css):
-  // same 0/18/82/100 stops, with the translate anchors computed in
-  // pixels from the live viewport instead of the CSS calc chain.
-  // innerWidth stands in for 100cqw (the frame is full-bleed) and
-  // innerHeight for 100svh - a close-enough approximation for the
-  // fallback path, which no current mobile browser takes.
+  // same 0/18/82/100 stops, with the anchors computed in pixels from the
+  // live viewport instead of the CSS calc chain. innerWidth stands in for
+  // 100cqw (the frame is full-bleed) and innerHeight for 100svh - a
+  // close-enough approximation for the fallback path, which no current
+  // mobile browser takes.
   // Pixel equivalents of the CSS custom properties the fill variant's
-  // keyframes run on (--rail-rest-scale, --rail-fill-rise,
-  // --rail-fill-inset, --rail-peek-travel), mirroring the calc chain in
+  // keyframes run on (--rail-rest-scale, --rail-fill-inset,
+  // --rail-peek-travel), mirroring the calc chain in
   // .rail-fullbleed-fill exactly - including its breakpoint, since the
   // gutter and what counts as one grid photo both change at 768px. The
   // fill frame is a header shorter than the viewport and pins below it,
-  // so frameH here is its whole height (see .rail-frame-fill).
+  // so frameH here is its whole height (see .rail-frame-fill). Nothing
+  // here translates the photo: it grows about its own centre and stays
+  // centred, so scale is the whole of its movement.
   const fillMetrics = () => {
-    if (typeof window === 'undefined') return { rise: 0, travel: 0, restScale: 1 };
+    if (typeof window === 'undefined') return { travel: 0, restScale: 1 };
     const headerPx =
       parseFloat(
         getComputedStyle(document.documentElement).getPropertyValue('--header-shrunk-height')
@@ -374,7 +376,6 @@ export default function MobileRail({
     const peakW = Math.min(vw, fillRatio * 0.94 * frameH);
     const restH = gridW / fillRatio;
     return {
-      rise: Math.max(0, (frameH - peakW / fillRatio) / 2),
       travel: Math.max(0, (frameH - restH) / 2 - gridGap),
       restScale: peakW > 0 ? gridW / peakW : 1,
     };
@@ -384,13 +385,6 @@ export default function MobileRail({
     if (p <= 0.18) return restScale + (1 - restScale) * (p / 0.18);
     if (p >= 0.82) return restScale + (1 - restScale) * (1 - (p - 0.82) / 0.18);
     return 1;
-  });
-  // Centred at rest, risen flush to the frame's top across the slide.
-  const fillY = useTransform(smoothProgress, (p) => {
-    const { rise } = fillMetrics();
-    if (p <= 0.18) return -rise * (p / 0.18);
-    if (p >= 0.82) return -rise * (1 - (p - 0.82) / 0.18);
-    return -rise;
   });
   // JS-fallback equivalents of rail-peek-above-kf / rail-peek-below-kf -
   // pure travel, no opacity, same stops as the CSS: both rows part over
@@ -697,7 +691,7 @@ export default function MobileRail({
             ? undefined
             : isFill
               ? fallbackReady
-                ? { scale: fillZoom, y: fillY }
+                ? { scale: fillZoom }
                 : undefined
               : { scale: photoZoom }
         }
