@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties, type TouchEvent as ReactTouchEvent } from 'react';
 import Image from 'next/image';
-import { motion, useInView, useMotionValue, useScroll, useSpring, useTransform } from 'framer-motion';
+import { motion, useInView, useScroll, useSpring, useTransform } from 'framer-motion';
 import { BLUR_DATA_URL } from '@/lib/blur';
 import { useLayoutMode } from '@/lib/layout-mode';
 import { useCssScrollTimelineSupport } from '@/lib/use-css-scroll-support';
@@ -134,6 +134,11 @@ const SWIPE_FLING_MS = 1200;
 // A finger that hasn't moved for this long before lifting is placing the
 // photo rather than throwing it, so it releases with no momentum.
 const SWIPE_VELOCITY_STALE_MS = 100;
+// One frame at 60Hz. Only used to give the release its first frame of
+// travel up front (see releaseSwipe) - being a frame out on a 120Hz
+// screen costs a fraction of a pixel there, so it doesn't need to be the
+// real refresh interval.
+const SWIPE_FRAME_MS = 16.7;
 
 // The shape drawn across the black band above and below the photo. A plain
 // horizontal rule at the viewBox's midline: quiet and editorial, staying
@@ -433,11 +438,11 @@ export default function MobileRail({
   // sticky frame.
   //
   // Crucially a swipe does not become a second source of truth for where
-  // the track is. It moves `dragX` (a plain offset layer that composes
-  // with the track's own transform) only for as long as the finger is
-  // down; on release that offset is converted into the scroll it is worth
-  // and handed back to scrollY, `dragX` decaying to 0 as the scroll takes
-  // it up. So the moment a gesture ends, position is once again purely a
+  // the track is. It moves a plain offset layer that composes with the
+  // track's own transform, and only for as long as the finger is down; on
+  // release that offset is converted into the scroll it is worth and
+  // handed back to scrollY in one step. So the moment a gesture ends,
+  // position is once again purely a
   // function of scrollY, exactly as before - which is what stops swiping
   // and scrolling from ever disagreeing, and means you can alternate
   // between the two freely, mid-rail, in either direction.
@@ -446,7 +451,19 @@ export default function MobileRail({
   // sideways swipe and a vertical scroll move the rail by exactly the
   // same amount for the same gesture - the swipe is another way to drive
   // the same animation, not a second animation laid over it.
-  const dragX = useMotionValue(0);
+  // The finger's offset is written straight to the element rather than
+  // held in a motion value. When a gesture is released that offset has to
+  // be handed over to scrollY *in the same frame the scroll moves*, and a
+  // motion value's write is scheduled for the next one - which showed up
+  // as a hitch on the first frame of every fling, the track having
+  // already moved while the offset had not. See releaseSwipe.
+  const swipeRef = useRef<HTMLDivElement>(null);
+  const dragXRef = useRef(0);
+  const setDragX = (v: number) => {
+    dragXRef.current = v;
+    const el = swipeRef.current;
+    if (el) el.style.transform = v === 0 ? '' : `translateX(${v}px)`;
+  };
   const trackRef = useRef<HTMLDivElement>(null);
   const swipe = useRef({
     axis: null as null | 'x' | 'y',
@@ -514,25 +531,25 @@ export default function MobileRail({
    * Hand the gesture back to the scroll position on release, carrying its
    * momentum on the way.
    *
-   * Both the page scroll and `dragX` are blended to their targets with
-   * the same decaying t, so their sum - which is what you actually see -
-   * is itself that same decaying glide from where the photo was to where
-   * it ends up. Nothing jumps at the hand-off, and afterwards there is
-   * nothing left to keep in sync: `dragX` is 0 and position is once again
-   * purely a function of scrollY.
+   * The offset is handed over to scrollY in a single step the moment the
+   * finger lifts - the scroll gains exactly what the offset gives up, so
+   * the photo does not move - and everything after that is the scroll
+   * gliding on alone.
+   *
+   * Easing the two against each other instead (which is what this used to
+   * do) is smooth on paper and stutters in practice, for two reasons that
+   * both disappear once only one of them is moving. The scroll advances
+   * in whole pixels while the offset unwinds in fractions, so the two
+   * never quite cancel and their sum jitters a pixel or two every frame;
+   * and the scroll-driven track reacts to a scroll change immediately
+   * while a scheduled style write lands a frame later, so the first frame
+   * of every fling moved the track without the offset and visibly
+   * lurched.
    *
    * A release with no speed behind it therefore looks like nothing at
-   * all: target and current position coincide, so the photo holds still
-   * while the offset quietly moves from `dragX` into scrollY.
-   *
-   * On the CSS path the track re-reads the scroll natively as this runs,
-   * so it stays exact. The Framer fallback springs its progress instead
-   * and so trails the glide slightly - soft rather than wrong, and that
-   * path is one no current mobile browser takes.
+   * all: the offset moves quietly into scrollY and the photo holds still.
    */
   const releaseSwipe = (m: Geom) => {
-    const fromScroll = window.scrollY;
-    const fromDrag = dragX.get();
     // What one pixel of sideways travel is worth in scroll: the slide
     // spans (SLIDE_END - SLIDE_START) of the dwell and covers `travel`
     // pixels, so this is just the exchange rate between the two. It is
@@ -544,30 +561,55 @@ export default function MobileRail({
     const st = swipe.current;
     const stale = performance.now() - st.lastT > SWIPE_VELOCITY_STALE_MS;
     const fling = stale ? 0 : st.velocity * SWIPE_FLING_TAU_MS;
-    // `wantX` rather than the clamped `dragX`, so a push that ran past
-    // the last photo still counts for something: with no track left to
-    // move it is spent here instead, carrying the rail through its
-    // closing phase. Which is what lets a swipe finish the animation the
-    // same way scrolling down does - hence the bounds being the whole
-    // dwell (photo swelling in through to fully settled) rather than just
-    // the span the photos slide across. A throw ends at the point the
-    // frame unpins and hands you back to the page; going further down the
-    // page from there is the page's own scroll's job.
+
+    const held = dragXRef.current;
+    const from = window.scrollY - held * scrollPerPx;
+
+    // What is left is pure momentum, plus any push that ran past the last
+    // photo and was banked rather than shown - with no track left to move
+    // it is spent here instead, carrying the rail through its closing
+    // phase. Which is what lets a swipe finish the animation the same way
+    // scrolling down does, hence bounds of the whole dwell (photo
+    // swelling in through to fully settled) rather than just the span the
+    // photos slide across. A throw ends where the frame unpins and hands
+    // you back to the page; going further down the page from there is the
+    // page's own scroll's job.
+    const banked = st.wantX - held;
     const toScroll = Math.min(
       m.docTop + m.dwellPx,
-      Math.max(m.docTop, fromScroll - (st.wantX + fling) * scrollPerPx)
+      Math.max(m.docTop, from - (banked + fling) * scrollPerPx)
     );
-    if (Math.abs(toScroll - fromScroll) < 0.5 && Math.abs(fromDrag) < 0.5) {
-      dragX.set(0);
-      return;
-    }
-    const t0 = performance.now();
     const norm = 1 - Math.exp(-SWIPE_FLING_MS / SWIPE_FLING_TAU_MS);
+    const at = (ms: number) => (1 - Math.exp(-ms / SWIPE_FLING_TAU_MS)) / norm;
+
+    // Hand the offset over to the scroll. The offset is zeroed and the
+    // scroll moved back to back in the one task, so they reach the screen
+    // together and the photo doesn't jump - and the scroll is given one
+    // frame of the throw's own travel at the same time, so the frame the
+    // finger lifts in already carries momentum instead of standing still
+    // for 16ms while the loop below gets going.
+    //
+    // (Two other ways of closing that frame measured worse and were
+    // dropped: back-dating the clock to the finger's last sample, which
+    // can be several frames old and so starts partway down the curve;
+    // and leaving it alone, which reads as a hitch between the finger
+    // letting go and the throw taking over.)
+    const throwing = Math.abs(toScroll - from) >= 0.5;
+    const t0 = performance.now() - SWIPE_FRAME_MS;
+    setDragX(0);
+    window.scrollTo(
+      window.scrollX,
+      throwing ? from + (toScroll - from) * at(SWIPE_FRAME_MS) : from
+    );
+    // Nothing to throw - the offset has been handed over, which is the
+    // whole of the work for a release that was placing rather than
+    // flicking.
+    if (!throwing) return;
+
     const tick = () => {
       const t = Math.min(1, (performance.now() - t0) / SWIPE_FLING_MS);
-      const k = (1 - Math.exp((-t * SWIPE_FLING_MS) / SWIPE_FLING_TAU_MS)) / norm;
-      window.scrollTo(window.scrollX, fromScroll + (toScroll - fromScroll) * k);
-      dragX.set(fromDrag * (1 - k));
+      const k = at(t * SWIPE_FLING_MS);
+      window.scrollTo(window.scrollX, from + (toScroll - from) * k);
       settleRaf.current = t < 1 ? requestAnimationFrame(tick) : null;
     };
     settleRaf.current = requestAnimationFrame(tick);
@@ -602,7 +644,7 @@ export default function MobileRail({
     st.lastX = t.clientX;
     st.lastT = performance.now();
     st.velocity = 0;
-    st.startDrag = dragX.get();
+    st.startDrag = dragXRef.current;
     st.wantX = st.startDrag;
   };
 
@@ -644,7 +686,7 @@ export default function MobileRail({
     // closing the rail on release.
     st.wantX = st.startDrag + dx;
     const s = slideAt(window.scrollY, m);
-    dragX.set(Math.max(-(1 - s) * m.travel, Math.min(s * m.travel, st.wantX)));
+    setDragX(Math.max(-(1 - s) * m.travel, Math.min(s * m.travel, st.wantX)));
   };
 
   const onTouchEnd = () => {
@@ -654,7 +696,7 @@ export default function MobileRail({
     suppressClick.current = true;
     const m = measure();
     if (!m) {
-      dragX.set(0);
+      setDragX(0);
       return;
     }
     releaseSwipe(m);
@@ -735,12 +777,12 @@ export default function MobileRail({
 
   // A separate layer for the finger's offset, so it composes with the
   // track's own transform instead of replacing it - neither path above
-  // has to know that swipe exists, and `dragX` is back to 0 the moment a
-  // gesture settles.
+  // has to know that swipe exists, and the offset is back to 0 the
+  // moment a gesture is released.
   const swipeLayer = (
-    <motion.div className="rail-swipe h-full" style={{ x: dragX }}>
+    <div ref={swipeRef} className="rail-swipe h-full">
       {track}
-    </motion.div>
+    </div>
   );
 
   const edgeLine = (fromRight: boolean) => (
