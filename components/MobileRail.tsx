@@ -393,23 +393,17 @@ export default function MobileRail({
     return -rise;
   });
   // JS-fallback equivalents of rail-peek-above-kf / rail-peek-below-kf -
-  // pure travel, no opacity, same stops as the CSS: top out first
-  // (0-9%) and back last (91-100%), bottom out second (9-18%) and back
-  // first (82-91%).
-  const peekAboveY = useTransform(smoothProgress, (p) => {
+  // pure travel, no opacity, same stops as the CSS: both rows part over
+  // 0-18% and return over 82-100%, together and in opposite directions,
+  // so these two differ only in sign.
+  const peekTravelAt = (p: number) => {
     const { travel } = fillMetrics();
-    if (p <= 0.09) return -travel * (p / 0.09);
-    if (p >= 0.91) return -travel * (1 - (p - 0.91) / 0.09);
-    return -travel;
-  });
-  const peekBelowY = useTransform(smoothProgress, (p) => {
-    const { travel } = fillMetrics();
-    if (p <= 0.09) return 0;
-    if (p <= 0.18) return travel * ((p - 0.09) / 0.09);
-    if (p >= 0.91) return 0;
-    if (p >= 0.82) return travel * (1 - (p - 0.82) / 0.09);
+    if (p <= RAIL_SLIDE_START) return travel * (p / RAIL_SLIDE_START);
+    if (p >= RAIL_SLIDE_END) return travel * (1 - (p - RAIL_SLIDE_END) / (1 - RAIL_SLIDE_END));
     return travel;
-  });
+  };
+  const peekAboveY = useTransform(smoothProgress, (p) => -peekTravelAt(p));
+  const peekBelowY = useTransform(smoothProgress, (p) => peekTravelAt(p));
 
   const isInView = useInView(outerRef, { margin: '200px' });
   const { headerReady } = useLayoutMode();

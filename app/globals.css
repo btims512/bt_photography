@@ -929,12 +929,13 @@ body {
    frame, so the copy and the original are the same pixels in the same
    place. See .rail-fullbleed-fill for that alignment.
 
-   They leave in one order and return in the other: top out first, then
-   bottom, so the composition opens downward as the photo takes over;
-   bottom back first, then top, so it closes the way it opened rather
-   than replaying it. No opacity anywhere - each leaves by *travelling*
-   out of view, the way the grid would if it were being shoved aside,
-   rather than dissolving on the spot. */
+   They part together and return together, each travelling the same
+   distance in opposite directions, so the two read as one gap opening
+   around the photo and closing again - and the end of the rail is the
+   start played backwards rather than a differently-ordered move. No
+   opacity anywhere: each leaves by *travelling* out of view, the way the
+   grid would if it were being shoved aside, rather than dissolving on
+   the spot. */
 /* A row of columns rather than a single element, because that's what a
    row of the grid is: one column on mobile, three on desktop, laid out
    at the same width and gap the real grid uses so the copies land on
@@ -1015,22 +1016,29 @@ body {
   transform: translateY(calc(-1 * min(var(--rail-peek-delta, 0px), var(--rail-peek-travel) - 12px)));
 }
 
-/* Leaves second (9-18%, after the top has gone) and returns first
-   (82-91%, before the top comes back). */
+/* The two rows part together and return together: same stops, opposite
+   directions, so the pair reads as one gap opening and closing rather
+   than as two separate moves. (They used to be staggered - top out over
+   0-9% and back over 91-100%, bottom out over 9-18% and back over 82-91%
+   - which made the start and the end of the rail feel like different
+   animations rather than one played forwards and backwards.)
+
+   The stops are exactly RAIL_SLIDE_START/RAIL_SLIDE_END (MobileRail.tsx),
+   so the rows finish clearing the frame precisely as the slide begins and
+   start coming back precisely as it ends - the same handover the photo's
+   own swell already uses. As with every keyframe here, CSS percentages
+   can't read those constants, so the two are kept in step by hand. */
 @keyframes rail-peek-below-kf {
   0%   { transform: translateY(0); }
-  9%   { transform: translateY(0); }
   18%  { transform: translateY(var(--rail-peek-travel)); }
   82%  { transform: translateY(var(--rail-peek-travel)); }
-  91%  { transform: translateY(0); }
   100% { transform: translateY(0); }
 }
 
-/* Leaves first (0-9%) and returns last (91-100%). */
 @keyframes rail-peek-above-kf {
   0%   { transform: translateY(0); }
-  9%   { transform: translateY(calc(-1 * var(--rail-peek-travel))); }
-  91%  { transform: translateY(calc(-1 * var(--rail-peek-travel))); }
+  18%  { transform: translateY(calc(-1 * var(--rail-peek-travel))); }
+  82%  { transform: translateY(calc(-1 * var(--rail-peek-travel))); }
   100% { transform: translateY(0); }
 }
 
