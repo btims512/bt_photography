@@ -566,6 +566,28 @@ body {
   overflow: hidden;
 }
 
+/* Swipe (MobileRail.tsx). The pinned frame hands the browser back
+   everything it was already handling - vertical panning and pinch-zoom -
+   and keeps only horizontal movement, which nothing on this page scrolls.
+   Declaring it this way is what lets swipe be purely additive: the vertical
+   scroll that drives the whole rail stays the browser's own, on its own
+   thread, and the swipe handler never sees a vertical gesture and never
+   calls preventDefault, so there is nothing for the two to fight over. */
+.rail-swipe-area {
+  touch-action: pan-y pinch-zoom;
+}
+
+/* The layer a swipe translates, between the clip and the track. Separate
+   from the track so its transform composes with the track's own rather
+   than replacing it: the track goes on being positioned purely by scroll
+   (natively, on the compositor, where supported) and this holds only the
+   temporary offset of a finger mid-swipe, returning to 0 as the gesture
+   settles onto a photo. */
+.rail-swipe {
+  width: max-content;
+  will-change: transform;
+}
+
 @media (min-width: 768px) {
   .rail-fullbleed-fill {
     /* Three columns: the content width less the two gaps between them. */

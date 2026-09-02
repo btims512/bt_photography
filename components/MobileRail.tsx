@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type TouchEvent as ReactTouchEvent } from 'react';
 import Image from 'next/image';
-import { motion, useInView, useScroll, useSpring, useTransform } from 'framer-motion';
+import { motion, useInView, useMotionValue, useScroll, useSpring, useTransform } from 'framer-motion';
 import { BLUR_DATA_URL } from '@/lib/blur';
 import { useLayoutMode } from '@/lib/layout-mode';
 import { useCssScrollTimelineSupport } from '@/lib/use-css-scroll-support';
@@ -113,6 +113,27 @@ const RAIL_GAP_CQW = 12;
 // CSS rather than resolved here, so it picks up the breakpoint's value
 // without this component having to know which breakpoint it's on.
 const RAIL_FILL_GAP = 'var(--rail-gutter)';
+
+// Swipe tuning. AXIS_LOCK is how far a finger has to travel before the
+// gesture is committed to one axis and stops being reconsidered - low
+// enough to feel immediate, high enough that the small sideways drift in
+// an ordinary vertical flick never reads as a swipe.
+//
+// The swipe is deliberately free rather than paged: it moves the rail
+// continuously, exactly as scrolling up and down does, and a photo is
+// never snapped to. (Photo-at-a-time stepping is the lightbox's idiom -
+// tap a photo and use its arrows - and pulling it in here would make the
+// same rail behave two different ways on the same screen.) So a release
+// carries its momentum the way a native flick does: velocity decaying
+// exponentially with TAU, which carries it `velocity * TAU` further
+// before it comes to rest. FLING_MS runs that out to ~3.7 time constants,
+// by which point there is well under a pixel of travel left.
+const SWIPE_AXIS_LOCK_PX = 8;
+const SWIPE_FLING_TAU_MS = 325;
+const SWIPE_FLING_MS = 1200;
+// A finger that hasn't moved for this long before lifting is placing the
+// photo rather than throwing it, so it releases with no momentum.
+const SWIPE_VELOCITY_STALE_MS = 100;
 
 // The shape drawn across the black band above and below the photo. A plain
 // horizontal rule at the viewBox's midline: quiet and editorial, staying
@@ -408,12 +429,244 @@ export default function MobileRail({
     setFallbackReady(true);
   }, []);
 
+  // ---------------------------------------------------------------------
+  // Swipe
+  //
+  // Vertical scrolling is untouched: the browser still pans the page
+  // itself, and the track's position is still derived from where that
+  // scroll got to, on whichever of the two paths above this device takes.
+  // Swipe is *added* on the one axis a pinned frame leaves unused -
+  // `touch-action: pan-y pinch-zoom` (.rail-swipe-area in globals.css)
+  // leaves vertical panning and pinch-zoom with the browser and hands us
+  // only horizontal movement. Nothing here ever calls preventDefault or
+  // touches the scroller mid-drag, so there is no wrestling with the
+  // native pan - which is the failure mode the doc comment above warns
+  // about, and the reason vertical gating is still left entirely to the
+  // sticky frame.
+  //
+  // Crucially a swipe does not become a second source of truth for where
+  // the track is. It moves `dragX` (a plain offset layer that composes
+  // with the track's own transform) only for as long as the finger is
+  // down; on release that offset is converted into the scroll it is worth
+  // and handed back to scrollY, `dragX` decaying to 0 as the scroll takes
+  // it up. So the moment a gesture ends, position is once again purely a
+  // function of scrollY, exactly as before - which is what stops swiping
+  // and scrolling from ever disagreeing, and means you can alternate
+  // between the two freely, mid-rail, in either direction.
+  //
+  // The conversion is one fixed exchange rate (see releaseSwipe), so a
+  // sideways swipe and a vertical scroll move the rail by exactly the
+  // same amount for the same gesture - the swipe is another way to drive
+  // the same animation, not a second animation laid over it.
+  const dragX = useMotionValue(0);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const swipe = useRef({
+    axis: null as null | 'x' | 'y',
+    startX: 0,
+    startY: 0,
+    startDrag: 0,
+    lastX: 0,
+    lastT: 0,
+    velocity: 0,
+  });
+  // Set on a gesture that turned out to be a swipe, so the click it would
+  // otherwise fire on the panel underneath doesn't open the lightbox.
+  // Cleared at the next touchstart rather than when consumed, so a swipe
+  // that ends off a panel can't leave it armed for a later, genuine tap.
+  const suppressClick = useRef(false);
+  const settleRaf = useRef<number | null>(null);
+  const cancelSettle = () => {
+    if (settleRaf.current !== null) {
+      cancelAnimationFrame(settleRaf.current);
+      settleRaf.current = null;
+    }
+  };
+  useEffect(() => cancelSettle, []);
+
+  /**
+   * Live pixel geometry of the slide, measured rather than derived: the
+   * panel step is a CSS expression (--rail-fill-w plus the gutter, or
+   * cqw) that only the browser can resolve, and the dwell is svh. Taken
+   * fresh per gesture, so a resize or an orientation change needs nothing
+   * recomputed or invalidated.
+   */
+  const measure = () => {
+    const outer = outerRef.current;
+    const kids = trackRef.current?.children;
+    if (!outer || !kids || kids.length < 2 || typeof window === 'undefined') return null;
+    // Difference between two siblings' offsets, so it covers the panel and
+    // the gap after it without either being read separately.
+    const step = (kids[1] as HTMLElement).offsetLeft - (kids[0] as HTMLElement).offsetLeft;
+    const dwellPx = (totalDwellSvh / 100) * window.innerHeight;
+    if (step <= 0 || dwellPx <= 0) return null;
+    return {
+      step,
+      dwellPx,
+      travel: gapCount * step,
+      docTop: outer.getBoundingClientRect().top + window.scrollY,
+    };
+  };
+  type Geom = NonNullable<ReturnType<typeof measure>>;
+
+  /** The same 0..1 the CSS timeline and `rawProgress` run on. */
+  const progressAt = (scrollY: number, m: Geom) => (scrollY - m.docTop) / m.dwellPx;
+  /** ...remapped onto the span the slide actually occupies. */
+  const slideAt = (scrollY: number, m: Geom) =>
+    Math.min(
+      1,
+      Math.max(0, (Math.min(1, Math.max(0, progressAt(scrollY, m))) - RAIL_SLIDE_START) / (RAIL_SLIDE_END - RAIL_SLIDE_START))
+    );
+  /** The scroll position at which photo `i` sits centred in the frame -
+   *  wanted only for the two ends, 0 and gapCount. */
+  const scrollForIndex = (i: number, m: Geom) =>
+    m.docTop + (RAIL_SLIDE_START + (i / gapCount) * (RAIL_SLIDE_END - RAIL_SLIDE_START)) * m.dwellPx;
+
+  /**
+   * Hand the gesture back to the scroll position on release, carrying its
+   * momentum on the way.
+   *
+   * Both the page scroll and `dragX` are blended to their targets with
+   * the same decaying t, so their sum - which is what you actually see -
+   * is itself that same decaying glide from where the photo was to where
+   * it ends up. Nothing jumps at the hand-off, and afterwards there is
+   * nothing left to keep in sync: `dragX` is 0 and position is once again
+   * purely a function of scrollY.
+   *
+   * A release with no speed behind it therefore looks like nothing at
+   * all: target and current position coincide, so the photo holds still
+   * while the offset quietly moves from `dragX` into scrollY.
+   *
+   * On the CSS path the track re-reads the scroll natively as this runs,
+   * so it stays exact. The Framer fallback springs its progress instead
+   * and so trails the glide slightly - soft rather than wrong, and that
+   * path is one no current mobile browser takes.
+   */
+  const releaseSwipe = (m: Geom) => {
+    const fromScroll = window.scrollY;
+    const fromDrag = dragX.get();
+    // What one pixel of sideways travel is worth in scroll: the slide
+    // spans (SLIDE_END - SLIDE_START) of the dwell and covers `travel`
+    // pixels, so this is just the exchange rate between the two. It is
+    // also what makes a swipe and a scroll move the rail by the same
+    // amount for the same gesture.
+    const scrollPerPx = (m.dwellPx * (RAIL_SLIDE_END - RAIL_SLIDE_START)) / m.travel;
+    // A finger that came to rest before lifting is placing the photo, not
+    // throwing it, so the velocity it was last moving at is spent.
+    const st = swipe.current;
+    const stale = performance.now() - st.lastT > SWIPE_VELOCITY_STALE_MS;
+    const fling = stale ? 0 : st.velocity * SWIPE_FLING_TAU_MS;
+    // Clamped to the slide's own span: a throw runs to the end of the
+    // gallery and stops there. Leaving the rail either way stays the
+    // page's own scroll's job.
+    const toScroll = Math.min(
+      scrollForIndex(gapCount, m),
+      Math.max(scrollForIndex(0, m), fromScroll - (fromDrag + fling) * scrollPerPx)
+    );
+    if (Math.abs(toScroll - fromScroll) < 0.5 && Math.abs(fromDrag) < 0.5) {
+      dragX.set(0);
+      return;
+    }
+    const t0 = performance.now();
+    const norm = 1 - Math.exp(-SWIPE_FLING_MS / SWIPE_FLING_TAU_MS);
+    const tick = () => {
+      const t = Math.min(1, (performance.now() - t0) / SWIPE_FLING_MS);
+      const k = (1 - Math.exp((-t * SWIPE_FLING_MS) / SWIPE_FLING_TAU_MS)) / norm;
+      window.scrollTo(window.scrollX, fromScroll + (toScroll - fromScroll) * k);
+      dragX.set(fromDrag * (1 - k));
+      settleRaf.current = t < 1 ? requestAnimationFrame(tick) : null;
+    };
+    settleRaf.current = requestAnimationFrame(tick);
+  };
+
+  const onTouchStart = (e: ReactTouchEvent) => {
+    suppressClick.current = false;
+    const st = swipe.current;
+    // Refused up front, and only opened back up to 'undecided' below once
+    // this really is a gesture we handle. Leaving it merely null here
+    // would let a touch that started somewhere we bailed on still be
+    // claimed by the first move that happened to look horizontal - and
+    // that move would be measured against whatever start coordinates the
+    // *previous* gesture left behind, jumping the rail by the difference.
+    st.axis = 'y';
+    if (gapCount < 1 || e.touches.length !== 1) return;
+    const m = measure();
+    // Only while the frame is actually pinned - outside the dwell the
+    // rail is just an ordinary part of the page and a sideways flick
+    // there should do nothing.
+    if (!m) return;
+    const p = progressAt(window.scrollY, m);
+    if (p <= 0 || p >= 1) return;
+    cancelSettle();
+    const t = e.touches[0];
+    st.axis = null;
+    st.startX = t.clientX;
+    st.startY = t.clientY;
+    st.lastX = t.clientX;
+    st.lastT = performance.now();
+    st.velocity = 0;
+    st.startDrag = dragX.get();
+  };
+
+  const onTouchMove = (e: ReactTouchEvent) => {
+    const st = swipe.current;
+    if (st.axis === 'y') return;
+    // A second finger means a pinch: give the gesture up rather than
+    // dragging the track around underneath it.
+    if (e.touches.length !== 1) {
+      st.axis = 'y';
+      return;
+    }
+    const t = e.touches[0];
+    const dx = t.clientX - st.startX;
+    const dy = t.clientY - st.startY;
+    if (st.axis === null) {
+      if (Math.abs(dx) < SWIPE_AXIS_LOCK_PX && Math.abs(dy) < SWIPE_AXIS_LOCK_PX) return;
+      st.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+      if (st.axis === 'y') return;
+    }
+    const m = measure();
+    if (!m) return;
+    const now = performance.now();
+    if (now > st.lastT) {
+      // Smoothed rather than taken raw from the last pair of points: a
+      // single frame's delta is noisy enough that an otherwise even drag
+      // can end on a reading that throws the rail much further than the
+      // finger suggested.
+      const v = (t.clientX - st.lastX) / (now - st.lastT);
+      st.velocity = st.velocity * 0.7 + v * 0.3;
+    }
+    st.lastX = t.clientX;
+    st.lastT = now;
+    // Clamped so the composite of scroll and finger can't run off either
+    // end of the track - at the last photo there is nothing further left
+    // to pull in, and the rubber-band that would imply isn't this rail's
+    // idiom (the ends belong to the page's own scroll).
+    const s = slideAt(window.scrollY, m);
+    dragX.set(Math.max(-(1 - s) * m.travel, Math.min(s * m.travel, st.startDrag + dx)));
+  };
+
+  const onTouchEnd = () => {
+    const st = swipe.current;
+    if (st.axis !== 'x') return;
+    st.axis = null;
+    suppressClick.current = true;
+    const m = measure();
+    if (!m) {
+      dragX.set(0);
+      return;
+    }
+    releaseSwipe(m);
+  };
+
   const panels = photos.map((photo, i) => (
     <div
       key={`${photo.src}-${i}`}
       className="relative flex h-full cursor-pointer items-center justify-center"
       style={{ flex: `0 0 ${panelWidth}` }}
-      onClick={() => onOpen(photo)}
+      onClick={() => {
+        if (suppressClick.current) return;
+        onOpen(photo);
+      }}
       onContextMenu={(e) => e.preventDefault()}
     >
       {/* Motion comes from the CSS class where scroll-timelines are
@@ -457,6 +710,37 @@ export default function MobileRail({
     </div>
   ));
 
+  // Positioned purely by scroll, exactly as before - the CSS path on the
+  // compositor via .rail-track, the fallback via Framer's inline
+  // transform.
+  const track = cssSupported ? (
+    <div
+      ref={trackRef}
+      className="rail-track relative flex h-full"
+      style={{ gap: railGap, '--rail-shift': cssShiftValue } as CSSProperties}
+    >
+      {panels}
+    </div>
+  ) : (
+    <motion.div
+      ref={trackRef}
+      className="relative flex h-full"
+      style={{ width: 'max-content', gap: railGap, transform, willChange: 'transform' }}
+    >
+      {panels}
+    </motion.div>
+  );
+
+  // A separate layer for the finger's offset, so it composes with the
+  // track's own transform instead of replacing it - neither path above
+  // has to know that swipe exists, and `dragX` is back to 0 the moment a
+  // gesture settles.
+  const swipeLayer = (
+    <motion.div className="rail-swipe h-full" style={{ x: dragX }}>
+      {track}
+    </motion.div>
+  );
+
   const edgeLine = (fromRight: boolean) => (
     <svg
       className={`rail-edge${fromRight ? ' rail-edge-from-right' : ''}`}
@@ -490,9 +774,13 @@ export default function MobileRail({
       }
     >
       <motion.div
-        className={`rail-frame sticky top-0 w-full overflow-hidden bg-[var(--bg)] ${
+        className={`rail-frame rail-swipe-area sticky top-0 w-full overflow-hidden bg-[var(--bg)] ${
           isFill ? 'rail-frame-fill' : ''
         }`}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchEnd}
         style={
           {
             // The fill variant pins below the header rather than at the
@@ -600,39 +888,7 @@ export default function MobileRail({
             keep adjacent panels hidden. A plain div, not part of the
             cssSupported/fallback split below - its width is a static
             calc(), nothing here needs to animate. */}
-        {isFill ? (
-          <div className="rail-slide-viewport">
-            {cssSupported ? (
-              <div
-                className="rail-track relative flex h-full"
-                style={{ gap: railGap, '--rail-shift': cssShiftValue } as CSSProperties}
-              >
-                {panels}
-              </div>
-            ) : (
-              <motion.div
-                className="relative flex h-full"
-                style={{ width: 'max-content', gap: railGap, transform, willChange: 'transform' }}
-              >
-                {panels}
-              </motion.div>
-            )}
-          </div>
-        ) : cssSupported ? (
-          <div
-            className="rail-track relative flex h-full"
-            style={{ gap: railGap, '--rail-shift': cssShiftValue } as CSSProperties}
-          >
-            {panels}
-          </div>
-        ) : (
-          <motion.div
-            className="relative flex h-full"
-            style={{ width: 'max-content', gap: railGap, transform, willChange: 'transform' }}
-          >
-            {panels}
-          </motion.div>
-        )}
+        {isFill ? <div className="rail-slide-viewport">{swipeLayer}</div> : swipeLayer}
 
         {/* Overlaid on the frame rather than nested in the track, so the
             rules hold still across the screen while the photos slide
