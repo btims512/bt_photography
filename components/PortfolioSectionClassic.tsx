@@ -12,7 +12,7 @@ import { useLayoutMode } from '@/lib/layout-mode';
 import Lightbox from './Lightbox';
 import BreakoutPhoto from './BreakoutPhoto';
 import MobileRail, { type PeekColumn } from './MobileRail';
-import type { Photo } from '@/lib/photos';
+import { MOBILE_LEAD, type Photo } from '@/lib/photos';
 
 /**
  * Describes the row of a grid segment that adjoins a rail, so the rail can
@@ -97,7 +97,7 @@ interface PortfolioSectionProps {
 // every MOBILE_LANDSCAPE_EVERY landscape photos, insert a rail of
 // MOBILE_RAIL_SIZE portrait photos, then resume the grid. Desktop is
 // unaffected - it keeps the existing single-photo BreakoutPhoto interrupt.
-const MOBILE_LANDSCAPE_EVERY = 5;
+const MOBILE_LANDSCAPE_EVERY = 4;
 const MOBILE_RAIL_SIZE = 5;
 // Columns the desktop masonry packs into. Three sites below have to agree on
 // this - the visual-order walk, the rail's peek rows, and the grid render -
@@ -257,9 +257,16 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery }: P
   // untouched and still imported/exported where it was; only this call
   // site stopped reaching for it, so bringing desktop's scrolling
   // treatment back later is a one-line change here, not a rebuild.
+  // Resolved against the photos actually being rendered, in MOBILE_LEAD's
+  // order rather than the list's, and only for this section - a named photo
+  // missing from `photos` (an album page, say) is simply skipped.
+  const mobileLead = MOBILE_LEAD.map((src) => validPhotos.find((photo) => photo.src === src)).filter(
+    (photo): photo is Photo => photo !== undefined
+  );
+
   const segments = !breakoutEvery || isDesktop || !mounted
     ? [{ type: 'grid' as const, photos: validPhotos }]
-    : chunkWithRails(validPhotos, MOBILE_LANDSCAPE_EVERY, MOBILE_RAIL_SIZE);
+    : chunkWithRails(validPhotos, MOBILE_LANDSCAPE_EVERY, MOBILE_RAIL_SIZE, mobileLead);
   let index = 0;
 
   // The Lightbox's prev/next order has to match whatever's actually on

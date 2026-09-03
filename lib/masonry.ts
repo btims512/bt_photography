@@ -236,14 +236,19 @@ export function chunkWithBreakouts(
  *  0.6665 through 5444x8000 = 0.6805) while still separating genuinely
  *  different shapes (2:3 = 0.667 vs 4:5 = 0.800, 20% apart).
  *
- *  Raised from 2% when btp-153 landed at 0.6805 - 2.1% off the other 2:3
+ *  Raised from 2% when portrait-07 landed at 0.6805 - 2.1% off the other 2:3
  *  photos, so it fell just outside and became a group of one, which can
- *  never form a rail since a shape needs two distinct photos. At rail size
- *  a 2.1% ratio difference is about 10px of height, well below noticing.
- *  Widen further only with the same care: the gap to the next real shape
- *  is 13%, so there is room, but grouping visibly different shapes is
+ *  never form a rail since a shape needs two distinct photos. Raised again
+ *  from 2.5% when portrait-03 (0.6501) sat 2.55% off that same cluster and was
+ *  the fifth photo the second rail needed: the widest pair the 2:3 group
+ *  now spans is 2.71%, so 2.8% takes all of them.
+ *
+ *  At rail size a 2.1% ratio difference is about 10px of height, so this
+ *  spans roughly 13px - still well below noticing. Widen further only with
+ *  the same care: the gap from the 2:3 cluster to the next real shape is
+ *  12.9%, so there is room, but grouping visibly different shapes is
  *  exactly what the uniform-size work was undoing. */
-const RAIL_RATIO_TOLERANCE = 0.025;
+const RAIL_RATIO_TOLERANCE = 0.028;
 
 /** A rail shorter than this isn't worth pinning the viewport for - the
  *  photos fall through to a normal grid segment instead. */
@@ -413,7 +418,12 @@ function takeUniformRail(queue: Photo[], railSize: number, railedProjects: Set<s
  * than all landscape draining first and dumping every portrait into one
  * trailing rail-less segment at the end.
  */
-export function chunkWithRails(photos: Photo[], landscapeEvery: number, railSize: number): GallerySegment[] {
+export function chunkWithRails(
+  photos: Photo[],
+  landscapeEvery: number,
+  railSize: number,
+  lead: Photo[] = []
+): GallerySegment[] {
   const segments: GallerySegment[] = [];
   const railedProjects = new Set<string>();
 
@@ -426,7 +436,12 @@ export function chunkWithRails(photos: Photo[], landscapeEvery: number, railSize
   // It also could not have put a project first, since a project's photos
   // are dealt across genres by interleaveByCategory and rarely all present
   // that early.
-  const unrailed = photos.filter((photo) => photo.height > photo.width);
+  // `lead` opens the page in the order given and is spent doing so - held
+  // out of the rail supply here, since a photo shows in one place only.
+  // Pinning portraits therefore costs rails their photos, which is why the
+  // caller has to decide what it is willing to give up.
+  const pinned = new Set(lead);
+  const unrailed = photos.filter((photo) => photo.height > photo.width && !pinned.has(photo));
   const railsAhead: Photo[][] = [];
   for (;;) {
     const rail =
@@ -437,9 +452,16 @@ export function chunkWithRails(photos: Photo[], landscapeEvery: number, railSize
   }
   const railed = new Set(railsAhead.flat());
 
+  // Its own segment rather than the head of the first one, so a rail slot
+  // can't fall in the middle of it and split the run.
+  if (lead.length > 0) {
+    segments.push({ type: 'grid', photos: lead });
+  }
+
   let gridBuffer: Photo[] = [];
   const leftoverPortraits: Photo[] = [];
   for (const photo of photos) {
+    if (pinned.has(photo)) continue;
     // A railed photo is spent - it appears in its rail and nowhere else.
     if (railed.has(photo)) continue;
     if (photo.height > photo.width) {
