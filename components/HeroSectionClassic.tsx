@@ -4,15 +4,19 @@ import type { CSSProperties } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { motion, useScroll, useSpring, useTransform } from 'framer-motion';
-import { useState } from 'react';
+import { motion, useMotionValueEvent, useScroll, useSpring, useTransform } from 'framer-motion';
+import { useEffect, useState } from 'react';
 import MobileMenu from './MobileMenu';
 import { useLayoutMode } from '@/lib/layout-mode';
+import { useCssScrollTimelineSupport } from '@/lib/use-css-scroll-support';
 
 type NavItem = {
   label: string;
   href: string;
 };
+
+/** Scroll distance over which the header collapses from full to compact. */
+const HEADER_SHRINK_SCROLL = 220;
 
 const NAV: NavItem[] = [
   { label: 'home', href: '/' },
@@ -72,8 +76,42 @@ export default function HeroSectionClassic() {
   // component doc comment for why this needs to be a spring rather than
   // the raw scroll-linked value CSS scroll-timeline would give.
   const { scrollY } = useScroll();
-  const headerShrinkRaw = useTransform(scrollY, [0, 220], [0, 1], { clamp: true });
+  const headerShrinkRaw = useTransform(scrollY, [0, HEADER_SHRINK_SCROLL], [0, 1], { clamp: true });
   const headerShrinkSpring = useSpring(headerShrinkRaw, { stiffness: 400, damping: 40, mass: 1 });
+
+  // How much scroll the shrink has swallowed so far, published as a length
+  // for the gallery to hold itself down by (see .header-scroll-offset in
+  // globals.css). It goes on the document root rather than into
+  // headerStyle below because the elements that need it are the header's
+  // siblings, not its children.
+  //
+  // Raw, deliberately, where everything else here is sprung. The header is
+  // in normal flow, so whatever height it loses pulls the page up by the
+  // same amount and cancels out of the distance between them - leaving that
+  // distance as (rest gap - scroll + this offset), with no shrink term in
+  // it at all. Feeding this the sprung value instead would put a lag into
+  // the offset that has nothing left to cancel against, and a fast flick
+  // would clip the top row before the offset caught up.
+  const headerScrollTaken = useTransform(headerShrinkRaw, (v) => v * HEADER_SHRINK_SCROLL);
+  // Only where the CSS above can't drive the offset itself. Writing it from
+  // here costs a frame of accuracy (the gap is that much narrower for the
+  // duration of a scroll), so it is the fallback, not the default.
+  const cssScroll = useCssScrollTimelineSupport();
+  useMotionValueEvent(headerScrollTaken, 'change', (v) => {
+    if (cssScroll) return;
+    document.documentElement.style.setProperty('--header-scroll-taken', `${v}px`);
+  });
+  useEffect(() => {
+    const root = document.documentElement;
+    if (cssScroll) {
+      root.style.removeProperty('--header-scroll-taken');
+      return;
+    }
+    root.style.setProperty('--header-scroll-taken', `${headerScrollTaken.get()}px`);
+    return () => {
+      root.style.removeProperty('--header-scroll-taken');
+    };
+  }, [headerScrollTaken, cssScroll]);
 
   const headerStyle: CSSProperties = {
     zIndex: 30,
@@ -127,9 +165,12 @@ export default function HeroSectionClassic() {
               >
                 PHOTOGRAPHY
               </motion.div>
+              {/* Thickness lives in .header-logo-rule rather than a plain 1px
+                  border, because this whole block gets scaled down as the
+                  header shrinks and a scaled 1px border lands at a third of a
+                  pixel - see globals.css for the counter-scale. */}
               <motion.div
-                className="mx-auto mt-2 w-[150px] md:mt-2 md:w-[280px]"
-                style={{ borderTop: '1px solid var(--ink)' }}
+                className="header-logo-rule mx-auto mt-2 w-[150px] md:mt-2 md:w-[280px]"
                 initial={{ opacity: 0, scaleX: 0 }}
                 animate={{ opacity: 1, scaleX: 1 }}
                 transition={{ duration: 0.5, delay: 0.48, ease: 'easeOut' }}

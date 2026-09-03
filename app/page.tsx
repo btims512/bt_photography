@@ -4,25 +4,15 @@ import { featuredPhotos } from '@/lib/photos';
 
 const BREAKOUT_EVERY = 6;
 
-// Every real photo appears at least once. chunkWithBreakouts (lib/masonry.ts)
-// needs at least BREAKOUT_EVERY landscape-oriented photos for the breakout
-// to ever trigger; if the real set doesn't have that many yet, only the
-// minimum number of landscape photos are repeated to close that gap,
-// instead of repeating the whole set and diluting variety unnecessarily.
-// (Desktop pads its landscape supply further still, for more breakout
-// cycles - see PortfolioSectionClassic.tsx - but that padding is scoped to
-// desktop's own segmentation, not this shared list, since mobile builds
-// its own repeated pool on top of whatever's passed here.)
-const landscapePhotos = featuredPhotos.filter((p) => p.width >= p.height);
-const landscapeShortfall = Math.max(0, BREAKOUT_EVERY - landscapePhotos.length);
-const padding =
-  landscapePhotos.length > 0
-    ? Array.from({ length: landscapeShortfall }, (_, i) => ({ ...landscapePhotos[i % landscapePhotos.length] }))
-    : [];
-const previewPhotos = [...featuredPhotos, ...padding];
-
+// Straight through, no padding: every photo appears exactly once. This used
+// to top the list up with repeats of its own landscape photos, because the
+// segmentation needs BREAKOUT_EVERY of them before it will interrupt the
+// grid and the catalog didn't have that many. It does now (well past it), so
+// the top-up added nothing and has gone - along with the laps mobile used to
+// repeat the whole list for (see PortfolioSectionClassic.tsx), which is what
+// was actually putting the same photo on the page several times over.
 export default function Home() {
-  const photos = interleaveByCategory(previewPhotos);
+  const photos = interleaveByCategory(featuredPhotos);
 
   return (
     <div className="w-full">

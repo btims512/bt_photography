@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { chunkWithRails, distributeToColumns, repeatWithOffset } from '@/lib/masonry';
+import { chunkWithRails, distributeToColumns } from '@/lib/masonry';
 import { BLUR_DATA_URL } from '@/lib/blur';
 import { useRevealWhenReady } from '@/lib/use-reveal';
 import { useWasInitiallyVisible } from '@/lib/use-was-initially-visible';
@@ -57,6 +57,35 @@ function fallbackRow(photo: Photo, columnCount: number): PeekColumn[] {
   }));
 }
 
+/**
+ * Reads packed columns the way the eye does - left to right across a row,
+ * then down to the next - rather than all the way down one column before
+ * starting the next. `flat` is that reading as a list; `positions` is the
+ * same thing indexed the way the JSX walks the grid, so a cell at
+ * columns[c][r] can look its own place up as positions[c][r] without the
+ * two readings having to be kept in step by hand.
+ *
+ * Columns are ragged - shortest-column packing balances them by height, so
+ * they end up with different photo counts - and a row simply skips a column
+ * that has already run out rather than leaving a gap. That keeps the
+ * positions dense, which both the Lightbox's prev/next and the reveal
+ * stagger need them to be.
+ */
+function readAcross(columns: Photo[][]): { flat: Photo[]; positions: number[][] } {
+  const positions = columns.map((column) => new Array<number>(column.length));
+  const flat: Photo[] = [];
+  const deepest = columns.reduce((max, column) => Math.max(max, column.length), 0);
+  for (let row = 0; row < deepest; row++) {
+    columns.forEach((column, c) => {
+      if (row < column.length) {
+        positions[c][row] = flat.length;
+        flat.push(column[row]);
+      }
+    });
+  }
+  return { flat, positions };
+}
+
 interface PortfolioSectionProps {
   id: string;
   photos: Photo[];
@@ -68,19 +97,22 @@ interface PortfolioSectionProps {
 // every MOBILE_LANDSCAPE_EVERY landscape photos, insert a rail of
 // MOBILE_RAIL_SIZE portrait photos, then resume the grid. Desktop is
 // unaffected - it keeps the existing single-photo BreakoutPhoto interrupt.
-const MOBILE_LANDSCAPE_EVERY = 9;
-const MOBILE_RAIL_SIZE = 6;
-// The real catalog doesn't yet have enough landscape/portrait photos to
-// cycle this pattern more than once or twice, so this repeats the
-// (already genre/orientation-interleaved) photo list a few laps purely to
-// preview the cadence - offsetting each lap's start so consecutive laps
-// don't visibly replay in the exact same order. Drop this once there are
-// enough real photos of each orientation to not need padding.
-const MOBILE_RAIL_LAPS = 4;
+const MOBILE_LANDSCAPE_EVERY = 5;
+const MOBILE_RAIL_SIZE = 5;
+// Columns the desktop masonry packs into. Three sites below have to agree on
+// this - the visual-order walk, the rail's peek rows, and the grid render -
+// and the walk silently mismatches the render rather than erroring if they
+// drift (the lightbox would then open the wrong photo), so it is named here
+// rather than written out separately at each of them.
+// Also mirrored in GridPhoto's `sizes` attribute, which can't read it (the
+// browser resolves `sizes` before any JS runs).
+const DESKTOP_COLUMNS = 4;
 
 interface GridPhotoProps {
   photo: Photo;
   currentIndex: number;
+  /** Seconds to hold before this photo's desktop reveal starts. */
+  revealDelay: number;
   priority: boolean;
   onOpen: () => void;
   isDesktop: boolean;
@@ -105,7 +137,7 @@ interface GridPhotoProps {
 // currentIndex 0 from the right, 1 from the left, and so on - and anything
 // reached only by scrolling gets no entrance animation at all, appearing
 // the instant its data is ready rather than replaying a reveal each time.
-function GridPhoto({ photo, currentIndex, priority, onOpen, isDesktop }: GridPhotoProps) {
+function GridPhoto({ photo, currentIndex, revealDelay, priority, onOpen, isDesktop }: GridPhotoProps) {
   const { ref: revealRef, revealed } = useRevealWhenReady<HTMLElement>('400px');
   const { ref: initialRef, wasInitiallyVisible } = useWasInitiallyVisible<HTMLElement>();
   const { headerReady } = useLayoutMode();
@@ -121,7 +153,7 @@ function GridPhoto({ photo, currentIndex, priority, onOpen, isDesktop }: GridPho
       alt={photo.alt}
       width={photo.width}
       height={photo.height}
-      sizes="(max-width: 767px) 100vw, 33vw"
+      sizes="(max-width: 767px) 100vw, 25vw"
       className="photo-protected block h-auto w-full"
       draggable={false}
       priority={priority}
@@ -139,7 +171,7 @@ function GridPhoto({ photo, currentIndex, priority, onOpen, isDesktop }: GridPho
         ref={setRef}
         initial={hiddenState}
         animate={revealed ? { opacity: 1, y: 0, scale: 1 } : hiddenState}
-        transition={{ duration: 0.85, delay: currentIndex * 0.07, ease: 'easeOut' }}
+        transition={{ duration: 0.85, delay: revealDelay, ease: 'easeOut' }}
         whileHover={{ scale: 1.02 }}
         className="relative m-0 cursor-pointer bg-[var(--bg)]"
         onContextMenu={(e) => e.preventDefault()}
@@ -227,15 +259,14 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery }: P
   // treatment back later is a one-line change here, not a rebuild.
   const segments = !breakoutEvery || isDesktop || !mounted
     ? [{ type: 'grid' as const, photos: validPhotos }]
-    : chunkWithRails(repeatWithOffset(validPhotos, MOBILE_RAIL_LAPS), MOBILE_LANDSCAPE_EVERY, MOBILE_RAIL_SIZE);
+    : chunkWithRails(validPhotos, MOBILE_LANDSCAPE_EVERY, MOBILE_RAIL_SIZE);
   let index = 0;
 
   // The Lightbox's prev/next order has to match whatever's actually on
   // screen, not validPhotos' original order - which stopped being the same
   // thing once desktop's segments started padding/repeating landscape
-  // photos (padLandscapeForBreakouts above) and packing them into columns
-  // (distributeToColumns below), and mobile's started repeating everything
-  // for the rail (repeatWithOffset above). Walking segments the same way
+  // photos and packing them into columns (distributeToColumns below).
+  // Walking segments the same way
   // the JSX below does - including desktop's own column-packing - keeps
   // this from drifting out of sync with a future change to either.
   const visualOrder: Photo[] = [];
@@ -245,15 +276,17 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery }: P
     } else if (segment.type === 'rail' || !isDesktop) {
       visualOrder.push(...segment.photos);
     } else {
-      for (const column of distributeToColumns(segment.photos, 3)) {
-        visualOrder.push(...column);
-      }
+      // Across each row, not down each column - see readAcross. Packing is
+      // still by column (that is what keeps the columns level), but nothing
+      // downstream of it should inherit the column as a reading order: on
+      // screen these four columns read as rows.
+      visualOrder.push(...readAcross(distributeToColumns(segment.photos, DESKTOP_COLUMNS)).flat);
     }
   }
 
   return (
     <section id={id} style={{backgroundColor: 'var(--bg)'}}>
-      <main className="px-6 md:px-[50px] py-6 md:py-8">
+      <main className="header-scroll-offset px-6 md:px-[50px] pb-6 md:pb-8">
         <div className="flex flex-col gap-[10px]">
           {segments.map((segment, segmentIndex) => {
             if (segment.type === 'breakout') {
@@ -306,7 +339,7 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery }: P
               // stand-ins while it's pinned over them.
               const prevSegment = segments[segmentIndex - 1];
               const nextSegment = segments[segmentIndex + 1];
-              const railColumns = isDesktop ? 3 : 1;
+              const railColumns = isDesktop ? DESKTOP_COLUMNS : 1;
               // A rail with no grid segment on one side - the page's very
               // first or last thing - falls back to the gallery's own
               // first/last photo (see fallbackRow) rather than rendering
@@ -348,6 +381,7 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery }: P
                         key={`${currentIndex}-${photo.src}`}
                         photo={photo}
                         currentIndex={currentIndex}
+                        revealDelay={currentIndex * 0.07}
                         priority={currentIndex === 0}
                         onOpen={() => setOpenIndex(visualOrder.indexOf(photo))}
                         isDesktop={isDesktop}
@@ -386,18 +420,42 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery }: P
             // up, so the parting had to go with the backdrop that
             // motivated it. SplitGrid.tsx is left in the tree alongside
             // DesktopRail for whenever that treatment comes back.
-            const columns = distributeToColumns(segment.photos, 3);
+            const columns = distributeToColumns(segment.photos, DESKTOP_COLUMNS);
+            // Positions run across the row rather than down the column, the
+            // same reading visualOrder took above. The running counter is
+            // advanced once for the whole segment instead of per photo,
+            // because the JSX below emits cells column by column while the
+            // numbering is by row - so the index can't just increment as it
+            // goes.
+            const { positions } = readAcross(columns);
+            const base = index;
+            index += segment.photos.length;
             const gridBody = (
               <div className="flex flex-col gap-[10px] md:flex-row md:items-start">
                 {columns.map((column, columnIndex) => (
                   <div key={columnIndex} className="flex flex-1 flex-col gap-[10px]">
-                    {column.map((photo) => {
-                      const currentIndex = index++;
+                    {column.map((photo, rowIndex) => {
+                      const currentIndex = base + positions[columnIndex][rowIndex];
                       return (
                         <GridPhoto
                           key={`${currentIndex}-${photo.src}`}
                           photo={photo}
                           currentIndex={currentIndex}
+                          // A wave that leads to the right and trails
+                          // downward, so photos arrive across the screen
+                          // rather than one column filling top to bottom
+                          // before the next starts. Stepping down a row has
+                          // to cost more than stepping across a column for
+                          // it to read that way round - the two terms being
+                          // the other way up is exactly what made this look
+                          // vertical. The row term is capped because it
+                          // would otherwise grow without limit down the
+                          // page: a reveal fires per photo as it is
+                          // approached, not once for the whole grid, so an
+                          // uncapped delay would leave photos near the end
+                          // sitting blank for seconds after you scrolled to
+                          // them. Capped, the wait is never over ~0.55s.
+                          revealDelay={columnIndex * 0.05 + Math.min(rowIndex, 4) * 0.1}
                           priority={currentIndex === 0}
                           onOpen={() => setOpenIndex(visualOrder.indexOf(photo))}
                           isDesktop={isDesktop}

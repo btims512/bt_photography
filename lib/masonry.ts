@@ -20,6 +20,26 @@ export type Photo = {
   height: number;
   /** genre tag, used to interleave the featured/home grid */
   category?: 'comedy' | 'portraits' | 'music';
+  /**
+   * Free-form name marking photos that belong to one body of work, so they
+   * are shown as a set: interleaveByCategory keeps them consecutive rather
+   * than dealing them out across genres, and chunkWithRails builds their
+   * rail before any other, which is what puts them in the first one.
+   *
+   * It does not override the rule that a rail holds a single shape - see
+   * projectGroups. A project spanning several shapes rails only its largest
+   * matching subset, and the rest stay in the grid alongside it.
+   */
+  project?: string;
+  /**
+   * Position within `project`, and the order the rail slides through them.
+   * Needed as its own field because nothing else survives the trip: the
+   * photo list is interleaved by genre before it reaches the rail, which
+   * deals a project's members out across three buckets, and the shape
+   * grouping then sorts what is left by aspect ratio - i.e. by rounding
+   * error, for a set that is all one shape.
+   */
+  projectOrder?: number;
 };
 
 /**
@@ -72,25 +92,6 @@ export function interleaveByCategory(photos: Photo[]): Photo[] {
   }
 
   return [...result, ...untagged];
-}
-
-/**
- * Repeats a photo list `laps` times, offsetting each lap's starting point
- * so consecutive laps don't visibly replay the exact same block back to
- * back. For padding out a thin real catalog to preview a cadence that
- * needs more supply than currently exists (see callers) - drop once the
- * catalog has enough real photos of the relevant kind to not need it.
- */
-export function repeatWithOffset(photos: Photo[], laps: number): Photo[] {
-  if (photos.length === 0) return [];
-  const result: Photo[] = [];
-  for (let lap = 0; lap < laps; lap++) {
-    const offset = (lap * 3) % photos.length;
-    for (let i = 0; i < photos.length; i++) {
-      result.push(photos[(offset + i) % photos.length]);
-    }
-  }
-  return result;
 }
 
 /**
@@ -166,6 +167,7 @@ export function chunkWithBreakouts(
 ): GallerySegment[] {
   const segments: GallerySegment[] = [];
   const breakoutQueue: Photo[] = [];
+  const railedProjects = new Set<string>();
 
   const categoryOrder: Array<Photo['category']> = [];
   const landscapeByCategory = new Map<Photo['category'], Photo[]>();
@@ -205,7 +207,7 @@ export function chunkWithBreakouts(
         gridBuffer = gridBuffer.slice(evenCount);
       }
       if (railSize > 1) {
-        const rail = takeUniformRail(breakoutQueue, railSize);
+        const rail = takeUniformRail(breakoutQueue, railSize, railedProjects);
         if (rail) {
           segments.push({ type: 'rail', photos: rail });
         }
@@ -247,10 +249,6 @@ const RAIL_RATIO_TOLERANCE = 0.025;
  *  photos fall through to a normal grid segment instead. */
 const MIN_RAIL_PHOTOS = 3;
 
-/** Every rail shows at least this many photos, repeating its own if the
- *  queue can't supply that many distinct ones yet - see takeUniformRail. */
-const RAIL_MIN_DISPLAY = 4;
-
 /**
  * Clusters photos into groups of near-identical aspect ratio. Sorts by ratio
  * and starts a new group whenever the next photo drifts more than
@@ -283,65 +281,111 @@ function groupByAspectRatio(photos: Photo[]): Photo[][] {
 }
 
 /**
+ * Rail candidates drawn from Photo.project rather than from shape alone, so
+ * a body of work can be shown as one rail instead of being split across
+ * whichever shape groups its photos happen to fall into.
+ *
+ * Each project still yields a single-shape group, because the rail sizes
+ * every panel from one aspect ratio and fits the photo inside with
+ * object-contain: a panel whose photo is a different shape doesn't crop, it
+ * shrinks and floats in a box that isn't its own, and at rest it no longer
+ * lines up with the grid photo the swell animates out of. So a project that
+ * mixes shapes contributes only its largest matching subset here, and its
+ * odd sizes fall through to the grid - where they keep their own proportions
+ * and, since interleaveByCategory holds a project together, still sit
+ * alongside the rail rather than somewhere else entirely.
+ */
+/** A group of photos a rail could be built from, and the project it came
+ *  from if it was chosen for being one rather than for its shape. */
+type RailCandidate = { photos: Photo[]; project?: string };
+
+function projectGroups(queue: Photo[], alreadyRailed: Set<string>): RailCandidate[] {
+  const byProject = new Map<string, Photo[]>();
+  for (const photo of queue) {
+    if (!photo.project || alreadyRailed.has(photo.project)) continue;
+    const list = byProject.get(photo.project);
+    if (list) list.push(photo);
+    else byProject.set(photo.project, [photo]);
+  }
+
+  const groups: RailCandidate[] = [];
+  for (const [project, members] of byProject) {
+    const [largest] = groupByAspectRatio(members).sort((a, b) => b.length - a.length);
+    if (!largest || largest.length < MIN_RAIL_PHOTOS) continue;
+    // Ordered by projectOrder, not by anything the grouping produced.
+    // groupByAspectRatio sorts by ratio to find its clusters, which for a
+    // project whose photos are all nominally one shape means sorting them by
+    // rounding error - 2160x2700 lands a thousandth ahead of 1122x1402 and
+    // would lead the rail. The queue order is no better: it comes from
+    // interleaveByCategory, which deals these out across three genres.
+    groups.push({
+      photos: members
+        .filter((photo) => largest.includes(photo))
+        .sort((a, b) => (a.projectOrder ?? 0) - (b.projectOrder ?? 0)),
+      project,
+    });
+  }
+  return groups.sort((a, b) => b.photos.length - a.photos.length);
+}
+
+/**
  * Pulls one rail's worth of same-shaped photos out of `queue`, mutating it to
  * remove what it takes. Returns null when no group can fill a worthwhile
  * rail, in which case the caller leaves everything queued for a later cycle.
  *
  * Tries aspect-ratio groups largest-first, so the shape with the most supply
- * gets used before a thinner one. Within the chosen group it round-robins
- * across *distinct* photos rather than taking the group in order: the queue
- * holds several copies of each photo (callers repeat the source list - see
- * repeatWithOffset), and taking in order would fill a rail with the same
- * photo repeated. It also caps the rail at twice the distinct count, so no
- * photo appears more than twice in one rail even when that means a rail
- * shorter than railSize.
+ * gets used before a thinner one, and takes each group in queue order. It
+ * used to round-robin across distinct photos and pad a short rail back up by
+ * repeating its own members, both of which existed only because callers fed
+ * it several laps of the same photo list; with every photo appearing once
+ * there is nothing to deduplicate and nothing to pad with, and padding was
+ * what put one photo at both ends of a three-photo rail.
  */
-function takeUniformRail(queue: Photo[], railSize: number): Photo[] | null {
-  const groups = groupByAspectRatio(queue).sort((a, b) => b.length - a.length);
-
-  for (const group of groups) {
-    const bySrc = new Map<string, Photo[]>();
-    for (const photo of group) {
-      const list = bySrc.get(photo.src);
-      if (list) list.push(photo);
-      else bySrc.set(photo.src, [photo]);
-    }
-
-    const lists = [...bySrc.values()];
-    const take = Math.min(railSize, lists.length * 2, group.length);
-    if (take < MIN_RAIL_PHOTOS) continue;
-
-    const chosen: Photo[] = [];
-    for (let i = 0; chosen.length < take; i++) {
-      const list = lists[i % lists.length];
-      if (list.length > 0) chosen.push(list.shift()!);
-    }
-
+function pickRail(
+  candidates: RailCandidate[],
+  queue: Photo[],
+  railSize: number,
+  railedProjects: Set<string>
+): Photo[] | null {
+  for (const candidate of candidates) {
+    if (candidate.photos.length < MIN_RAIL_PHOTOS) continue;
+    const chosen = candidate.photos.slice(0, railSize);
     for (const photo of chosen) {
-      // Repeated copies are the same object reference, so removing any
-      // matching entry is equivalent to removing this specific one.
       const idx = queue.indexOf(photo);
       if (idx !== -1) queue.splice(idx, 1);
     }
-
-    // Supply runs thin early on - the first rail is reached before many
-    // portraits have queued - which is what left the first rail at three
-    // photos while later ones ran to five or six. Top a short rail back up
-    // by cycling the photos it already holds. This consumes nothing
-    // further from the queue, since a rail is only short because its group
-    // had nothing left to give; it just repeats what's there. Padding to
-    // four can't push any photo past two appearances either, because a
-    // group needs two distinct photos to form a rail at all.
-    if (chosen.length < RAIL_MIN_DISPLAY) {
-      const distinct = [...new Map(chosen.map((p) => [p.src, p])).values()];
-      for (let i = 0; chosen.length < RAIL_MIN_DISPLAY; i++) {
-        chosen.push(distinct[i % distinct.length]);
-      }
-    }
+    if (candidate.project) railedProjects.add(candidate.project);
     return chosen;
   }
-
   return null;
+}
+
+/**
+ * A project's rail, built from the whole photo list rather than from the
+ * rail queue. The queue only holds what has been walked past so far, and a
+ * project's photos are spread through the list by interleaveByCategory - so
+ * waiting for them to queue would land the project in some later rail, or
+ * split it, or miss it. Taken up front and spent on the first rail instead.
+ */
+function takeProjectRail(pool: Photo[], railSize: number, railedProjects: Set<string>): Photo[] | null {
+  return pickRail(projectGroups(pool, railedProjects), pool, railSize, railedProjects);
+}
+
+function takeUniformRail(queue: Photo[], railSize: number, railedProjects: Set<string>): Photo[] | null {
+  // Projects first - that ordering is the whole mechanism by which a tagged
+  // set lands in the first rail rather than wherever its shape came up, and
+  // once per project so a second rail can't be built from the same set.
+  return pickRail(
+    [
+      ...projectGroups(queue, railedProjects),
+      ...groupByAspectRatio(queue)
+        .sort((a, b) => b.length - a.length)
+        .map((photos) => ({ photos })),
+    ],
+    queue,
+    railSize,
+    railedProjects
+  );
 }
 
 /**
@@ -371,12 +415,35 @@ function takeUniformRail(queue: Photo[], railSize: number): Photo[] | null {
  */
 export function chunkWithRails(photos: Photo[], landscapeEvery: number, railSize: number): GallerySegment[] {
   const segments: GallerySegment[] = [];
-  const railQueue: Photo[] = [];
-  let gridBuffer: Photo[] = [];
+  const railedProjects = new Set<string>();
 
+  // Every rail is chosen here, before the walk below places any of them,
+  // and each one is chosen from the whole catalogue of portraits rather
+  // than from whatever had queued by the time its slot came round. Choosing
+  // as it went was what left later rails short: the first slot arrives only
+  // a few photos in, so a rail could only ever be built from the handful of
+  // portraits walked past so far - three, where its shape had six to give.
+  // It also could not have put a project first, since a project's photos
+  // are dealt across genres by interleaveByCategory and rarely all present
+  // that early.
+  const unrailed = photos.filter((photo) => photo.height > photo.width);
+  const railsAhead: Photo[][] = [];
+  for (;;) {
+    const rail =
+      takeProjectRail(unrailed, railSize, railedProjects) ??
+      takeUniformRail(unrailed, railSize, railedProjects);
+    if (!rail) break;
+    railsAhead.push(rail);
+  }
+  const railed = new Set(railsAhead.flat());
+
+  let gridBuffer: Photo[] = [];
+  const leftoverPortraits: Photo[] = [];
   for (const photo of photos) {
+    // A railed photo is spent - it appears in its rail and nowhere else.
+    if (railed.has(photo)) continue;
     if (photo.height > photo.width) {
-      railQueue.push(photo);
+      leftoverPortraits.push(photo);
       continue;
     }
 
@@ -384,18 +451,23 @@ export function chunkWithRails(photos: Photo[], landscapeEvery: number, railSize
     if (gridBuffer.length >= landscapeEvery) {
       segments.push({ type: 'grid', photos: gridBuffer });
       gridBuffer = [];
-      const rail = takeUniformRail(railQueue, railSize);
-      if (rail) {
-        segments.push({ type: 'rail', photos: rail });
-      }
+      const rail = railsAhead.shift();
+      if (rail) segments.push({ type: 'rail', photos: rail });
     }
   }
 
   if (gridBuffer.length > 0) {
     segments.push({ type: 'grid', photos: gridBuffer });
   }
-  if (railQueue.length > 0) {
-    segments.push({ type: 'grid', photos: railQueue });
+  // Portraits no rail could use - a shape with too few of its own to fill
+  // one, or the remainder of a shape that filled one and had some over.
+  if (leftoverPortraits.length > 0) {
+    segments.push({ type: 'grid', photos: leftoverPortraits });
+  }
+  // Rails with no slot left to sit in, when the landscape supply ran out
+  // before the rails did.
+  for (const rail of railsAhead) {
+    segments.push({ type: 'rail', photos: rail });
   }
 
   return segments;

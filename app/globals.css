@@ -30,6 +30,27 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Scroll anchoring off, on the scroll container itself - it has no effect
+   anywhere else, since it is a property of the scroller rather than of the
+   content that moves.
+
+   .header-scroll-offset deliberately resizes content above the viewport on
+   every frame of the header's collapse, which is the exact thing anchoring
+   exists to undo: Chrome reads the growing padding as content shifting
+   underfoot and rewinds the scroll to compensate, so wheel input only
+   partly reached the page (60px of wheel moved it 34px) and the collapse
+   took half again as much scrolling as it was tuned for. Safari does not
+   anchor the same way, so the two browsers disagreed about how long the
+   collapse lasted. Off, the scroll position is simply the scroll position
+   in both.
+
+   Nothing here relies on anchoring for its usual job of absorbing late
+   layout shifts: every photo is rendered through next/image at a known
+   width and height, so its space is reserved before it loads. */
+html {
+  overflow-anchor: none;
+}
+
 /* Blocks the iOS/Android long-press "Save Photo" sheet and drag-to-save on
    desktop, on top of the onContextMenu preventDefault() used for right-click. */
 .photo-protected {
@@ -72,11 +93,87 @@ body {
    derives it automatically. */
 :root {
   --header-shrunk-height: 72px;
+  /* Scroll the header's collapse spans - the range .header-scroll-offset
+     cancels. Mirrors HEADER_SHRINK_SCROLL in HeroSectionClassic.tsx. */
+  --header-shrink-scroll: 220px;
 }
 
 @media (min-width: 768px) {
   :root {
     --header-shrunk-height: 102px;
+  }
+}
+
+/* Holds the gallery down by however much scroll the header's collapse has
+   swallowed, so the top row stays clear of the header for the whole of that
+   collapse instead of sliding under it almost immediately.
+
+   Without this the shrink does nothing to protect the row below it. The
+   header is `position: sticky`, so it stays in normal flow and every pixel
+   of height it gives up pulls the page up by that same pixel - which is
+   exactly the amount the header's own bottom edge rises by. The two cancel,
+   and the distance between the header and the gallery collapses at the
+   plain scroll rate no matter how the shrink is tuned: the top row began
+   going under the header 32px into a scroll (main's own padding, all the
+   clearance there was) while the header had another ~190px of shrinking
+   left to do, ending up some 188px underneath it.
+
+   Adding the swallowed scroll back as padding cancels that instead. The
+   gallery still rises - it follows the header up, staying the same 32px
+   below it - but it no longer rises faster than the header does, so nothing
+   is cut off until the header has fully settled and real scrolling takes
+   over. The page grows by --header-scroll-taken's maximum, which is the
+   scroll the collapse consumed; HeroSectionClassic.tsx publishes the value
+   and owns the range. */
+.header-scroll-offset {
+  /* Matches the py-6 / md:py-8 this replaced on the top edge; the bottom
+     edge keeps the Tailwind utility. */
+  --gallery-pad-top: 24px;
+  padding-top: calc(var(--gallery-pad-top) + var(--header-scroll-taken, 0px));
+}
+
+@media (min-width: 768px) {
+  .header-scroll-offset {
+    --gallery-pad-top: 32px;
+  }
+}
+
+/* The same offset again, driven by the browser instead of by JS, which is
+   what actually makes it hold.
+
+   The offset has to equal the scroll exactly - it is cancelling the scroll,
+   so any error in it is an error in the gap. Writing it from a Framer motion
+   value could never do that: JS learns the new scroll position a frame after
+   the browser has already scrolled and painted, so the padding was always
+   one frame's worth of scroll short. That is invisible when creeping along
+   (8px per frame cost 8px of the gap) but scales with speed - at 60px per
+   frame the gap went 32px -> -28px and the top row clipped anyway, which is
+   the bug this whole offset exists to fix. It also left the gallery jittering
+   frame to frame, since its position was part sprung header height and part
+   stale raw scroll, the two arriving out of step.
+
+   On a scroll timeline the browser resolves the padding from the same scroll
+   position it is painting, so there is no frame to be behind by. Keyframes
+   win over the plain declaration above, leaving that as the fallback for
+   browsers without scroll-driven animation, where the JS value still feeds
+   it - see useCssScrollTimelineSupport, which decides whether that JS runs
+   at all. --header-shrink-scroll must match HEADER_SHRINK_SCROLL in
+   HeroSectionClassic.tsx; nothing derives one from the other. */
+@keyframes header-scroll-offset-kf {
+  from {
+    padding-top: var(--gallery-pad-top);
+  }
+  to {
+    padding-top: calc(var(--gallery-pad-top) + var(--header-shrink-scroll));
+  }
+}
+
+@supports (animation-timeline: scroll()) {
+  .header-scroll-offset {
+    animation: header-scroll-offset-kf 1s linear;
+    animation-timeline: scroll(root block);
+    animation-range: 0 var(--header-shrink-scroll);
+    animation-fill-mode: both;
   }
 }
 
@@ -165,18 +262,21 @@ body {
 }
 
 .header-logo-shrink {
-  --logo-shrunk-half: 38px;
-  /* How much smaller the logo gets at full shrink - 0.72 means it bottoms
-     out at 28% of its resting size. This has to be picked to match
-     .header-logo-frame's own shrunk height above (44px at mobile's 156-112),
-     since overflow: hidden on the frame clips anything the scaled-down
-     logo still overhangs - a mismatch here silently clips the logo's top
-     rather than erroring. 0.72 leaves the mobile logo (natural height
-     ~144px) at ~40px, just inside the 44px frame. Desktop overrides this
-     below rather than sharing it, since its frame shrinks to a
-     proportionally smaller floor (45px, vs. a ~248px natural logo height -
-     needing a much bigger reduction than mobile's to still fit). */
-  --logo-shrink-max: 0.72;
+  /* Mobile's pair, derived the same way as desktop's below and from the
+     same two measurements of the resting logo - widest line 270.5px, natural
+     height 156px - at the shrunk scale s = 1 - --logo-shrink-max:
+       --logo-shrunk-half   = 270.5 * s / 2
+       block's scaled height = 155 * s + 1  (the rule pays 1px flat, being
+                               counter-scaled - see .header-logo-rule)
+     which must stay under .header-logo-frame's shrunk height above (44px,
+     from 156-112), because overflow: hidden there clips whatever the
+     scaled logo overhangs - silently, at the bottom, where the rule under
+     PHOTOGRAPHY lives. s of 0.27 leaves the block at 42.9px, 1.1px clear.
+     Desktop overrides both numbers below rather than sharing them: its
+     resting logo is bigger against a proportionally smaller floor, so it
+     needs a deeper reduction to fit. */
+  --logo-shrunk-half: 36.5px;
+  --logo-shrink-max: 0.73;
   transform:
     translateX(calc(var(--header-logo-shrink) * -1 * (50cqw - var(--logo-shrunk-half))))
     scale(calc(1 - var(--header-logo-shrink) * var(--logo-shrink-max)));
@@ -184,16 +284,45 @@ body {
   will-change: transform;
 }
 
+/* The rule under PHOTOGRAPHY. Its height is the inverse of the scale its
+   ancestor .header-logo-shrink is applying, so the two cancel and it always
+   renders as exactly one pixel however far the header has shrunk. A plain
+   1px border here instead scaled down with everything else and landed at
+   0.3px once the header was compact - too thin to rasterise consistently,
+   so it flickered in and out and crawled as the shrink spring settled.
+   Paying for the thickness in layout rather than in a transform also keeps
+   this element's own `transform` free for the entrance animation Framer
+   sets inline (scaleX 0 -> 1), the same reason the shrink itself lives on a
+   wrapper - see the comment on .header-logo-shrink above. */
+.header-logo-rule {
+  height: calc(1px / (1 - var(--header-logo-shrink) * var(--logo-shrink-max)));
+  background: var(--ink);
+}
+
 /* Desktop's shrunk logo, derived rather than eyeballed - the three numbers
    below are locked to each other and to two measurements of the resting
    logo: its widest line ("PHOTOGRAPHY", 484px - wider than the mark
    itself, thanks to its letter-spacing) and its natural height (248px).
    At the shrunk scale s = 1 - --logo-shrink-max:
-     .header-logo-frame height  = 248 * s      (or the frame clips it)
-     --logo-shrunk-half         = 484 * s / 2  (or it lands off the edge)
-   s is 0.30 here: the logo sits at just under a third of its resting
+     .header-logo-frame height  >= 248 * s     (or the frame clips it)
+     --logo-shrunk-half         =  484 * s / 2 (or it lands off the edge)
+   s is 0.29 here: the logo sits at just under a third of its resting
    size, roughly double the 0.17 it used to, so it still reads as a mark
    rather than a monogram once the header is compact.
+
+   That first line is an inequality because it was briefly an equality that
+   did not hold: s of 0.30 wanted 74.4px of frame against the 74px the
+   height above actually gives, and `overflow: hidden` quietly ate the
+   0.4px shortfall - which is exactly where the rule under PHOTOGRAPHY sits,
+   so the rule vanished entirely once the header was fully compact and
+   flickered on the way there as the shrink spring crossed the edge. The
+   frame height is not the free variable in that pair: it feeds
+   --header-shrunk-height (14px padding + 74px frame + 14px padding = 102px),
+   which every rail's geometry measures itself against. So s gives instead,
+   and 0.29 leaves the block 1.4px clear of the frame's bottom edge at full
+   shrink - clearance that grows with the shrink, so no scroll position
+   clips it. Keep --logo-shrunk-half in step with any further change to s;
+   the two are derived from the same number, not tuned independently.
 
    --logo-shrunk-half being derived is what actually squares the logo up
    with the rest of the page. It is the distance from the frame's left
@@ -207,8 +336,9 @@ body {
     height: calc(248px - var(--header-logo-shrink) * 174px);
   }
   .header-logo-shrink {
-    --logo-shrunk-half: 73px;
-    --logo-shrink-max: 0.70;
+    /* 484 * 0.29 / 2 and 1 - 0.29 - derived together, see above. */
+    --logo-shrunk-half: 70px;
+    --logo-shrink-max: 0.71;
   }
 }
 
