@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 
-export default function ConnectPage() {
+export default function BookPage() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -44,7 +44,7 @@ export default function ConnectPage() {
             transition={{ duration: 0.6 }}
             className="mb-12"
           >
-            <h1 className="text-4xl font-800 mb-4" style={{color: 'var(--ink)', textTransform: 'lowercase'}}>Let's Connect</h1>
+            <h1 className="text-4xl font-800 mb-4" style={{color: 'var(--ink)', textTransform: 'lowercase'}}>Book a Shoot</h1>
             <p className="text-lg opacity-75" style={{color: 'var(--dim)'}}>
               Have a project in mind? I'd love to hear from you. Fill out the form below and I'll get back to you shortly.
             </p>

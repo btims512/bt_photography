@@ -19,7 +19,7 @@ const NAV: NavItem[] = [
   { label: 'portraits', href: '/portraits' },
   { label: 'music', href: '/music' },
   { label: 'about', href: '/about' },
-  { label: 'connect', href: '/connect' },
+  { label: 'book', href: '/book' },
 ];
 
 export default function HeroSectionModern() {
