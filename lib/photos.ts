@@ -35,7 +35,6 @@ export const comedyPhotos: Photo[] = [
 
 export const portraitPhotos: Photo[] = [
   { src: '/photos/portrait-01.jpg', alt: 'Woman walking away toward a sunlit overlook at golden hour', width: 3981, height: 5972 },
-  { src: '/photos/portrait-02.jpg', alt: 'Woman in a fur coat and red lingerie standing beneath string lights at night with blue and pink neon lighting', width: 4000, height: 2667 },
   { src: '/photos/portrait-03.jpg', alt: 'Blonde woman in a navy fur coat glancing back beneath a canopy of blue string lights in a city alley', width: 3615, height: 5561 },
   { src: '/photos/portrait-04.jpg', alt: 'Woman smiling widely with sunglasses pushed up into her hair, seated on a sunlit patio', width: 5501, height: 3824 },
   { src: '/photos/portrait-05.jpg', alt: 'Two women in elaborate Day of the Dead costumes standing in a desert canyon', width: 2666, height: 4000 },
@@ -92,7 +91,6 @@ export const featuredPhotos: Photo[] = [
   { src: '/photos/comedy-04.jpg', alt: 'Stylized portrait of a smiling man in a backwards cap and gold chains throwing a peace sign, composited over a stormy city skyline lit by lightning', width: 1122, height: 1402, category: 'comedy', project: 'framed', projectOrder: 2 },
   { src: '/photos/comedy-05.jpg', alt: 'Stylized portrait of a man in a leather jacket and sunglasses composited over a black-and-white crowd scene', width: 1122, height: 1402, category: 'comedy', project: 'framed', projectOrder: 1 },
   { src: '/photos/portrait-01.jpg', alt: 'Woman walking away toward a sunlit overlook at golden hour', width: 3981, height: 5972, category: 'portraits' },
-  { src: '/photos/portrait-02.jpg', alt: 'Woman in a fur coat and red lingerie standing beneath string lights at night with blue and pink neon lighting', width: 4000, height: 2667, category: 'portraits' },
   { src: '/photos/portrait-03.jpg', alt: 'Blonde woman in a navy fur coat glancing back beneath a canopy of blue string lights in a city alley', width: 3615, height: 5561, category: 'portraits' },
   { src: '/photos/portrait-04.jpg', alt: 'Woman smiling widely with sunglasses pushed up into her hair, seated on a sunlit patio', width: 5501, height: 3824, category: 'portraits' },
   { src: '/photos/featured-01.jpg', alt: 'Sheer canyon walls catching low sun above a still green river that mirrors them', width: 8000, height: 12000 },
@@ -116,7 +114,6 @@ export const featuredPhotos: Photo[] = [
   { src: '/photos/comedy-13.jpg', alt: 'Mustached comedian on stage smiling and gesturing while holding out a microphone by its cable', width: 6016, height: 4016, category: 'comedy' },
   { src: '/photos/portrait-11.jpg', alt: 'Man with dreadlocks and a plaid shirt looking back over his shoulder against city lights at night', width: 6016, height: 4016, category: 'portraits' },
   { src: '/photos/portrait-12.jpg', alt: 'Man with dreadlocks reclining on a wooden bench under dramatic low-key lighting', width: 4000, height: 2670, category: 'portraits' },
-  { src: '/photos/featured-04.jpg', alt: 'Woman in light-up pink shutter glasses singing into a sparkling microphone at a party, a man in a green sequin hat dancing behind her', width: 5431, height: 3625 },
   { src: '/photos/portrait-13.jpg', alt: 'Man in black shirt with gold cross necklace seated on a lounge sofa', width: 1297, height: 1748, category: 'portraits' },
   { src: '/photos/comedy-14.jpg', alt: 'Musician singing into a microphone while playing a sticker-covered acoustic guitar under a stage spotlight, inside a thin white frame', width: 1122, height: 1402, category: 'comedy', project: 'framed', projectOrder: 4 },
 ];
