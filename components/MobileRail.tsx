@@ -40,6 +40,19 @@ interface MobileRailProps {
    */
   prevRow?: PeekColumn[];
   nextRow?: PeekColumn[];
+  /**
+   * Fill variant only: a heading for the gallery, shown in the band above
+   * the resting photo. Given to the first rail on the page and no other
+   * (PortfolioSectionClassic.tsx decides), so it reads as the title of
+   * the sequence rather than a caption repeated over every rail.
+   *
+   * It is hidden behind `prevRow` at rest and uncovered as that row
+   * travels up, so it wants a rail that has a row above it - which the
+   * first rail always does, the page opening on a grid segment. Without
+   * one there is simply nothing to uncover it and it sits visible
+   * throughout; see .rail-title in globals.css.
+   */
+  title?: string;
 }
 
 /**
@@ -253,6 +266,7 @@ export default function MobileRail({
   variant = 'classic',
   prevRow,
   nextRow,
+  title,
 }: MobileRailProps) {
   const outerRef = useRef<HTMLDivElement>(null);
   const cssSupported = useCssScrollTimelineSupport();
@@ -868,6 +882,27 @@ export default function MobileRail({
           <div className="rail-backdrop-layer">
             <motion.div className="rail-backdrop" style={{ width: backdropWidth, height: backdropHeight }} />
           </div>
+        )}
+
+        {/* The gallery's title. Deliberately the last thing before the
+            peek rows: it is hidden by the row below it in paint order,
+            which here means the row that comes *after* it in the DOM, and
+            revealed as that row travels up off it. Nothing about it
+            animates - see .rail-title in globals.css for why the reveal
+            and its mirror image on the way out are entirely the peek
+            row's own keyframes. */}
+        {isFill && title && (
+          <h2 className="rail-title">
+            {/* Two rules, not one background line behind the text: each is
+                a flex item that takes an equal share of whatever the words
+                leave over, which is what makes them the same length at any
+                viewport without either being measured. Empty and
+                decorative - the heading's text is the whole of what it
+                says. */}
+            <span className="rail-title-rule" aria-hidden="true" />
+            <span className="rail-title-text">{title}</span>
+            <span className="rail-title-rule" aria-hidden="true" />
+          </h2>
         )}
 
         {/* Stand-ins for the real grid rows either side of this whole rail

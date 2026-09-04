@@ -5,10 +5,11 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { motion, useMotionValueEvent, useScroll, useSpring, useTransform } from 'framer-motion';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import MobileMenu from './MobileMenu';
 import { useLayoutMode } from '@/lib/layout-mode';
 import { useCssScrollTimelineSupport } from '@/lib/use-css-scroll-support';
+import { useMediaQuery } from '@/lib/use-media-query';
 
 type NavItem = {
   label: string;
@@ -43,28 +44,40 @@ const NAV: NavItem[] = [
  * scroll-driven custom properties (--breakout-zoom etc.), which only ever
  * need to be read by the same element they're declared on.
  *
- * Deliberately always Framer Motion (headerShrinkSpring below), not native
- * CSS scroll-timeline the way the breakout/rail elsewhere in this app
- * prefer wherever supported - a raw scroll-timeline is an *undamped*,
- * 1:1 mapping from scroll position to progress by design (that's what
- * makes it compositor-only), so on a fast scroll or flick the header
+ * Where that number comes from depends on the breakpoint, and the split
+ * is deliberate.
+ *
+ * Mobile takes the same native CSS scroll-timeline the breakout/rail
+ * elsewhere in this app prefer, driven by the header-shrink-kf keyframes in
+ * globals.css - see that rule for why a spring is actively wrong for a
+ * touch scroll (it lags the finger through the flick and then keeps
+ * shrinking the header, and so dragging the page, for a third of a second
+ * after the scroll has stopped). Nothing below is fed on that path; the
+ * `style` block omits --header-shrink entirely so the spring writes nothing
+ * to the DOM, rather than writing a value the animation would override.
+ *
+ * Desktop keeps the spring, because a raw scroll-timeline is an *undamped*,
+ * 1:1 mapping from scroll position to progress by design (that's what makes
+ * it compositor-only), so on a fast wheel scroll or flick the header
  * shrinks/grows exactly as fast as the scroll itself, however abrupt that
  * is - no way to soften that in pure CSS, since a `transition` doesn't
- * apply to a value already being driven by an active `animation`. The
- * spring here is what makes a fast scroll feel like a smooth catch-up
- * instead of a snap, at the cost of the header no longer being
- * compositor-only - an acceptable trade since every property it drives is
- * transform-based already (see the .header-logo-shrink comment for why
- * that specifically matters), so the spring is the only added main-thread
- * cost, not a layout one. stiffness: 400 / damping: 40 (mass: 1) is a
- * critically damped spring (damping ratio exactly 1 at these values) - the
- * fastest a spring can settle without overshooting/oscillating. A softer
- * spring here (previously 100/22) reads as smooth on a slow scroll, but on
- * a quick flick - especially scrolling back up - it visibly lags behind
- * before catching up to the real scroll position, since it takes longer to
- * close the gap once one opens. Critically damped keeps the "doesn't jump
- * instantly" smoothing while closing that gap as fast as physically
- * possible without introducing a bounce of its own.
+ * apply to a value already being driven by an active `animation`. Wheel and
+ * trackpad input is indirect, so a smooth catch-up reads better there than
+ * it does under a finger, and the damping also gives the logo/nav merge
+ * (see .header-nav-slot in globals.css) room to resolve. It costs the
+ * header being compositor-only, an acceptable trade since every property it
+ * drives is transform-based already (see the .header-logo-shrink comment
+ * for why that specifically matters), so the spring is the only added
+ * main-thread cost, not a layout one. stiffness: 400 / damping: 40
+ * (mass: 1) is a critically damped spring (damping ratio exactly 1 at these
+ * values) - the fastest a spring can settle without
+ * overshooting/oscillating. A softer spring (previously 100/22) reads as
+ * smooth on a slow scroll, but on a quick flick - especially scrolling back
+ * up - it visibly lags behind before catching up to the real scroll
+ * position, since it takes longer to close the gap once one opens.
+ * Critically damped keeps the "doesn't jump instantly" smoothing while
+ * closing that gap as fast as physically possible without introducing a
+ * bounce of its own.
  */
 export default function HeroSectionClassic() {
   const pathname = usePathname();
@@ -72,12 +85,25 @@ export default function HeroSectionClassic() {
   const { markHeaderReady } = useLayoutMode();
 
   // Whole-page scroll position, clamped to the same 0-220px range and
-  // remapped to a plain 0-1 number, then damped through a spring - see the
-  // component doc comment for why this needs to be a spring rather than
-  // the raw scroll-linked value CSS scroll-timeline would give.
+  // remapped to a plain 0-1 number, then damped through a spring - the
+  // desktop/fallback source for --header-shrink, where the damping is
+  // wanted; see the component doc comment for why mobile takes the raw
+  // scroll-linked value CSS scroll-timeline gives instead.
   const { scrollY } = useScroll();
   const headerShrinkRaw = useTransform(scrollY, [0, HEADER_SHRINK_SCROLL], [0, 1], { clamp: true });
   const headerShrinkSpring = useSpring(headerShrinkRaw, { stiffness: 400, damping: 40, mass: 1 });
+
+  // Whether globals.css is driving --header-shrink itself rather than this
+  // component feeding it. The query is the exact complement of the
+  // `min-width: 768px` rules there, and pairs with the `max-width: 767.98px`
+  // one guarding header-shrink-kf - a viewport that matched neither would
+  // get no shrink from either side. Defaults to false so the first render
+  // (which has to match the server, and where scroll-timeline support is
+  // still unknown) takes the spring, the same fallback an unsupporting
+  // browser stays on.
+  const cssScroll = useCssScrollTimelineSupport();
+  const isMobile = useMediaQuery('(max-width: 767.98px)', false);
+  const cssShrink = cssScroll && isMobile;
 
   // How much scroll the shrink has swallowed so far, published as a length
   // for the gallery to hold itself down by (see .header-scroll-offset in
@@ -96,7 +122,6 @@ export default function HeroSectionClassic() {
   // Only where the CSS above can't drive the offset itself. Writing it from
   // here costs a frame of accuracy (the gap is that much narrower for the
   // duration of a scroll), so it is the fallback, not the default.
-  const cssScroll = useCssScrollTimelineSupport();
   useMotionValueEvent(headerScrollTaken, 'change', (v) => {
     if (cssScroll) return;
     document.documentElement.style.setProperty('--header-scroll-taken', `${v}px`);
@@ -113,14 +138,25 @@ export default function HeroSectionClassic() {
     };
   }, [headerScrollTaken, cssScroll]);
 
+  // Framer writes --header-shrink inline until cssShrink turns on, then
+  // stops - leaving its last value sitting on the element. The animation in
+  // globals.css outranks an inline style, so the leftover changes nothing
+  // (the computed value tracks the scroll regardless), but it reads as the
+  // live number in devtools while the header is visibly half-shrunk. Clear
+  // it rather than leave a misleading one behind.
+  const headerRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (cssShrink) headerRef.current?.style.removeProperty('--header-shrink');
+  }, [cssShrink]);
+
   const headerStyle: CSSProperties = {
     zIndex: 30,
     backgroundColor: 'var(--bg)',
-    ...({ '--header-shrink': headerShrinkSpring } as CSSProperties),
+    ...(cssShrink ? null : ({ '--header-shrink': headerShrinkSpring } as CSSProperties)),
   };
 
   return (
-    <motion.header className="sticky top-0 header-shrink-frame text-center" style={headerStyle}>
+    <motion.header ref={headerRef} className="sticky top-0 header-shrink-frame text-center" style={headerStyle}>
       {/* Logo - two nested wrapper layers, not either combined with each
           other or applied directly to the elements below (see globals.css
           for why the two layers can't be merged into one). Framer sets

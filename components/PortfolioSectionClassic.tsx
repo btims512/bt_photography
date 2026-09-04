@@ -39,15 +39,25 @@ function peekRow(photos: Photo[], columnCount: number, edge: 'top' | 'bottom'): 
 }
 
 /**
- * Stand-in for a rail with no grid segment on one side at all - the very
- * first or last thing on the page, which peekRow has nothing to draw from.
- * Repeats one photo (the gallery's own first/last, passed in by the
- * caller) across every column the rail needs, so that side still reads as
- * "the grid continues" rather than leaving the row empty. Each column gets
- * its own PeekColumn (same photo, count 1) rather than one shared across a
- * wider flex child, so it lays out identically to a real peekRow result -
- * MobileRail.tsx and .rail-peek-layer don't need to know this row isn't
- * backed by a real segment.
+ * Stand-in for a rail whose neighboring segment is another rail rather
+ * than a grid - back-to-back rails, which peekRow has nothing to draw
+ * from since there's no grid row there to redraw. Repeats one photo (the
+ * gallery's own first/last, passed in by the caller) across every column
+ * the rail needs, so that side still reads as "the grid continues" rather
+ * than leaving the row empty. Each column gets its own PeekColumn (same
+ * photo, count 1) rather than one shared across a wider flex child, so it
+ * lays out identically to a real peekRow result - MobileRail.tsx and
+ * .rail-peek-layer don't need to know this row isn't backed by a real
+ * segment.
+ *
+ * Deliberately NOT used when there is no neighboring segment at all - a
+ * rail that opens or closes the page - see the call site below: that case
+ * gets no row rather than this one, since "the grid continues" would be
+ * false. An earlier version used this for both, and the effect at the
+ * page's true end was a clipped sliver of the gallery's own last photo
+ * sitting after the real one, right before the footer - a photo that
+ * already had its full turn, reappearing truncated as if there were more
+ * to come when there wasn't.
  */
 function fallbackRow(photo: Photo, columnCount: number): PeekColumn[] {
   return Array.from({ length: columnCount }, () => ({
@@ -99,6 +109,10 @@ interface PortfolioSectionProps {
 // unaffected - it keeps the existing single-photo BreakoutPhoto interrupt.
 const MOBILE_LANDSCAPE_EVERY = 4;
 const MOBILE_RAIL_SIZE = 5;
+
+// Shown once, on the first rail, as the heading for the scrolling gallery
+// that starts there - see MobileRail's `title` prop and .rail-title.
+const RAIL_TITLE = 'K|T Series';
 // Columns the desktop masonry packs into. Three sites below have to agree on
 // this - the visual-order walk, the rail's peek rows, and the grid render -
 // and the walk silently mismatches the render rather than erroring if they
@@ -268,6 +282,13 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery }: P
     ? [{ type: 'grid' as const, photos: validPhotos }]
     : chunkWithRails(validPhotos, MOBILE_LANDSCAPE_EVERY, MOBILE_RAIL_SIZE, mobileLead);
   let index = 0;
+  // The first rail carries the gallery's title (see MobileRail's `title`
+  // prop); every later one is just another rail. Found rather than
+  // assumed at a fixed position, since where the first rail falls depends
+  // on MOBILE_LEAD and the landscape cadence above. -1 when there are no
+  // rails at all (desktop, or a section without breakoutEvery), which
+  // matches no segmentIndex and so hands the title to nobody.
+  const firstRailIndex = segments.findIndex((segment) => segment.type === 'rail');
 
   // The Lightbox's prev/next order has to match whatever's actually on
   // screen, not validPhotos' original order - which stopped being the same
@@ -347,18 +368,27 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery }: P
               const prevSegment = segments[segmentIndex - 1];
               const nextSegment = segments[segmentIndex + 1];
               const railColumns = isDesktop ? DESKTOP_COLUMNS : 1;
-              // A rail with no grid segment on one side - the page's very
-              // first or last thing - falls back to the gallery's own
-              // first/last photo (see fallbackRow) rather than rendering
-              // no stand-in at all.
+              // A neighboring grid segment redraws as a real peekRow; a
+              // neighboring rail (back-to-back rails, nothing to redraw)
+              // falls back to repeating the gallery's own first/last photo
+              // (see fallbackRow) so that side still reads as continuing.
+              // No neighboring segment at all - this rail opens or closes
+              // the page - gets no row rather than the fallback: there is
+              // nothing on that side to read as continuing, real or
+              // stand-in, so the band is left to show the page's own
+              // background instead of a photo repeating itself.
               const prevRow =
                 prevSegment?.type === 'grid'
                   ? peekRow(prevSegment.photos, railColumns, 'bottom')
-                  : fallbackRow(validPhotos[0], railColumns);
+                  : prevSegment
+                    ? fallbackRow(validPhotos[0], railColumns)
+                    : undefined;
               const nextRow =
                 nextSegment?.type === 'grid'
                   ? peekRow(nextSegment.photos, railColumns, 'top')
-                  : fallbackRow(validPhotos[validPhotos.length - 1], railColumns);
+                  : nextSegment
+                    ? fallbackRow(validPhotos[validPhotos.length - 1], railColumns)
+                    : undefined;
               return (
                 <MobileRail
                   key={railKey}
@@ -367,6 +397,7 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery }: P
                   variant="fill"
                   prevRow={prevRow}
                   nextRow={nextRow}
+                  title={segmentIndex === firstRailIndex ? RAIL_TITLE : undefined}
                 />
               );
             }

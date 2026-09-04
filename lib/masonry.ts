@@ -236,12 +236,16 @@ export function chunkWithBreakouts(
  *  0.6665 through 5444x8000 = 0.6805) while still separating genuinely
  *  different shapes (2:3 = 0.667 vs 4:5 = 0.800, 20% apart).
  *
- *  Raised from 2% when portrait-07 landed at 0.6805 - 2.1% off the other 2:3
- *  photos, so it fell just outside and became a group of one, which can
- *  never form a rail since a shape needs two distinct photos. Raised again
- *  from 2.5% when portrait-03 (0.6501) sat 2.55% off that same cluster and was
- *  the fifth photo the second rail needed: the widest pair the 2:3 group
- *  now spans is 2.71%, so 2.8% takes all of them.
+ *  Raised from 2% when the photo now named portrait-04.jpg landed at
+ *  0.6805 - 2.1% off the other 2:3 photos, so it fell just outside and
+ *  became a group of one, which can never form a rail since a shape needs
+ *  two distinct photos. Raised again from 2.5% when the photo now named
+ *  portrait-02.jpg (0.6501) sat 2.55% off that same cluster and was the
+ *  fifth photo the second rail needed: the widest pair the 2:3 group now
+ *  spans is 2.71%, so 2.8% takes all of them. (Both photos have since been
+ *  renumbered as the catalogue grew - the ratios and the reasoning are
+ *  what's load-bearing here, not whichever filename happened to trigger
+ *  them at the time.)
  *
  *  At rail size a 2.1% ratio difference is about 10px of height, so this
  *  spans roughly 13px - still well below noticing. Widen further only with
@@ -354,7 +358,15 @@ function pickRail(
 ): Photo[] | null {
   for (const candidate of candidates) {
     if (candidate.photos.length < MIN_RAIL_PHOTOS) continue;
-    const chosen = candidate.photos.slice(0, railSize);
+    // A project candidate is already a curated, bounded set - its size was
+    // a deliberate choice made when its photos were tagged, unlike a
+    // same-shape group, which could be as large as the whole catalogue
+    // happens to share a ratio. Capping it at railSize the same way would
+    // silently drop whichever members sorted past the cutoff, which is
+    // exactly what tagging a project exists to avoid (see the doc comment
+    // on projectGroups above) - so only a shape-based candidate is
+    // truncated; a project rail always shows the whole project.
+    const chosen = candidate.project ? candidate.photos : candidate.photos.slice(0, railSize);
     for (const photo of chosen) {
       const idx = queue.indexOf(photo);
       if (idx !== -1) queue.splice(idx, 1);

@@ -177,6 +177,61 @@ html {
   }
 }
 
+/* Mobile drives --header-shrink itself, off the same scroll timeline as the
+   offset above, instead of the Framer spring HeroSectionClassic.tsx feeds it
+   on desktop (see that file for why desktop still wants damping).
+
+   A spring is the wrong instrument for a touch scroll specifically. It is
+   defined by lagging its target and then catching up, and on a flick that
+   lag is enormous: measured on a 700px flick, the header was still at
+   shrink 0.07 by the time the page had passed 226px (where the collapse is
+   supposed to be *over*), reached only 0.88 by the moment the finger left,
+   and then spent a further ~330ms finishing while nothing was scrolling at
+   all. The header is in normal flow, so that tail is not confined to the
+   header: the 15px it was still giving up dragged the whole page up with
+   it, after the scroll had stopped. Drifting content with no input is the
+   sticking/jitter this replaces, and no spring constant removes it - a
+   faster spring just shortens the tail, and the lag during the flick is the
+   spring working as designed.
+
+   Direct-manipulation scrolling wants the header pinned to the finger
+   anyway - 1:1 is the correct feel here, not a compromise - and the
+   browser resolves this from the same scroll offset it is painting, so it
+   cannot fall behind or run on after the scroll ends. It also puts the
+   shrink back in lockstep with .header-scroll-offset above, which has been
+   exact all along; the two disagreeing was the second half of the drift.
+
+   Scoped to mobile because the desktop shrink is a timing puzzle, not just
+   a scale: the logo has to finish clearing the nav before the nav lifts
+   onto its row (see the merge windows on .header-shrink-frame and
+   .header-nav-slot). Mobile has no nav in the header at all, so nothing
+   here has to be sequenced against anything - the only consumers are the
+   logo's own scale/slide and the frame's padding. The breakpoint is written
+   to be the exact complement of the `min-width: 768px` queries below, and
+   must stay that way: it pairs with the matching check in
+   HeroSectionClassic.tsx, which stops feeding the spring's value in
+   whichever case this rule takes over, and a viewport falling through both
+   would get no shrink at all. */
+@keyframes header-shrink-kf {
+  from {
+    --header-shrink: 0;
+  }
+  to {
+    --header-shrink: 1;
+  }
+}
+
+@supports (animation-timeline: scroll()) {
+  @media (max-width: 767.98px) {
+    .header-shrink-frame {
+      animation: header-shrink-kf 1s linear;
+      animation-timeline: scroll(root block);
+      animation-range: 0 var(--header-shrink-scroll);
+      animation-fill-mode: both;
+    }
+  }
+}
+
 /* Establishes the container-query context the logo's translateX below
    measures against (cqw = % of the header's own content width, i.e. inside
    its padding) - see HeroSectionClassic.tsx for why cqw instead of a
@@ -670,6 +725,23 @@ html {
   --rail-rest-h: calc(var(--rail-grid-w) / var(--rail-fill-r, 0.66));
   --rail-rest-scale: calc(var(--rail-grid-w) / var(--rail-fill-w));
   --rail-fill-inset: calc((var(--rail-frame-h) - var(--rail-rest-h)) / 2);
+  /* Exactly the distance from a peek row's resting position to the frame
+     edge it exits through: its own visible band. Travelling this far puts
+     the peek's leading edge precisely on that boundary, and .rail-frame's
+     overflow: hidden hides everything past it - so this is enough to be
+     *gone*, however tall the photo itself happens to be (unknown here:
+     it's a real grid photo of any aspect ratio, which is why an arbitrary
+     nudge couldn't be relied on to clear the frame). One value serves both
+     rows, each sitting the same grid gap from the opposite edge of the
+     same resting photo.
+
+     Declared out here with the rest of the fill geometry rather than on
+     .rail-peek-layer, where it used to live: .rail-title reads it too (it
+     occupies the band the top row vacates, and has to know how far that
+     row travels), and both consumers inheriting one derivation is what
+     keeps the title's box and the row that uncovers it from drifting
+     apart. */
+  --rail-peek-travel: calc(var(--rail-fill-inset) - var(--rail-grid-gap));
   margin-top: calc(-1 * var(--rail-fill-inset));
   margin-bottom: calc(-1 * var(--rail-fill-inset));
 }
@@ -1042,6 +1114,122 @@ html {
   100% { scale: var(--rail-rest-scale); }
 }
 
+/* The gallery's title, on the first rail only (MobileRail.tsx's `title`
+   prop, handed out by PortfolioSectionClassic.tsx). A rule, the words,
+   and a second rule on one flex line - see .rail-title-rule for what
+   keeps the two rules even and level.
+
+   It is never animated. It sits still in the band above the resting
+   photo and is *uncovered* by the top peek row travelling up off it, the
+   way a card is uncovered by sliding the one on top of it away - so the
+   reveal is the row's own rail-peek-above-kf and nothing else. That the
+   row returns on the same keyframes is what makes the exit symmetrical
+   for free: coming back down, the photo slides over the title and covers
+   it again, no second animation and nothing to keep in step with the
+   first.
+
+   Two things put it under that row and nowhere else.
+
+   Paint order does the hiding: this is absolutely positioned with
+   z-index auto, so it paints in tree order against the peek rows (also
+   absolute, z-index auto) and the track (position: relative, likewise) -
+   which means being emitted *before* .rail-peek-above is the whole of
+   what puts it underneath. No z-index anywhere in the frame, and adding
+   one here would break the arrangement rather than reinforce it.
+
+   The box does the rest. Its top edge is the frame's, and its height is
+   the smaller of two bands:
+     --rail-peek-travel  - the top row's own visible band, i.e. exactly
+                           the strip that row covers at rest and vacates
+                           at 18%. Any taller and the bottom of the title
+                           would be showing before the reveal starts.
+     (frame - fill) / 2  - the strip left above the photo at full swell.
+                           Any taller and the photo would grow over the
+                           title on its way up, since the track paints
+                           above this.
+   Both are derived from .rail-fullbleed-fill's own numbers rather than
+   guessed at in px, so the title keeps clear of both the row and the
+   photo at any viewport, and there is no breakpoint of its own to keep
+   in sync. Centring the line in that box (rather than pinning it to
+   either edge) keeps it furthest from whichever bound is the tighter of
+   the two.
+
+   Left/right match .rail-peek-layer's, so the strip the row covers and
+   the strip the title occupies are the same strip - a title that
+   overhung the row's width would show its ends before the reveal. */
+.rail-title {
+  position: absolute;
+  top: 0;
+  left: var(--rail-gutter);
+  right: var(--rail-gutter);
+  height: min(
+    var(--rail-peek-travel),
+    calc((var(--rail-frame-h) - var(--rail-fill-h)) / 2)
+  );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1em;
+  margin: 0;
+  pointer-events: none;
+  font-size: 17px;
+  font-weight: 500;
+  /* Held in a custom property because .rail-title-text has to subtract
+     exactly this much again - see there. Anything that changes the
+     tracking changes it in one place and both stay in step. */
+  --rail-title-tracking: 0.22em;
+  letter-spacing: var(--rail-title-tracking);
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+/* The rules either side. flex: 1 1 0 from a zero basis is what makes them
+   even: the two split whatever the words and the gaps leave over, so they
+   are the same length by construction at any viewport and for any title,
+   with nothing measured and no width to keep in sync. (A single rule
+   behind the text with the words knocking a hole in it would have to know
+   the text's width to do the same job.)
+
+   Being flex items of a single `align-items: center` line is likewise what
+   aligns them: both sit on the cross-centre of the same line box as the
+   text, so they are level with each other and with the words by the same
+   rule, rather than each being positioned to a number that could drift. */
+.rail-title-rule {
+  flex: 1 1 0;
+  /* The weight of the type itself, so the rules read as part of the same
+     line rather than as hardware bolted either side of it. 0.095em is the
+     measured stem width of this font at this weight - Inter 500 draws the
+     bar in "K|T" 1.63px wide at 17px and 2.00px at 21px, both 0.095 of
+     the em - so a rule this thick is exactly as heavy as that bar.
+
+     In em rather than px for the same reason: it is a ratio to the type,
+     so it follows the font-size across the breakpoint on its own and
+     there is no second number in the media query below to forget. */
+  height: 0.095em;
+  background: var(--ink);
+}
+
+.rail-title-text {
+  /* Never give up space to the rules - they grow into what is left, not
+     the other way round. */
+  flex: none;
+  /* letter-spacing is applied after *every* character, the last one
+     included, so the text's box carries a trailing gap of exactly one
+     tracking step on its right and none on its left. Left alone that
+     lands asymmetrically here in two visible ways at once: the gap to the
+     right-hand rule reads wider than the gap to the left, and the words
+     themselves sit off-centre between the two by half the difference.
+     Taking the same amount back off the right edge squares both up. */
+  margin-right: calc(-1 * var(--rail-title-tracking));
+}
+
+@media (min-width: 768px) {
+  .rail-title {
+    font-size: 21px;
+    --rail-title-tracking: 0.28em;
+  }
+}
+
 /* Peek layers: copies of the real grid photos immediately before and
    after this whole rail (prevPhoto / nextPhoto - MobileRail.tsx renders
    each only when it has one). Neither real photo is on screen while the
@@ -1079,16 +1267,8 @@ html {
   display: flex;
   gap: var(--rail-grid-gap);
   pointer-events: none;
-  /* Exactly the distance from a peek's resting position to the frame
-     edge it exits through: its own visible band. Travelling this far
-     puts the peek's leading edge precisely on that boundary, and
-     .rail-frame's overflow: hidden hides everything past it - so this is
-     enough to be *gone*, however tall the photo itself happens to be
-     (unknown here: it's a real grid photo of any aspect ratio, which is
-     why an arbitrary nudge couldn't be relied on to clear the frame).
-     One value serves both, each sitting the same grid gap from the
-     opposite edge of the same resting photo. */
-  --rail-peek-travel: calc(var(--rail-fill-inset) - var(--rail-grid-gap));
+  /* --rail-peek-travel (how far each row moves to clear the frame) is
+     inherited from .rail-fullbleed-fill, which derives it - see there. */
   will-change: transform;
 }
 

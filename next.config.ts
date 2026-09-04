@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
   // resources (JS chunks, HMR) by default, which renders as a white page
   // with no working JS on the phone even though the HTML itself loads. If
   // the router ever reassigns the Mac's IP, update this to match.
-  allowedDevOrigins: ["192.168.1.238"],
+  allowedDevOrigins: ["192.168.1.34"],
   images: {
     qualities: [75, 82, 90],
     remotePatterns: [
