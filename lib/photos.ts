@@ -44,6 +44,7 @@ export type { Photo };
 export const MOBILE_LEAD: string[] = [
   '/photos/portrait-03.jpg',
   '/photos/music-02.jpg',
+  '/photos/portrait-08.jpg',
   '/photos/portrait-10.jpg',
   '/photos/portrait-07.jpg',
   '/photos/portrait-04.jpg',
@@ -68,7 +69,7 @@ export const featuredPhotos: Photo[] = [
   // vertical
   { src: '/photos/comedy-01.jpg', alt: 'Stacked portrait of three comedians in caps, lit in purple and green', width: 1929, height: 2600, category: 'comedy' },
   { src: '/photos/comedy-02.jpg', alt: 'Distorted composite portrait of a man in a cap and sweatshirt, his face warped by a motion-blur effect', width: 3000, height: 4000, category: 'comedy' },
-  { src: '/photos/comedy-03.jpg', alt: 'Black and white portrait of a smiling, mustached comedian double-exposed with a laughing audience crowd', width: 3000, height: 4088, category: 'comedy' },
+  { src: '/photos/comedy-03.jpg', alt: 'Black and white portrait of a smiling, mustached comedian double-exposed with a laughing audience crowd', width: 1080, height: 1080, category: 'comedy' },
   { src: '/photos/comedy-04.jpg', alt: 'Stylized portrait of a smiling man in a backwards cap and gold chains throwing a peace sign, composited over a stormy city skyline lit by lightning', width: 1122, height: 1402, category: 'comedy', project: 'framed', projectOrder: 2 },
   { src: '/photos/comedy-05.jpg', alt: 'Stylized portrait of a man in a leather jacket and sunglasses composited over a black-and-white crowd scene', width: 1122, height: 1402, category: 'comedy', project: 'framed', projectOrder: 1 },
   { src: '/photos/comedy-15.jpg', alt: 'Comedian gritting his teeth and squinting while pointing a corded microphone at the camera', width: 3712, height: 5568, category: 'comedy' },
@@ -81,15 +82,17 @@ export const featuredPhotos: Photo[] = [
   { src: '/photos/comedy-20.jpg', alt: 'Bald, bearded comedian in sunglasses and a plaid shirt with smoke curling beside him, framed inset over a blurred black-and-white crowd', width: 1080, height: 1350, category: 'comedy' },
   { src: '/photos/comedy-21.jpg', alt: 'Man with a strawberry-blond mullet, mustache, and neck tattoos tilting his head back in a patterned western snap shirt, inside a thin white frame', width: 3799, height: 4749, category: 'comedy', project: 'framed', projectOrder: 4 },
   { src: '/photos/portrait-03.jpg', alt: 'Two women in elaborate Day of the Dead costumes standing in a desert canyon', width: 2666, height: 4000, category: 'portraits' },
-  { src: '/photos/portrait-01.jpg', alt: 'Woman walking away toward a sunlit overlook at golden hour', width: 3981, height: 5972, category: 'portraits' },
-  { src: '/photos/portrait-02.jpg', alt: 'Blonde woman in a navy fur coat glancing back beneath a canopy of blue string lights in a city alley', width: 3615, height: 5561, category: 'portraits' },
+  { src: '/photos/portrait-01.jpg', alt: 'Woman walking away toward a sunlit overlook at golden hour', width: 3981, height: 5972, category: 'portraits', project: 'series-two', projectOrder: 3 },
+  { src: '/photos/portrait-02.jpg', alt: 'Blonde woman in a navy fur coat glancing back beneath a canopy of blue string lights in a city alley', width: 3615, height: 5423, category: 'portraits', project: 'series-two', projectOrder: 1 },
   { src: '/photos/portrait-04.jpg', alt: 'Portrait photograph', width: 5444, height: 8000, category: 'portraits' },
-  { src: '/photos/portrait-05.jpg', alt: 'Woman in a white ruffled dress and studded denim jacket posing with blue cat-eye sunglasses among balloons in purple and blue light', width: 3534, height: 5293, category: 'portraits' },
+  { src: '/photos/portrait-05.jpg', alt: 'Woman in a white ruffled dress and studded denim jacket posing with blue cat-eye sunglasses among balloons in purple and blue light', width: 3534, height: 5293, category: 'portraits', project: 'series-two', projectOrder: 2 },
   { src: '/photos/portrait-06.jpg', alt: 'Three boys goofing around in the middle of a suburban street at sunset, one held upside down over another boy shoulder', width: 3899, height: 5841, category: 'portraits' },
   { src: '/photos/portrait-07.jpg', alt: 'Man in black shirt with gold cross necklace seated on a lounge sofa', width: 1297, height: 1748, category: 'portraits' },
   { src: '/photos/portrait-08.jpg', alt: 'Woman in a leopard-print bodysuit and sunglasses crouching in front of a graffiti mural, glancing back over her shoulder', width: 3924, height: 5878, category: 'portraits' },
   { src: '/photos/featured-01.jpg', alt: 'Sheer canyon walls catching low sun above a still green river that mirrors them', width: 8000, height: 12000 },
-  { src: '/photos/featured-02.jpg', alt: 'Boy in a straw cowboy hat carrying a Texas flag across the granite dome of Enchanted Rock', width: 3024, height: 4032 },
+  { src: '/photos/featured-02.jpg', alt: 'Boy in a straw cowboy hat carrying a Texas flag across the granite dome of Enchanted Rock', width: 2688, height: 4032, project: 'tx', projectOrder: 1 },
+  { src: '/photos/featured-05.jpg', alt: 'Texas longhorn with sweeping horns leaning against a barbed-wire fence, suburban rooftops behind it', width: 3712, height: 5568, project: 'tx', projectOrder: 2 },
+  { src: '/photos/featured-06.jpg', alt: 'Kayakers scattered across Lady Bird Lake at dusk below the downtown Austin skyline', width: 4006, height: 6001, project: 'tx', projectOrder: 3 },
 
   // horizontal
   { src: '/photos/comedy-09.jpg', alt: 'Comedian in a cap speaking into a microphone during his set', width: 4000, height: 2670, category: 'comedy' },
@@ -104,13 +107,15 @@ export const featuredPhotos: Photo[] = [
   { src: '/photos/music-01.jpg', alt: 'Five band members lounging on a couch in a green-lit garage, their eyes glowing white, an acoustic guitar hanging on the wall behind them', width: 5241, height: 3169, category: 'music' },
   { src: '/photos/music-02.jpg', alt: 'Rapper mid-verse with one arm raised, stage lights streaking outward behind him in a zoom blur', width: 6016, height: 4016, category: 'music' },
   { src: '/photos/featured-03.jpg', alt: 'Portrait of Willie Nelson projected in light onto the side of an old bus under a starry night sky', width: 4000, height: 2729 },
+  { src: '/photos/featured-07.jpg', alt: 'Turquoise Rio Grande winding between the sheer limestone walls of Santa Elena Canyon in Big Bend', width: 12000, height: 8000 },
+  { src: '/photos/featured-08.jpg', alt: 'Desert highway curving toward a sunlit peak in Big Bend at sunset', width: 12000, height: 8000 },
 ];
 
 export const comedyPhotos: Photo[] = [
   // vertical
   { src: '/photos/comedy-01.jpg', alt: 'Stacked portrait of three comedians in caps, lit in purple and green', width: 1929, height: 2600 },
   { src: '/photos/comedy-02.jpg', alt: 'Distorted composite portrait of a man in a cap and sweatshirt, his face warped by a motion-blur effect', width: 3000, height: 4000 },
-  { src: '/photos/comedy-03.jpg', alt: 'Black and white portrait of a smiling, mustached comedian double-exposed with a laughing audience crowd', width: 3000, height: 4088 },
+  { src: '/photos/comedy-03.jpg', alt: 'Black and white portrait of a smiling, mustached comedian double-exposed with a laughing audience crowd', width: 1080, height: 1080 },
   { src: '/photos/comedy-04.jpg', alt: 'Stylized portrait of a smiling man in a backwards cap and gold chains throwing a peace sign, composited over a stormy city skyline lit by lightning', width: 1122, height: 1402, project: 'framed', projectOrder: 2 },
   { src: '/photos/comedy-05.jpg', alt: 'Stylized portrait of a man in a leather jacket and sunglasses composited over a black-and-white crowd scene', width: 1122, height: 1402, project: 'framed', projectOrder: 1 },
   { src: '/photos/comedy-15.jpg', alt: 'Comedian gritting his teeth and squinting while pointing a corded microphone at the camera', width: 3712, height: 5568 },
@@ -135,10 +140,10 @@ export const comedyPhotos: Photo[] = [
 export const portraitPhotos: Photo[] = [
   // vertical
   { src: '/photos/portrait-03.jpg', alt: 'Two women in elaborate Day of the Dead costumes standing in a desert canyon', width: 2666, height: 4000 },
-  { src: '/photos/portrait-01.jpg', alt: 'Woman walking away toward a sunlit overlook at golden hour', width: 3981, height: 5972 },
-  { src: '/photos/portrait-02.jpg', alt: 'Blonde woman in a navy fur coat glancing back beneath a canopy of blue string lights in a city alley', width: 3615, height: 5561 },
+  { src: '/photos/portrait-01.jpg', alt: 'Woman walking away toward a sunlit overlook at golden hour', width: 3981, height: 5972, project: 'series-two', projectOrder: 3 },
+  { src: '/photos/portrait-02.jpg', alt: 'Blonde woman in a navy fur coat glancing back beneath a canopy of blue string lights in a city alley', width: 3615, height: 5423, project: 'series-two', projectOrder: 1 },
   { src: '/photos/portrait-04.jpg', alt: 'Portrait photograph', width: 5444, height: 8000 },
-  { src: '/photos/portrait-05.jpg', alt: 'Woman in a white ruffled dress and studded denim jacket posing with blue cat-eye sunglasses among balloons in purple and blue light', width: 3534, height: 5293 },
+  { src: '/photos/portrait-05.jpg', alt: 'Woman in a white ruffled dress and studded denim jacket posing with blue cat-eye sunglasses among balloons in purple and blue light', width: 3534, height: 5293, project: 'series-two', projectOrder: 2 },
   { src: '/photos/portrait-06.jpg', alt: 'Three boys goofing around in the middle of a suburban street at sunset, one held upside down over another boy shoulder', width: 3899, height: 5841 },
   { src: '/photos/portrait-07.jpg', alt: 'Man in black shirt with gold cross necklace seated on a lounge sofa', width: 1297, height: 1748 },
   { src: '/photos/portrait-08.jpg', alt: 'Woman in a leopard-print bodysuit and sunglasses crouching in front of a graffiti mural, glancing back over her shoulder', width: 3924, height: 5878 },

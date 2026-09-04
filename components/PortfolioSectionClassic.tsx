@@ -110,9 +110,27 @@ interface PortfolioSectionProps {
 const MOBILE_LANDSCAPE_EVERY = 4;
 const MOBILE_RAIL_SIZE = 5;
 
-// Shown once, on the first rail, as the heading for the scrolling gallery
-// that starts there - see MobileRail's `title` prop and .rail-title.
-const RAIL_TITLE = 'K|T Series';
+// Headings for the curated rails, keyed by Photo.project - see MobileRail's
+// `title` prop and .rail-title. Only a project rail is named: a rail built
+// from a shape group is whatever photos happened to share an aspect ratio,
+// so there is nothing to call it, and it renders untitled.
+const RAIL_TITLES: Record<string, string> = {
+  framed: 'K|T Series',
+  tx: 'TX',
+};
+
+/**
+ * The heading for a rail, or undefined for an untitled one. Keyed off the
+ * project every photo in the rail shares - pickRail builds a project rail
+ * from one project's members only, so photos[0] is representative, but the
+ * agreement is checked rather than assumed so a shape rail that happens to
+ * open with a tagged photo can't inherit that project's title.
+ */
+function railTitle(photos: Photo[]): string | undefined {
+  const project = photos[0]?.project;
+  if (!project) return undefined;
+  return photos.every((photo) => photo.project === project) ? RAIL_TITLES[project] : undefined;
+}
 // Columns the desktop masonry packs into. Three sites below have to agree on
 // this - the visual-order walk, the rail's peek rows, and the grid render -
 // and the walk silently mismatches the render rather than erroring if they
@@ -282,13 +300,6 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery }: P
     ? [{ type: 'grid' as const, photos: validPhotos }]
     : chunkWithRails(validPhotos, MOBILE_LANDSCAPE_EVERY, MOBILE_RAIL_SIZE, mobileLead);
   let index = 0;
-  // The first rail carries the gallery's title (see MobileRail's `title`
-  // prop); every later one is just another rail. Found rather than
-  // assumed at a fixed position, since where the first rail falls depends
-  // on MOBILE_LEAD and the landscape cadence above. -1 when there are no
-  // rails at all (desktop, or a section without breakoutEvery), which
-  // matches no segmentIndex and so hands the title to nobody.
-  const firstRailIndex = segments.findIndex((segment) => segment.type === 'rail');
 
   // The Lightbox's prev/next order has to match whatever's actually on
   // screen, not validPhotos' original order - which stopped being the same
@@ -397,7 +408,7 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery }: P
                   variant="fill"
                   prevRow={prevRow}
                   nextRow={nextRow}
-                  title={segmentIndex === firstRailIndex ? RAIL_TITLE : undefined}
+                  title={railTitle(segment.photos)}
                 />
               );
             }
