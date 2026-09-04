@@ -79,6 +79,7 @@ export const featuredPhotos: Photo[] = [
   { src: '/photos/comedy-18.jpg', alt: 'Wide-eyed, laughing comedian in a yellow tropical-print shirt, framed inset over a blurred black-and-white crowd', width: 1080, height: 1350, category: 'comedy', project: 'framed', projectOrder: 8 },
   { src: '/photos/comedy-19.jpg', alt: 'Comedian with long curly hair and a mustache holding a microphone on the Austin Comedy Company stage, framed inset over a blurred crowd', width: 1080, height: 1350, category: 'comedy', project: 'framed', projectOrder: 9 },
   { src: '/photos/comedy-20.jpg', alt: 'Bald, bearded comedian in sunglasses and a plaid shirt with smoke curling beside him, framed inset over a blurred black-and-white crowd', width: 1080, height: 1350, category: 'comedy' },
+  { src: '/photos/comedy-21.jpg', alt: 'Man with a strawberry-blond mullet, mustache, and neck tattoos tilting his head back in a patterned western snap shirt, inside a thin white frame', width: 3799, height: 4749, category: 'comedy', project: 'framed', projectOrder: 4 },
   { src: '/photos/portrait-03.jpg', alt: 'Two women in elaborate Day of the Dead costumes standing in a desert canyon', width: 2666, height: 4000, category: 'portraits' },
   { src: '/photos/portrait-01.jpg', alt: 'Woman walking away toward a sunlit overlook at golden hour', width: 3981, height: 5972, category: 'portraits' },
   { src: '/photos/portrait-02.jpg', alt: 'Blonde woman in a navy fur coat glancing back beneath a canopy of blue string lights in a city alley', width: 3615, height: 5561, category: 'portraits' },
@@ -87,7 +88,6 @@ export const featuredPhotos: Photo[] = [
   { src: '/photos/portrait-06.jpg', alt: 'Three boys goofing around in the middle of a suburban street at sunset, one held upside down over another boy shoulder', width: 3899, height: 5841, category: 'portraits' },
   { src: '/photos/portrait-07.jpg', alt: 'Man in black shirt with gold cross necklace seated on a lounge sofa', width: 1297, height: 1748, category: 'portraits' },
   { src: '/photos/portrait-08.jpg', alt: 'Woman in a leopard-print bodysuit and sunglasses crouching in front of a graffiti mural, glancing back over her shoulder', width: 3924, height: 5878, category: 'portraits' },
-  { src: '/photos/portrait-13.jpg', alt: 'Man with a strawberry-blond mullet, mustache, and neck tattoos tilting his head back in a patterned western snap shirt, inside a thin white frame', width: 3799, height: 4749, category: 'portraits', project: 'framed', projectOrder: 4 },
   { src: '/photos/featured-01.jpg', alt: 'Sheer canyon walls catching low sun above a still green river that mirrors them', width: 8000, height: 12000 },
   { src: '/photos/featured-02.jpg', alt: 'Boy in a straw cowboy hat carrying a Texas flag across the granite dome of Enchanted Rock', width: 3024, height: 4032 },
 
@@ -122,6 +122,7 @@ export const comedyPhotos: Photo[] = [
   { src: '/photos/comedy-18.jpg', alt: 'Wide-eyed, laughing comedian in a yellow tropical-print shirt, framed inset over a blurred black-and-white crowd', width: 1080, height: 1350, project: 'framed', projectOrder: 8 },
   { src: '/photos/comedy-19.jpg', alt: 'Comedian with long curly hair and a mustache holding a microphone on the Austin Comedy Company stage, framed inset over a blurred crowd', width: 1080, height: 1350, project: 'framed', projectOrder: 9 },
   { src: '/photos/comedy-20.jpg', alt: 'Bald, bearded comedian in sunglasses and a plaid shirt with smoke curling beside him, framed inset over a blurred black-and-white crowd', width: 1080, height: 1350 },
+  { src: '/photos/comedy-21.jpg', alt: 'Man with a strawberry-blond mullet, mustache, and neck tattoos tilting his head back in a patterned western snap shirt, inside a thin white frame', width: 3799, height: 4749, project: 'framed', projectOrder: 4 },
 
   // horizontal
   { src: '/photos/comedy-09.jpg', alt: 'Comedian in a cap speaking into a microphone during his set', width: 4000, height: 2670 },
@@ -141,7 +142,6 @@ export const portraitPhotos: Photo[] = [
   { src: '/photos/portrait-06.jpg', alt: 'Three boys goofing around in the middle of a suburban street at sunset, one held upside down over another boy shoulder', width: 3899, height: 5841 },
   { src: '/photos/portrait-07.jpg', alt: 'Man in black shirt with gold cross necklace seated on a lounge sofa', width: 1297, height: 1748 },
   { src: '/photos/portrait-08.jpg', alt: 'Woman in a leopard-print bodysuit and sunglasses crouching in front of a graffiti mural, glancing back over her shoulder', width: 3924, height: 5878 },
-  { src: '/photos/portrait-13.jpg', alt: 'Man with a strawberry-blond mullet, mustache, and neck tattoos tilting his head back in a patterned western snap shirt, inside a thin white frame', width: 3799, height: 4749, project: 'framed', projectOrder: 4 },
 
   // horizontal
   { src: '/photos/portrait-09.jpg', alt: 'Woman on a phone call beside a vintage phone booth lit in red', width: 3072, height: 2048 },
