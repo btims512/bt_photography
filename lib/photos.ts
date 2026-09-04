@@ -79,7 +79,6 @@ export const featuredPhotos: Photo[] = [
   { src: '/photos/comedy-17.jpg', alt: 'Comedian in a black t-shirt pointing toward the crowd mid-joke, framed inset over a blurred black-and-white shot of the Austin Comedy Company stage', width: 1080, height: 1350, category: 'comedy', project: 'framed', projectOrder: 7 },
   { src: '/photos/comedy-18.jpg', alt: 'Wide-eyed, laughing comedian in a yellow tropical-print shirt, framed inset over a blurred black-and-white crowd', width: 1080, height: 1350, category: 'comedy', project: 'framed', projectOrder: 8 },
   { src: '/photos/comedy-19.jpg', alt: 'Comedian with long curly hair and a mustache holding a microphone on the Austin Comedy Company stage, framed inset over a blurred crowd', width: 1080, height: 1350, category: 'comedy', project: 'framed', projectOrder: 9 },
-  { src: '/photos/comedy-20.jpg', alt: 'Bald, bearded comedian in sunglasses and a plaid shirt with smoke curling beside him, framed inset over a blurred black-and-white crowd', width: 1080, height: 1350, category: 'comedy' },
   { src: '/photos/comedy-21.jpg', alt: 'Man with a strawberry-blond mullet, mustache, and neck tattoos tilting his head back in a patterned western snap shirt, inside a thin white frame', width: 3799, height: 4749, category: 'comedy', project: 'framed', projectOrder: 4 },
   { src: '/photos/portrait-03.jpg', alt: 'Two women in elaborate Day of the Dead costumes standing in a desert canyon', width: 2666, height: 4000, category: 'portraits' },
   { src: '/photos/portrait-01.jpg', alt: 'Woman walking away toward a sunlit overlook at golden hour', width: 3981, height: 5972, category: 'portraits', project: 'series-two', projectOrder: 3 },
@@ -126,7 +125,6 @@ export const comedyPhotos: Photo[] = [
   { src: '/photos/comedy-17.jpg', alt: 'Comedian in a black t-shirt pointing toward the crowd mid-joke, framed inset over a blurred black-and-white shot of the Austin Comedy Company stage', width: 1080, height: 1350, project: 'framed', projectOrder: 7 },
   { src: '/photos/comedy-18.jpg', alt: 'Wide-eyed, laughing comedian in a yellow tropical-print shirt, framed inset over a blurred black-and-white crowd', width: 1080, height: 1350, project: 'framed', projectOrder: 8 },
   { src: '/photos/comedy-19.jpg', alt: 'Comedian with long curly hair and a mustache holding a microphone on the Austin Comedy Company stage, framed inset over a blurred crowd', width: 1080, height: 1350, project: 'framed', projectOrder: 9 },
-  { src: '/photos/comedy-20.jpg', alt: 'Bald, bearded comedian in sunglasses and a plaid shirt with smoke curling beside him, framed inset over a blurred black-and-white crowd', width: 1080, height: 1350 },
   { src: '/photos/comedy-21.jpg', alt: 'Man with a strawberry-blond mullet, mustache, and neck tattoos tilting his head back in a patterned western snap shirt, inside a thin white frame', width: 3799, height: 4749, project: 'framed', projectOrder: 4 },
 
   // horizontal
