@@ -434,7 +434,29 @@ export function chunkWithRails(
   photos: Photo[],
   landscapeEvery: number,
   railSize: number,
-  lead: Photo[] = []
+  lead: Photo[] = [],
+  /**
+   * `lead`'s counterpart at the other end: photos held out of the walk and
+   * placed as their own grid segment immediately before the final rail.
+   *
+   * It exists because array order cannot express this. Which photos are left
+   * over by the time the last rail comes round is decided by
+   * interleaveByCategory, not by the list the caller wrote - a category with
+   * few photos has each of them picked early whatever their position, so a
+   * photo simply cannot be moved to the end by reordering. Naming them here
+   * is the only way to say which ones separate the last two rails.
+   *
+   * Costs the same as `lead`: a photo shows in one place only, so a vertical
+   * pinned here is one the rails cannot use.
+   */
+  tail: Photo[] = [],
+  /**
+   * Photos that close the page, placed after the final rail. `tail` cushions
+   * the gap between the last two rails; this cushions the gap between the
+   * last rail and the foot of the page, so the gallery doesn't end on a
+   * pinned full-bleed run. Same cost as the other two pinned lists.
+   */
+  coda: Photo[] = []
 ): GallerySegment[] {
   const segments: GallerySegment[] = [];
   const railedProjects = new Set<string>();
@@ -452,7 +474,7 @@ export function chunkWithRails(
   // out of the rail supply here, since a photo shows in one place only.
   // Pinning portraits therefore costs rails their photos, which is why the
   // caller has to decide what it is willing to give up.
-  const pinned = new Set(lead);
+  const pinned = new Set([...lead, ...tail, ...coda]);
   const unrailed = photos.filter((photo) => photo.height > photo.width && !pinned.has(photo));
   const railsAhead: Photo[][] = [];
   for (;;) {
@@ -502,6 +524,20 @@ export function chunkWithRails(
   // before the rails did.
   for (const rail of railsAhead) {
     segments.push({ type: 'rail', photos: rail });
+  }
+
+  // `tail` goes in last, once every rail has been placed and the final one is
+  // known - inserted before it rather than appended, so it separates the last
+  // two rails instead of trailing off the end of the page. With no rail to sit
+  // in front of it just closes the grid.
+  if (tail.length > 0) {
+    const lastRail = segments.map((segment) => segment.type).lastIndexOf('rail');
+    const at = lastRail === -1 ? segments.length : lastRail;
+    segments.splice(at, 0, { type: 'grid', photos: tail });
+  }
+
+  if (coda.length > 0) {
+    segments.push({ type: 'grid', photos: coda });
   }
 
   return segments;

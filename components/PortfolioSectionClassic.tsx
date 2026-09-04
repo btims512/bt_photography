@@ -12,7 +12,7 @@ import { useLayoutMode } from '@/lib/layout-mode';
 import Lightbox from './Lightbox';
 import BreakoutPhoto from './BreakoutPhoto';
 import MobileRail, { type PeekColumn } from './MobileRail';
-import { MOBILE_LEAD, type Photo } from '@/lib/photos';
+import { MOBILE_LEAD, MOBILE_TAIL, MOBILE_CODA, type Photo } from '@/lib/photos';
 
 /**
  * Describes the row of a grid segment that adjoins a rail, so the rail can
@@ -117,6 +117,7 @@ const MOBILE_RAIL_SIZE = 5;
 const RAIL_TITLES: Record<string, string> = {
   framed: 'K|T Series',
   tx: 'TX',
+  'series-two': 'HER',
 };
 
 /**
@@ -296,9 +297,17 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery }: P
     (photo): photo is Photo => photo !== undefined
   );
 
+  const mobileTail = MOBILE_TAIL.map((src) => validPhotos.find((photo) => photo.src === src)).filter(
+    (photo): photo is Photo => photo !== undefined
+  );
+
+  const mobileCoda = MOBILE_CODA.map((src) => validPhotos.find((photo) => photo.src === src)).filter(
+    (photo): photo is Photo => photo !== undefined
+  );
+
   const segments = !breakoutEvery || isDesktop || !mounted
     ? [{ type: 'grid' as const, photos: validPhotos }]
-    : chunkWithRails(validPhotos, MOBILE_LANDSCAPE_EVERY, MOBILE_RAIL_SIZE, mobileLead);
+    : chunkWithRails(validPhotos, MOBILE_LANDSCAPE_EVERY, MOBILE_RAIL_SIZE, mobileLead, mobileTail, mobileCoda);
   let index = 0;
 
   // The Lightbox's prev/next order has to match whatever's actually on
