@@ -67,16 +67,12 @@ export const MOBILE_LEAD: string[] = [
  */
 export const featuredPhotos: Photo[] = [
   // vertical
-  { src: '/photos/comedy-01.jpg', alt: 'Stacked portrait of three comedians in caps, lit in purple and green', width: 1929, height: 2600, category: 'comedy' },
-  { src: '/photos/comedy-02.jpg', alt: 'Distorted composite portrait of a man in a cap and sweatshirt, his face warped by a motion-blur effect', width: 3000, height: 4000, category: 'comedy' },
   { src: '/photos/comedy-03.jpg', alt: 'Black and white portrait of a smiling, mustached comedian double-exposed with a laughing audience crowd', width: 1080, height: 1080, category: 'comedy' },
   { src: '/photos/comedy-04.jpg', alt: 'Stylized portrait of a smiling man in a backwards cap and gold chains throwing a peace sign, composited over a stormy city skyline lit by lightning', width: 1122, height: 1402, category: 'comedy', project: 'framed', projectOrder: 2 },
   { src: '/photos/comedy-05.jpg', alt: 'Stylized portrait of a man in a leather jacket and sunglasses composited over a black-and-white crowd scene', width: 1122, height: 1402, category: 'comedy', project: 'framed', projectOrder: 1 },
-  { src: '/photos/comedy-15.jpg', alt: 'Comedian gritting his teeth and squinting while pointing a corded microphone at the camera', width: 3712, height: 5568, category: 'comedy' },
   { src: '/photos/comedy-07.jpg', alt: 'Black and white portrait of a bald, bearded comedian in sunglasses and a plaid shirt, smoke curling beside him, inside a thin white frame', width: 2670, height: 3336, category: 'comedy', project: 'framed', projectOrder: 6 },
   { src: '/photos/comedy-08.jpg', alt: 'Stylized portrait of a comedian lighting a cigarette, framed inset over a smoky black-and-white background of the same scene', width: 2160, height: 2700, category: 'comedy', project: 'framed', projectOrder: 3 },
   { src: '/photos/comedy-14.jpg', alt: 'Musician singing into a microphone while playing a sticker-covered acoustic guitar under a stage spotlight, inside a thin white frame', width: 1122, height: 1402, category: 'comedy', project: 'framed', projectOrder: 5 },
-  { src: '/photos/comedy-17.jpg', alt: 'Comedian in a black t-shirt pointing toward the crowd mid-joke, framed inset over a blurred black-and-white shot of the Austin Comedy Company stage', width: 1080, height: 1350, category: 'comedy' },
   { src: '/photos/comedy-18.jpg', alt: 'Wide-eyed, laughing comedian in a yellow tropical-print shirt, framed inset over a blurred black-and-white crowd', width: 1080, height: 1350, category: 'comedy', project: 'framed', projectOrder: 7 },
   { src: '/photos/comedy-19.jpg', alt: 'Comedian with long curly hair and a mustache holding a microphone on the Austin Comedy Company stage, framed inset over a blurred crowd', width: 1080, height: 1350, category: 'comedy', project: 'framed', projectOrder: 8 },
   { src: '/photos/comedy-21.jpg', alt: 'Man with a strawberry-blond mullet, mustache, and neck tattoos tilting his head back in a patterned western snap shirt, inside a thin white frame', width: 3799, height: 4749, category: 'comedy', project: 'framed', projectOrder: 4 },
@@ -97,15 +93,13 @@ export const featuredPhotos: Photo[] = [
   { src: '/photos/tx-08.jpg', alt: 'Desert highway curving toward a sunlit peak in Big Bend at sunset', width: 5678, height: 8518, project: 'tx', projectOrder: 2 },
 
   // horizontal
-  { src: '/photos/comedy-09.jpg', alt: 'Comedian in a cap speaking into a microphone during his set', width: 4000, height: 2670, category: 'comedy' },
   { src: '/photos/comedy-10.jpg', alt: 'Black and white portrait of a comedian in a flat cap and sunglasses peering through a stage curtain', width: 4000, height: 2670, category: 'comedy' },
-  { src: '/photos/comedy-11.jpg', alt: 'Comedian in a leather jacket on stage as the audience claps', width: 4000, height: 2670, category: 'comedy' },
   { src: '/photos/comedy-12.jpg', alt: 'Comedian mid-joke on stage gesturing with his hand, lit in blue stage light', width: 4000, height: 2670, category: 'comedy' },
-  { src: '/photos/comedy-13.jpg', alt: 'Mustached comedian on stage smiling and gesturing while holding out a microphone by its cable', width: 6016, height: 4016, category: 'comedy' },
   { src: '/photos/portrait-09.jpg', alt: 'Woman on a phone call beside a vintage phone booth lit in red', width: 3072, height: 2048, category: 'portraits' },
   { src: '/photos/portrait-10.jpg', alt: 'Bearded man in a backwards cap crouched on the asphalt at dusk, shot wide against a deep blue sky and power lines', width: 6016, height: 4016, category: 'portraits' },
   { src: '/photos/portrait-11.jpg', alt: 'Man with dreadlocks and a plaid shirt looking back over his shoulder against city lights at night', width: 6016, height: 4016, category: 'portraits' },
   { src: '/photos/portrait-12.jpg', alt: 'Man with dreadlocks reclining on a wooden bench under dramatic low-key lighting', width: 4000, height: 2670, category: 'portraits' },
+  { src: '/photos/portrait-15.jpg', alt: 'Two men in sunglasses laughing together in a swimming pool, a French bulldog watching from the lawn behind them outside a modern glass house', width: 2304, height: 1536, category: 'portraits' },
   { src: '/photos/music-01.jpg', alt: 'Five band members lounging on a couch in a green-lit garage, their eyes glowing white, an acoustic guitar hanging on the wall behind them', width: 5241, height: 3169, category: 'music' },
   { src: '/photos/music-02.jpg', alt: 'Rapper mid-verse with one arm raised, stage lights streaking outward behind him in a zoom blur', width: 6016, height: 4016, category: 'music' },
 ];
@@ -151,6 +145,7 @@ export const portraitPhotos: Photo[] = [
   { src: '/photos/portrait-10.jpg', alt: 'Bearded man in a backwards cap crouched on the asphalt at dusk, shot wide against a deep blue sky and power lines', width: 6016, height: 4016 },
   { src: '/photos/portrait-11.jpg', alt: 'Man with dreadlocks and a plaid shirt looking back over his shoulder against city lights at night', width: 6016, height: 4016 },
   { src: '/photos/portrait-12.jpg', alt: 'Man with dreadlocks reclining on a wooden bench under dramatic low-key lighting', width: 4000, height: 2670 },
+  { src: '/photos/portrait-15.jpg', alt: 'Two men in sunglasses laughing together in a swimming pool, a French bulldog watching from the lawn behind them outside a modern glass house', width: 2304, height: 1536 },
 ];
 
 export const musicPhotos: Photo[] = [
