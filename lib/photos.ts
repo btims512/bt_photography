@@ -80,6 +80,7 @@ export const MOBILE_TAIL: string[] = [
 export const MOBILE_CODA: string[] = [
   '/photos/portrait-16.jpg',
   '/photos/comedy-02.jpg',
+  '/photos/portrait-15.jpg',
 ];
 
 /**
