@@ -80,7 +80,6 @@ export const MOBILE_TAIL: string[] = [
 export const MOBILE_CODA: string[] = [
   '/photos/portrait-16.jpg',
   '/photos/comedy-02.jpg',
-  '/photos/portrait-15.jpg',
 ];
 
 /**
@@ -131,7 +130,6 @@ export const featuredPhotos: Photo[] = [
   { src: '/photos/portrait-10.jpg', alt: 'Bearded man in a backwards cap crouched on the asphalt at dusk, shot wide against a deep blue sky and power lines', width: 6016, height: 4016, category: 'portraits' },
   { src: '/photos/portrait-11.jpg', alt: 'Man with dreadlocks and a plaid shirt looking back over his shoulder against city lights at night', width: 6016, height: 4016, category: 'portraits' },
   { src: '/photos/portrait-12.jpg', alt: 'Man with dreadlocks reclining on a wooden bench under dramatic low-key lighting', width: 4000, height: 2670, category: 'portraits' },
-  { src: '/photos/portrait-15.jpg', alt: 'Two men in sunglasses laughing together in a swimming pool, a French bulldog watching from the lawn behind them outside a modern glass house', width: 2304, height: 1536, category: 'portraits' },
   { src: '/photos/portrait-09.jpg', alt: 'Woman on a phone call beside a vintage phone booth lit in red', width: 3072, height: 2048, category: 'portraits' },
   { src: '/photos/music-02.jpg', alt: 'Rapper mid-verse with one arm raised, stage lights streaking outward behind him in a zoom blur', width: 6016, height: 4016, category: 'music' },
   { src: '/photos/comedy-03.jpg', alt: 'Black and white portrait of a smiling, mustached comedian double-exposed with a laughing audience crowd', width: 1080, height: 1080, category: 'comedy' },
@@ -180,7 +178,6 @@ export const portraitPhotos: Photo[] = [
   { src: '/photos/portrait-10.jpg', alt: 'Bearded man in a backwards cap crouched on the asphalt at dusk, shot wide against a deep blue sky and power lines', width: 6016, height: 4016 },
   { src: '/photos/portrait-11.jpg', alt: 'Man with dreadlocks and a plaid shirt looking back over his shoulder against city lights at night', width: 6016, height: 4016 },
   { src: '/photos/portrait-12.jpg', alt: 'Man with dreadlocks reclining on a wooden bench under dramatic low-key lighting', width: 4000, height: 2670 },
-  { src: '/photos/portrait-15.jpg', alt: 'Two men in sunglasses laughing together in a swimming pool, a French bulldog watching from the lawn behind them outside a modern glass house', width: 2304, height: 1536 },
 ];
 
 export const musicPhotos: Photo[] = [
