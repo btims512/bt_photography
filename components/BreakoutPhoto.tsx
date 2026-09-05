@@ -158,7 +158,6 @@ export default function BreakoutPhoto({ photo, priority, onClick, isDesktop }: B
         className="photo-protected object-contain"
         draggable={false}
         priority={priority}
-        loading={priority ? undefined : 'eager'}
         quality={82}
         placeholder="blur"
         blurDataURL={BLUR_DATA_URL}
@@ -198,7 +197,6 @@ export default function BreakoutPhoto({ photo, priority, onClick, isDesktop }: B
       className="photo-protected object-cover"
       draggable={false}
       priority={priority}
-      loading={priority ? undefined : 'eager'}
       quality={82}
       placeholder="blur"
       blurDataURL={BLUR_DATA_URL}

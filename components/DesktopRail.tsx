@@ -147,6 +147,7 @@ export default function DesktopRail({ photos, onOpen }: DesktopRailProps) {
           sizes="100vw"
           className="photo-protected object-cover"
           draggable={false}
+          // Same reason as MobileRail's track - see the note there.
           loading="eager"
           quality={82}
           placeholder="blur"

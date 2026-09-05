@@ -759,6 +759,11 @@ export default function MobileRail({
           sizes={isFill ? '100vw' : 'calc(100vw - 48px)'}
           className="photo-protected object-contain"
           draggable={false}
+          // The one place lazy loading can't be used: a rail panel sits
+          // off to the side of the frame rather than below the fold, so it
+          // isn't near the viewport by the browser's reckoning until it has
+          // already begun sliding in - and it arrives blank. The grid and
+          // the peek stand-ins around it stay lazy.
           loading="eager"
           quality={82}
           placeholder="blur"
@@ -927,7 +932,6 @@ export default function MobileRail({
                   sizes={peekSizes}
                   className="photo-protected block h-auto w-full"
                   draggable={false}
-                  loading="eager"
                   quality={82}
                   placeholder="blur"
                   blurDataURL={BLUR_DATA_URL}
@@ -951,7 +955,6 @@ export default function MobileRail({
                   sizes={peekSizes}
                   className="photo-protected block h-auto w-full"
                   draggable={false}
-                  loading="eager"
                   quality={82}
                   placeholder="blur"
                   blurDataURL={BLUR_DATA_URL}

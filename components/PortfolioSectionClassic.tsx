@@ -199,7 +199,6 @@ function GridPhoto({ photo, currentIndex, revealDelay, priority, onOpen, isDeskt
       className="photo-protected block h-auto w-full"
       draggable={false}
       priority={priority}
-      loading={priority ? undefined : 'eager'}
       quality={82}
       placeholder="blur"
       blurDataURL={BLUR_DATA_URL}
