@@ -116,13 +116,13 @@ export const featuredPhotos: Photo[] = [
   { src: '/photos/portrait-07.jpg', alt: 'Man in black shirt with gold cross necklace seated on a lounge sofa', width: 1297, height: 1748, category: 'portraits' },
   { src: '/photos/portrait-08.jpg', alt: 'Woman in a leopard-print bodysuit and sunglasses crouching in front of a graffiti mural, glancing back over her shoulder', width: 3924, height: 5878, category: 'portraits' },
   { src: '/photos/portrait-16.jpg', alt: 'Couple kissing at the rail of a boat as the sun sets over open water behind them', width: 3850, height: 5767, category: 'portraits' },
-  { src: '/photos/tx-01.jpg', alt: 'Sheer canyon walls catching low sun above a still green river that mirrors them', width: 8000, height: 12000, project: 'tx', projectOrder: 4 },
+  { src: '/photos/tx-01.jpg', alt: 'Sheer canyon walls catching low sun above a still green river that mirrors them', width: 3840, height: 5760, project: 'tx', projectOrder: 4 },
   { src: '/photos/tx-02.jpg', alt: 'Boy in a straw cowboy hat carrying a Texas flag across the granite dome of Enchanted Rock', width: 2688, height: 4032, project: 'tx', projectOrder: 1 },
   { src: '/photos/tx-03.jpg', alt: 'Portrait of Willie Nelson projected in light onto the side of an old bus under a starry night sky', width: 4365, height: 6548, project: 'tx', projectOrder: 5 },
   { src: '/photos/tx-05.jpg', alt: 'Texas longhorn with sweeping horns leaning against a barbed-wire fence, suburban rooftops behind it', width: 3712, height: 5568, project: 'tx', projectOrder: 3 },
   { src: '/photos/tx-06.jpg', alt: 'Kayakers scattered across Lady Bird Lake at dusk below the downtown Austin skyline', width: 4006, height: 6001, project: 'tx', projectOrder: 7 },
-  { src: '/photos/tx-07.jpg', alt: 'Turquoise Rio Grande winding between the sheer limestone walls of Santa Elena Canyon in Big Bend', width: 8308, height: 12464, project: 'tx', projectOrder: 6 },
-  { src: '/photos/tx-08.jpg', alt: 'Desert highway curving toward a sunlit peak in Big Bend at sunset', width: 5678, height: 8518, project: 'tx', projectOrder: 2 },
+  { src: '/photos/tx-07.jpg', alt: 'Turquoise Rio Grande winding between the sheer limestone walls of Santa Elena Canyon in Big Bend', width: 3840, height: 5761, project: 'tx', projectOrder: 6 },
+  { src: '/photos/tx-08.jpg', alt: 'Desert highway curving toward a sunlit peak in Big Bend at sunset', width: 3840, height: 5761, project: 'tx', projectOrder: 2 },
 
   // horizontal
   { src: '/photos/comedy-10.jpg', alt: 'Black and white portrait of a comedian in a flat cap and sunglasses peering through a stage curtain', width: 4000, height: 2670, category: 'comedy' },
