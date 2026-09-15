@@ -1114,10 +1114,9 @@ html {
   100% { scale: var(--rail-rest-scale); }
 }
 
-/* The gallery's title, on the first rail only (MobileRail.tsx's `title`
-   prop, handed out by PortfolioSectionClassic.tsx). A rule, the words,
-   and a second rule on one flex line - see .rail-title-rule for what
-   keeps the two rules even and level.
+/* A rail's title (MobileRail.tsx's `title` prop, from RAIL_STYLES in
+   lib/rails.ts). A rule, the words, and a second rule on one flex line -
+   see .rail-title-rule for what keeps the two rules even and level.
 
    It is never animated. It sits still in the band above the resting
    photo and is *uncovered* by the top peek row travelling up off it, the
@@ -1228,6 +1227,46 @@ html {
     font-size: 21px;
     --rail-title-tracking: 0.28em;
   }
+}
+
+/* Seamless rails (MobileRail.tsx's `seamless`). Their panels already sit
+   flush - MobileRail drops the fill gap to nothing - so all this adds is
+   the box the photo fills, which every panel but the last runs half a pixel
+   on under the next, so the two halves of a joined picture overlap by that
+   much instead of merely touching.
+
+   Touching is not enough mid-slide. The track passes through fractional
+   positions, so a join can land part-way across one of the screen's
+   physical pixels, and each photo then paints only its share of that
+   pixel, antialiased - letting the frame's background show through as a
+   faint pale line down the middle of the picture. Each photo box is its own
+   compositor layer here (.rail-fill-photo-box-css's will-change), whose
+   edges are drawn antialiased independently, so the line is not a
+   hypothetical. With the earlier photo reaching under the later one, what
+   shows through is the earlier photo's own edge, which is what belongs
+   there. Half a CSS pixel is at least one physical pixel on any phone.
+
+   Under rather than over is what keeps a photo at rest clean: later panels
+   paint above earlier ones, so the extra half pixel only ever shows in that
+   one blended pixel, never as a sliver of the next photo along the edge of
+   the frame. The last panel gets none, so nothing reaches past the end of
+   the track. */
+.rail-seamless-photo {
+  position: absolute;
+  inset: 0;
+}
+
+.rail-seamless-track > :not(:last-child) .rail-seamless-photo {
+  right: -0.5px;
+}
+
+/* A snapped rail's track (MobileRail.tsx's `snap`). Sized like .rail-track,
+   but with no scroll-driven animation of its own: MobileRail sets its
+   transform, a whole photo at a time, and the transition that glides it
+   there. */
+.rail-snap-track {
+  width: max-content;
+  will-change: transform;
 }
 
 /* Peek layers: copies of the real grid photos immediately before and

@@ -4,9 +4,10 @@ const nextConfig: NextConfig = {
   // Lets phones/other devices on the home network load the dev server via
   // the Mac's LAN IP - Next 16 blocks cross-origin requests to its dev
   // resources (JS chunks, HMR) by default, which renders as a white page
-  // with no working JS on the phone even though the HTML itself loads. If
-  // the router ever reassigns the Mac's IP, update this to match.
-  allowedDevOrigins: ["192.168.1.34"],
+  // with no working JS on the phone even though the HTML itself loads. One
+  // entry per network the Mac gets used on; if a router reassigns its IP,
+  // add the new address (`ipconfig getifaddr en0`).
+  allowedDevOrigins: ["192.168.1.34", "10.20.137.219"],
   images: {
     qualities: [75, 82, 90],
     // The widths the optimizer is allowed to generate, replacing Next's

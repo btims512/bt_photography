@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { chunkWithRails, distributeToColumns } from '@/lib/masonry';
+import { chunkWithRails, distributeToColumns, type GallerySegment } from '@/lib/masonry';
 import { BLUR_DATA_URL } from '@/lib/blur';
 import { useRevealWhenReady } from '@/lib/use-reveal';
 import { useWasInitiallyVisible } from '@/lib/use-was-initially-visible';
@@ -13,6 +13,7 @@ import Lightbox from './Lightbox';
 import BreakoutPhoto from './BreakoutPhoto';
 import MobileRail, { type PeekColumn } from './MobileRail';
 import { MOBILE_LEAD, MOBILE_TAIL, MOBILE_CODA, type Photo } from '@/lib/photos';
+import { railStyle, type StandaloneRail } from '@/lib/rails';
 
 /**
  * Describes the row of a grid segment that adjoins a rail, so the rail can
@@ -101,6 +102,8 @@ interface PortfolioSectionProps {
   photos: Photo[];
   /** Interrupt the grid with a full-bleed photo every N photos. Omit to disable. */
   breakoutEvery?: number;
+  /** Rails to place after everything else on mobile - see STANDALONE_RAILS. Omit for none. */
+  standaloneRails?: StandaloneRail[];
 }
 
 // Mobile-only cadence for the horizontal photo rail (see MobileRail.tsx):
@@ -119,28 +122,6 @@ interface PortfolioSectionProps {
 const MOBILE_LANDSCAPE_EVERY = 2;
 const MOBILE_RAIL_SIZE = 5;
 
-// Headings for the curated rails, keyed by Photo.project - see MobileRail's
-// `title` prop and .rail-title. Only a project rail is named: a rail built
-// from a shape group is whatever photos happened to share an aspect ratio,
-// so there is nothing to call it, and it renders untitled.
-const RAIL_TITLES: Record<string, string> = {
-  framed: 'K|T Series',
-  tx: 'TX',
-  'series-two': 'HER',
-};
-
-/**
- * The heading for a rail, or undefined for an untitled one. Keyed off the
- * project every photo in the rail shares - pickRail builds a project rail
- * from one project's members only, so photos[0] is representative, but the
- * agreement is checked rather than assumed so a shape rail that happens to
- * open with a tagged photo can't inherit that project's title.
- */
-function railTitle(photos: Photo[]): string | undefined {
-  const project = photos[0]?.project;
-  if (!project) return undefined;
-  return photos.every((photo) => photo.project === project) ? RAIL_TITLES[project] : undefined;
-}
 // Columns the desktop masonry packs into. Three sites below have to agree on
 // this - the visual-order walk, the rail's peek rows, and the grid render -
 // and the walk silently mismatches the render rather than erroring if they
@@ -254,7 +235,7 @@ function GridPhoto({ photo, currentIndex, revealDelay, priority, onOpen, isDeskt
   );
 }
 
-export default function PortfolioSectionClassic({ id, photos, breakoutEvery }: PortfolioSectionProps) {
+export default function PortfolioSectionClassic({ id, photos, breakoutEvery, standaloneRails }: PortfolioSectionProps) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   // Defaults to mobile's single-column list (matches this codebase's
   // mobile-first Tailwind convention) so the brief pre-hydration mismatch on
@@ -313,9 +294,19 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery }: P
     (photo): photo is Photo => photo !== undefined
   );
 
-  const segments = !breakoutEvery || isDesktop || !mounted
+  const segments: GallerySegment[] = !breakoutEvery || isDesktop || !mounted
     ? [{ type: 'grid' as const, photos: validPhotos }]
-    : chunkWithRails(validPhotos, MOBILE_LANDSCAPE_EVERY, MOBILE_RAIL_SIZE, mobileLead, mobileTail, mobileCoda);
+    : [
+        ...chunkWithRails(validPhotos, MOBILE_LANDSCAPE_EVERY, MOBILE_RAIL_SIZE, mobileLead, mobileTail, mobileCoda),
+        // Placed as given, after the catalogue's own segments. Each is an
+        // ordinary rail segment followed by an ordinary grid segment, so the
+        // rail picks up its neighbouring rows for the peek stand-ins exactly
+        // as a gathered rail does - it can't tell the difference.
+        ...(standaloneRails ?? []).flatMap((rail): GallerySegment[] => [
+          { type: 'rail', photos: rail.photos },
+          ...(rail.after.length > 0 ? [{ type: 'grid' as const, photos: rail.after }] : []),
+        ]),
+      ];
   let index = 0;
 
   // The Lightbox's prev/next order has to match whatever's actually on
@@ -329,6 +320,10 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery }: P
   for (const segment of segments) {
     if (segment.type === 'breakout') {
       visualOrder.push(segment.photo);
+    } else if (segment.type === 'rail' && railStyle(segment.photos).seamless) {
+      // Not opened in the lightbox - a seamless slide can be half a
+      // picture (see MobileRail's `seamless`) - so not in its order either.
+      continue;
     } else if (segment.type === 'rail' || !isDesktop) {
       visualOrder.push(...segment.photos);
     } else {
@@ -411,6 +406,7 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery }: P
                   : prevSegment
                     ? fallbackRow(validPhotos[0], railColumns)
                     : undefined;
+              const style = railStyle(segment.photos);
               const nextRow =
                 nextSegment?.type === 'grid'
                   ? peekRow(nextSegment.photos, railColumns, 'top')
@@ -425,7 +421,9 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery }: P
                   variant="fill"
                   prevRow={prevRow}
                   nextRow={nextRow}
-                  title={railTitle(segment.photos)}
+                  title={style.title}
+                  seamless={style.seamless}
+                  snap={style.snap}
                 />
               );
             }

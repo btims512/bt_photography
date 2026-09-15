@@ -42,9 +42,7 @@ interface MobileRailProps {
   nextRow?: PeekColumn[];
   /**
    * Fill variant only: a heading for the gallery, shown in the band above
-   * the resting photo. Given to the first rail on the page and no other
-   * (PortfolioSectionClassic.tsx decides), so it reads as the title of
-   * the sequence rather than a caption repeated over every rail.
+   * the resting photo. Set per rail in RAIL_STYLES (lib/rails.ts).
    *
    * It is hidden behind `prevRow` at rest and uncovered as that row
    * travels up, so it wants a rail that has a row above it - which the
@@ -53,6 +51,31 @@ interface MobileRailProps {
    * throughout; see .rail-title in globals.css.
    */
   title?: string;
+  /**
+   * Fill variant only: an Instagram-style seamless carousel. The photos sit
+   * flush with no gap between them, so a picture cut across two slides
+   * carries on unbroken as the track slides from one to the next. Every
+   * other part of the rail - the pin, the parting rows, the title, the
+   * swell, scroll and swipe both driving the slide - is unchanged.
+   *
+   * A slide can be half of a picture, so tapping one opens nothing: the
+   * lightbox would show it cut off on its own. And the slides load only as
+   * the rail comes within reach rather than with the page, since the other
+   * rails' reason for loading up front (see the Image below) doesn't
+   * outweigh eight more full-width photos for a rail that may sit far down.
+   */
+  seamless?: boolean;
+  /**
+   * Fill variant only: the slide moves a whole photo at a time instead of
+   * following the scroll continuously. Scrolling still decides which photo
+   * is showing, but the track holds still until the scroll crosses into the
+   * next photo's stretch of the rail, then glides there on its own; a swipe
+   * still follows the finger, then lets go onto a whole photo - at most one
+   * either side of where it started, Instagram's paging. The swell, the
+   * parting rows and the title are scroll-scrubbed exactly as before. See
+   * the Snap section below.
+   */
+  snap?: boolean;
 }
 
 /**
@@ -132,7 +155,8 @@ const RAIL_FILL_GAP = 'var(--rail-gutter)';
 // enough to feel immediate, high enough that the small sideways drift in
 // an ordinary vertical flick never reads as a swipe.
 //
-// The swipe is deliberately free rather than paged: it moves the rail
+// The swipe is deliberately free rather than paged (unless the rail asks
+// for `snap` - see the Snap section in the component): it moves the rail
 // continuously, exactly as scrolling up and down does, and a photo is
 // never snapped to. (Photo-at-a-time stepping is the lightbox's idiom -
 // tap a photo and use its arrows - and pulling it in here would make the
@@ -152,6 +176,28 @@ const SWIPE_VELOCITY_STALE_MS = 100;
 // screen costs a fraction of a pixel there, so it doesn't need to be the
 // real refresh interval.
 const SWIPE_FRAME_MS = 16.7;
+
+// Snap tuning (the `snap` prop). SNAP_MS is the longest a photo takes to
+// glide into place - what a scroll-triggered step always takes, and the cap
+// on a swipe's release, which finishes sooner the harder it was thrown.
+// SNAP_FLICK_VELOCITY is the finger speed, in px per ms, above which letting
+// go counts as a flick and moves a photo in the flick's direction however
+// little ground the drag covered - measured over the last SNAP_VELOCITY_MS
+// of movement, not the swipe's smoothed velocity: that reading is tuned to
+// size a free rail's momentum and takes most of a short flick to catch up
+// with the finger, which left a quick flick reading as a slow drag.
+const SNAP_MS = 420;
+const SNAP_FLICK_VELOCITY = 0.3;
+const SNAP_VELOCITY_MS = 80;
+const SNAP_EASE = 'cubic-bezier(0.25, 1, 0.5, 1)';
+// Where a swipe release parks the scroll for the first and last photo, in
+// from the ends of the slide by this share of one photo's stretch. Not right
+// on the line: the swell finishes and the closing phase begins exactly
+// there, and the CSS animations' start is held back by a header-height of
+// scroll against this component's own measure (see .rail-frame-fill), so
+// parking on the start line could catch the photo a hair short of full size.
+// Still inside the end photo's half-stretch, so it is still that photo.
+const SNAP_END_INSET = 0.35;
 
 // The shape drawn across the black band above and below the photo. A plain
 // horizontal rule at the viewBox's midline: quiet and editorial, staying
@@ -196,6 +242,53 @@ const peekDelta = (row: PeekColumn[], i: number) =>
   row.length < 2
     ? '0px'
     : `calc(max(${row.map(columnHeight).join(', ')}) - ${columnHeight(row[i])})`;
+
+/**
+ * Live pixel geometry of a rail's slide, measured rather than derived: the
+ * panel step is a CSS expression (--rail-fill-w plus the gutter, or cqw)
+ * that only the browser can resolve, and the dwell is svh. Taken fresh per
+ * use, so a resize or an orientation change needs nothing recomputed or
+ * invalidated. A plain function of its arguments, so the snap effect can
+ * call it without depending on anything that changes identity per render.
+ */
+function measureRail(outer: HTMLElement | null, track: HTMLElement | null, totalDwellSvh: number, gapCount: number) {
+  const kids = track?.children;
+  if (!outer || !kids || kids.length < 2 || typeof window === 'undefined') return null;
+  // Difference between two siblings' offsets, so it covers the panel and
+  // the gap after it without either being read separately.
+  const step = (kids[1] as HTMLElement).offsetLeft - (kids[0] as HTMLElement).offsetLeft;
+  const dwellPx = (totalDwellSvh / 100) * window.innerHeight;
+  if (step <= 0 || dwellPx <= 0) return null;
+  return {
+    step,
+    dwellPx,
+    travel: gapCount * step,
+    docTop: outer.getBoundingClientRect().top + window.scrollY,
+  };
+}
+type RailGeom = NonNullable<ReturnType<typeof measureRail>>;
+
+/** The same 0..1 the CSS timeline and `rawProgress` run on. */
+const progressAt = (scrollY: number, m: RailGeom) => (scrollY - m.docTop) / m.dwellPx;
+/** ...remapped onto the span the slide actually occupies. */
+const slideAt = (scrollY: number, m: RailGeom) =>
+  Math.min(
+    1,
+    Math.max(0, (Math.min(1, Math.max(0, progressAt(scrollY, m))) - RAIL_SLIDE_START) / (RAIL_SLIDE_END - RAIL_SLIDE_START))
+  );
+
+/** A snapped track's own horizontal position, in px - 0 when it has none. */
+const snapTrackX = (track: HTMLElement) => {
+  const t = getComputedStyle(track).transform;
+  return t && t !== 'none' ? new DOMMatrixReadOnly(t).m41 : 0;
+};
+
+/** Put a snapped track at `px`, gliding there over `durationMs` or jumping at 0. */
+function placeSnapTrack(track: HTMLElement, px: number, durationMs: number) {
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  track.style.transition = durationMs > 0 && !reduceMotion ? `transform ${durationMs}ms ${SNAP_EASE}` : 'none';
+  track.style.transform = `translate3d(${px}px, 0, 0)`;
+}
 
 /**
  * Mobile-only interlude between grid segments: a horizontal strip of
@@ -267,6 +360,8 @@ export default function MobileRail({
   prevRow,
   nextRow,
   title,
+  seamless = false,
+  snap = false,
 }: MobileRailProps) {
   const outerRef = useRef<HTMLDivElement>(null);
   const cssSupported = useCssScrollTimelineSupport();
@@ -298,7 +393,10 @@ export default function MobileRail({
   // variant's fixed-px gap and the classic variant's proportional one
   // can share the arithmetic below - both stay correct at any frame size
   // without measuring anything in JS.
-  const railGap = isFill ? RAIL_FILL_GAP : `${RAIL_GAP_CQW}cqw`;
+  // A seamless rail's photos touch - the whole point of it - so its gap is
+  // nothing at all rather than the gutter.
+  const fillGap = seamless ? '0px' : RAIL_FILL_GAP;
+  const railGap = isFill ? fillGap : `${RAIL_GAP_CQW}cqw`;
   // Each fill panel is exactly as wide as the photo at its peak, so the
   // gap between panels *is* the gap you see between photos. Sizing them
   // to the frame instead (which is what the classic variant does, and
@@ -309,7 +407,7 @@ export default function MobileRail({
   // pushing the photos most of a screen apart.
   const panelWidth = isFill ? 'var(--rail-fill-w)' : '100cqw';
   const panelStep = isFill
-    ? `(var(--rail-fill-w) + ${RAIL_FILL_GAP})`
+    ? `(var(--rail-fill-w) + ${fillGap})`
     : `${100 + RAIL_GAP_CQW}cqw`;
   // Total distance the track travels: (N-1) of those steps.
   const cssShiftValue = `calc(-1 * ${gapCount} * ${panelStep})`;
@@ -419,6 +517,10 @@ export default function MobileRail({
   const peekBelowY = useTransform(smoothProgress, (p) => peekTravelAt(p));
 
   const isInView = useInView(outerRef, { margin: '200px' });
+  // For a seamless rail's deferred loading (see `seamless`): a screen's
+  // grace either way is well ahead of need, since the slide itself doesn't
+  // start until the rail has pinned and the photo has swelled.
+  const approaching = useInView(outerRef, { margin: '100% 0px 100% 0px', once: true });
   const { headerReady } = useLayoutMode();
   const [revealed, setRevealed] = useState(false);
   useEffect(() => {
@@ -492,6 +594,15 @@ export default function MobileRail({
     lastX: 0,
     lastT: 0,
     velocity: 0,
+    // Snap only: the track's own position when the finger took hold of it,
+    // the photo the gesture started on, and whether the track has been
+    // caught yet (on the first sideways move, not on touch, so a vertical
+    // scroll that starts on the rail never disturbs it).
+    basePx: 0,
+    startIndex: 0,
+    caught: false,
+    // Snap only: the finger's recent positions, for its release speed.
+    samples: [] as { t: number; x: number }[],
   });
   // Set on a gesture that turned out to be a swipe, so the click it would
   // otherwise fire on the panel underneath doesn't open the lightbox.
@@ -507,39 +618,7 @@ export default function MobileRail({
   };
   useEffect(() => cancelSettle, []);
 
-  /**
-   * Live pixel geometry of the slide, measured rather than derived: the
-   * panel step is a CSS expression (--rail-fill-w plus the gutter, or
-   * cqw) that only the browser can resolve, and the dwell is svh. Taken
-   * fresh per gesture, so a resize or an orientation change needs nothing
-   * recomputed or invalidated.
-   */
-  const measure = () => {
-    const outer = outerRef.current;
-    const kids = trackRef.current?.children;
-    if (!outer || !kids || kids.length < 2 || typeof window === 'undefined') return null;
-    // Difference between two siblings' offsets, so it covers the panel and
-    // the gap after it without either being read separately.
-    const step = (kids[1] as HTMLElement).offsetLeft - (kids[0] as HTMLElement).offsetLeft;
-    const dwellPx = (totalDwellSvh / 100) * window.innerHeight;
-    if (step <= 0 || dwellPx <= 0) return null;
-    return {
-      step,
-      dwellPx,
-      travel: gapCount * step,
-      docTop: outer.getBoundingClientRect().top + window.scrollY,
-    };
-  };
-  type Geom = NonNullable<ReturnType<typeof measure>>;
-
-  /** The same 0..1 the CSS timeline and `rawProgress` run on. */
-  const progressAt = (scrollY: number, m: Geom) => (scrollY - m.docTop) / m.dwellPx;
-  /** ...remapped onto the span the slide actually occupies. */
-  const slideAt = (scrollY: number, m: Geom) =>
-    Math.min(
-      1,
-      Math.max(0, (Math.min(1, Math.max(0, progressAt(scrollY, m))) - RAIL_SLIDE_START) / (RAIL_SLIDE_END - RAIL_SLIDE_START))
-    );
+  const measure = () => measureRail(outerRef.current, trackRef.current, totalDwellSvh, gapCount);
 
   /**
    * Hand the gesture back to the scroll position on release, carrying its
@@ -563,7 +642,7 @@ export default function MobileRail({
    * A release with no speed behind it therefore looks like nothing at
    * all: the offset moves quietly into scrollY and the photo holds still.
    */
-  const releaseSwipe = (m: Geom) => {
+  const releaseSwipe = (m: RailGeom) => {
     // What one pixel of sideways travel is worth in scroll: the slide
     // spans (SLIDE_END - SLIDE_START) of the dwell and covers `travel`
     // pixels, so this is just the exchange rate between the two. It is
@@ -629,6 +708,146 @@ export default function MobileRail({
     settleRaf.current = requestAnimationFrame(tick);
   };
 
+  // ---------------------------------------------------------------------
+  // Snap
+  //
+  // A snapped rail (the `snap` prop) takes its track off the scroll
+  // timeline and positions it here, a whole photo at a time. Which photo is
+  // still the scroll's decision - whichever photo's stretch of the slide the
+  // page is in, by the same measure the swipe uses - so scrolling down and
+  // back up works exactly as it does on any rail. What changes is only the
+  // travel between photos: instead of being scrubbed pixel by pixel, the
+  // track holds still and, once the scroll crosses the halfway line into
+  // the next photo's stretch, glides there over SNAP_MS on its own.
+  //
+  // The swipe keeps its finger-following offset layer (see Swipe above).
+  // Only the release differs - see releaseSnap.
+  const snapIndex = useRef(0);
+
+  useEffect(() => {
+    if (!snap) return;
+    let frame = 0;
+    let placed = false;
+    const update = () => {
+      frame = 0;
+      // Mid-swipe the finger has the track, and its release decides where
+      // it lands.
+      if (swipe.current.axis === 'x') return;
+      const track = trackRef.current;
+      const m = measureRail(outerRef.current, track, totalDwellSvh, gapCount);
+      if (!track || !m) return;
+      const index = Math.round(slideAt(window.scrollY, m) * gapCount);
+      if (placed && index === snapIndex.current) return;
+      snapIndex.current = index;
+      // The first placing jumps: a page opened or restored part-way down has
+      // nothing to glide from.
+      placeSnapTrack(track, -index * m.step, placed ? SNAP_MS : 0);
+      placed = true;
+    };
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(update);
+    };
+    // A resize changes the photo width, and with it where every photo sits.
+    const onResize = () => {
+      const track = trackRef.current;
+      const m = measureRail(outerRef.current, track, totalDwellSvh, gapCount);
+      if (track && m && swipe.current.axis !== 'x') placeSnapTrack(track, -snapIndex.current * m.step, 0);
+    };
+    update();
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', onResize);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [snap, totalDwellSvh, gapCount]);
+
+  /** Glide the page scroll from one point to another - used where a snapped
+   *  swipe carries on out of the rail, which the scroll has to play out. */
+  const glideScroll = (to: number) => {
+    cancelSettle();
+    const from = window.scrollY;
+    const t0 = performance.now();
+    const ms = 650;
+    const tick = () => {
+      const t = Math.min(1, (performance.now() - t0) / ms);
+      window.scrollTo(window.scrollX, from + (to - from) * (1 - Math.pow(1 - t, 3)));
+      settleRaf.current = t < 1 ? requestAnimationFrame(tick) : null;
+    };
+    settleRaf.current = requestAnimationFrame(tick);
+  };
+
+  /**
+   * A snapped rail's swipe release: land on a whole photo, the way
+   * Instagram pages. A flick moves one photo in its own direction however
+   * short the drag was; a slower release settles on whichever photo is
+   * nearer; and neither can end more than one photo from where the gesture
+   * started, however hard it was thrown.
+   *
+   * The finger's offset is handed to the track in one step first - the track
+   * takes up exactly the position the offset gives up, and that is committed
+   * before the glide is set - so the photo doesn't jump on release, and the
+   * glide starts from under the finger rather than from where the track was
+   * before the swipe.
+   *
+   * Then the page scroll is moved onto the chosen photo's own stretch of the
+   * slide, so the next vertical scroll carries on from that photo instead of
+   * snapping back to wherever the scroll was left. Invisible: the frame is
+   * pinned, and everything the scroll still drives is holding still at any
+   * point in the slide. The exception is a swipe pushed on past the last
+   * photo (or back past the first) - there is no photo further that way, so
+   * like any rail it carries on out: the scroll glides through the closing
+   * (or opening) phase and plays it.
+   */
+  const releaseSnap = (m: RailGeom) => {
+    const st = swipe.current;
+    const track = trackRef.current;
+    const held = dragXRef.current;
+    if (!track || !st.caught) {
+      setDragX(0);
+      return;
+    }
+    const fromPx = st.basePx + held;
+    const position = -fromPx / m.step;
+    // Positive is the finger moving right, towards the previous photo.
+    const stale = performance.now() - st.lastT > SWIPE_VELOCITY_STALE_MS;
+    const first = st.samples[0];
+    const last = st.samples[st.samples.length - 1];
+    const velocity = stale || !first || last.t <= first.t ? 0 : (last.x - first.x) / (last.t - first.t);
+    let target =
+      velocity < -SNAP_FLICK_VELOCITY
+        ? Math.floor(position) + 1
+        : velocity > SNAP_FLICK_VELOCITY
+          ? Math.ceil(position) - 1
+          : Math.round(position);
+    target = Math.min(st.startIndex + 1, Math.max(st.startIndex - 1, target));
+    target = Math.min(gapCount, Math.max(0, target));
+
+    placeSnapTrack(track, fromPx, 0);
+    setDragX(0);
+    void track.offsetWidth;
+    const distance = Math.abs(-target * m.step - fromPx);
+    const duration = distance < 0.5 ? 0 : Math.round(Math.min(SNAP_MS, Math.max(200, (distance / Math.max(Math.abs(velocity), 0.9)) * 1.6)));
+    snapIndex.current = target;
+    placeSnapTrack(track, -target * m.step, duration);
+
+    // The push the track couldn't show, having run out of photos that way.
+    const banked = st.wantX - held;
+    const onOut = target === gapCount && st.startIndex === gapCount && (banked < -m.step * 0.25 || velocity < -SNAP_FLICK_VELOCITY);
+    const backOut = target === 0 && st.startIndex === 0 && (banked > m.step * 0.25 || velocity > SNAP_FLICK_VELOCITY);
+    if (onOut || backOut) {
+      glideScroll(onOut ? m.docTop + m.dwellPx : m.docTop);
+      return;
+    }
+    const s =
+      target === 0 ? SNAP_END_INSET / gapCount : target === gapCount ? (gapCount - SNAP_END_INSET) / gapCount : target / gapCount;
+    window.scrollTo({
+      top: m.docTop + m.dwellPx * (RAIL_SLIDE_START + (RAIL_SLIDE_END - RAIL_SLIDE_START) * s),
+      behavior: 'instant',
+    });
+  };
+
   const onTouchStart = (e: ReactTouchEvent) => {
     suppressClick.current = false;
     const st = swipe.current;
@@ -660,6 +879,9 @@ export default function MobileRail({
     st.velocity = 0;
     st.startDrag = dragXRef.current;
     st.wantX = st.startDrag;
+    st.caught = false;
+    st.startIndex = snapIndex.current;
+    st.samples = [{ t: st.lastT, x: t.clientX }];
   };
 
   const onTouchMove = (e: ReactTouchEvent) => {
@@ -692,6 +914,24 @@ export default function MobileRail({
     }
     st.lastX = t.clientX;
     st.lastT = now;
+    if (snap) {
+      st.samples.push({ t: now, x: t.clientX });
+      while (st.samples.length > 2 && now - st.samples[0].t > SNAP_VELOCITY_MS) st.samples.shift();
+      const track = trackRef.current;
+      if (!st.caught && track) {
+        // Catch the track where it is - part-way through a glide, if one is
+        // still running - and hold it there for the finger to move.
+        st.basePx = snapTrackX(track);
+        placeSnapTrack(track, st.basePx, 0);
+        st.startIndex = Math.min(gapCount, Math.max(0, Math.round(-st.basePx / m.step)));
+        st.caught = true;
+      }
+      // Clamped to the photos there are, the push past them banked in
+      // `wantX` exactly as below.
+      st.wantX = st.startDrag + dx;
+      setDragX(Math.max(-gapCount * m.step - st.basePx, Math.min(-st.basePx, st.wantX)));
+      return;
+    }
     // What the finger has asked for is kept whole in `wantX`; what the
     // track can actually show is the clamped version of it. Past the last
     // photo there is nothing further to pull into view, so the track
@@ -713,73 +953,96 @@ export default function MobileRail({
       setDragX(0);
       return;
     }
-    releaseSwipe(m);
+    if (snap) releaseSnap(m);
+    else releaseSwipe(m);
   };
 
-  const panels = photos.map((photo, i) => (
-    <div
-      key={`${photo.src}-${i}`}
-      className="relative flex h-full cursor-pointer items-center justify-center"
-      style={{ flex: `0 0 ${panelWidth}` }}
-      onClick={() => {
-        if (suppressClick.current) return;
-        onOpen(photo);
-      }}
-      onContextMenu={(e) => e.preventDefault()}
-    >
-      {/* Motion comes from the CSS class where scroll-timelines are
-          supported; on the fallback Framer writes an inline transform
-          instead. The fill variant keeps its animated half in a separate
-          class (.rail-fill-photo-box-css) applied only on the CSS path,
-          so the fallback inherits the sizing without a resting
-          scale/translate that Framer's own transform would compose with
-          rather than replace. The classic variant needs no such split -
-          its class animates `transform`, which Framer's inline transform
-          simply overrides. */}
-      <motion.div
-        className={`${
-          isFill
-            ? `rail-fill-photo-box ${cssSupported ? 'rail-fill-photo-box-css' : ''}`
-            : 'rail-photo-box'
-        } relative`}
-        style={
-          cssSupported
-            ? undefined
-            : isFill
-              ? fallbackReady
-                ? { scale: fillZoom }
-                : undefined
-              : { scale: photoZoom }
-        }
+  const panels = photos.map((photo, i) => {
+    const image = (
+      <Image
+        src={photo.src}
+        alt={photo.alt}
+        fill
+        sizes={isFill ? '100vw' : 'calc(100vw - 48px)'}
+        // Cover, not contain, for a seamless slide: its box runs half a
+        // pixel wider than the photo's own ratio (.rail-seamless-photo),
+        // and contain would answer that with half a pixel of letterbox -
+        // the very gap the overlap is there to close.
+        className={`photo-protected ${seamless ? 'object-cover' : 'object-contain'}`}
+        draggable={false}
+        // The one place lazy loading can't be used: a rail panel sits
+        // off to the side of the frame rather than below the fold, so it
+        // isn't near the viewport by the browser's reckoning until it has
+        // already begun sliding in - and it arrives blank. The grid and
+        // the peek stand-ins around it stay lazy. A seamless rail holds
+        // off until it's within reach instead (see `approaching`), then
+        // goes eager for the same reason.
+        loading={seamless && !approaching ? 'lazy' : 'eager'}
+        quality={82}
+        placeholder="blur"
+        blurDataURL={BLUR_DATA_URL}
+      />
+    );
+    return (
+      <div
+        key={`${photo.src}-${i}`}
+        className={`relative flex h-full items-center justify-center${seamless ? '' : ' cursor-pointer'}`}
+        style={{ flex: `0 0 ${panelWidth}` }}
+        onClick={() => {
+          if (seamless || suppressClick.current) return;
+          onOpen(photo);
+        }}
+        onContextMenu={(e) => e.preventDefault()}
       >
-        <Image
-          src={photo.src}
-          alt={photo.alt}
-          fill
-          sizes={isFill ? '100vw' : 'calc(100vw - 48px)'}
-          className="photo-protected object-contain"
-          draggable={false}
-          // The one place lazy loading can't be used: a rail panel sits
-          // off to the side of the frame rather than below the fold, so it
-          // isn't near the viewport by the browser's reckoning until it has
-          // already begun sliding in - and it arrives blank. The grid and
-          // the peek stand-ins around it stay lazy.
-          loading="eager"
-          quality={82}
-          placeholder="blur"
-          blurDataURL={BLUR_DATA_URL}
-        />
-      </motion.div>
-    </div>
-  ));
+        {/* Motion comes from the CSS class where scroll-timelines are
+            supported; on the fallback Framer writes an inline transform
+            instead. The fill variant keeps its animated half in a separate
+            class (.rail-fill-photo-box-css) applied only on the CSS path,
+            so the fallback inherits the sizing without a resting
+            scale/translate that Framer's own transform would compose with
+            rather than replace. The classic variant needs no such split -
+            its class animates `transform`, which Framer's inline transform
+            simply overrides. */}
+        <motion.div
+          className={`${
+            isFill
+              ? `rail-fill-photo-box ${cssSupported ? 'rail-fill-photo-box-css' : ''}`
+              : 'rail-photo-box'
+          } relative`}
+          style={
+            cssSupported
+              ? undefined
+              : isFill
+                ? fallbackReady
+                  ? { scale: fillZoom }
+                  : undefined
+                : { scale: photoZoom }
+          }
+        >
+          {seamless ? <div className="rail-seamless-photo">{image}</div> : image}
+        </motion.div>
+      </div>
+    );
+  });
 
   // Positioned purely by scroll, exactly as before - the CSS path on the
   // compositor via .rail-track, the fallback via Framer's inline
   // transform.
-  const track = cssSupported ? (
+  // A snapped track is positioned by the Snap section above instead, a whole
+  // photo at a time, on either path - it carries neither the scroll-timeline
+  // class nor the fallback's scroll-derived transform.
+  const track = snap ? (
     <div
       ref={trackRef}
-      className="rail-track relative flex h-full"
+      className={`rail-snap-track relative flex h-full${seamless ? ' rail-seamless-track' : ''}`}
+      style={{ gap: railGap }}
+    >
+      {panels}
+    </div>
+  ) : cssSupported ? (
+    <div
+      ref={trackRef}
+      className={`rail-track relative flex h-full${seamless ? ' rail-seamless-track' : ''}`}
       style={{ gap: railGap, '--rail-shift': cssShiftValue } as CSSProperties}
     >
       {panels}
@@ -787,7 +1050,7 @@ export default function MobileRail({
   ) : (
     <motion.div
       ref={trackRef}
-      className="relative flex h-full"
+      className={`relative flex h-full${seamless ? ' rail-seamless-track' : ''}`}
       style={{ width: 'max-content', gap: railGap, transform, willChange: 'transform' }}
     >
       {panels}

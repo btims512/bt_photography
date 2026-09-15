@@ -73,9 +73,10 @@ export const MOBILE_TAIL: string[] = [
 ];
 
 /**
- * The photos that close the mobile page, placed after the final rail so the
- * gallery doesn't end on a full-bleed pinned run. Same mechanism and same
- * cost as MOBILE_LEAD and MOBILE_TAIL - a photo shows in one place only.
+ * The photos after the final rail of the ordinary catalogue, placed so it
+ * doesn't sit flush against the seamless carousel that follows (see
+ * carouselPhotos). Same mechanism and same cost as MOBILE_LEAD and
+ * MOBILE_TAIL - a photo shows in one place only.
  */
 export const MOBILE_CODA: string[] = [
   '/photos/portrait-16.jpg',
@@ -178,6 +179,49 @@ export const portraitPhotos: Photo[] = [
   { src: '/photos/portrait-10.jpg', alt: 'Bearded man in a backwards cap crouched on the asphalt at dusk, shot wide against a deep blue sky and power lines', width: 6016, height: 4016 },
   { src: '/photos/portrait-11.jpg', alt: 'Man with dreadlocks and a plaid shirt looking back over his shoulder against city lights at night', width: 6016, height: 4016 },
   { src: '/photos/portrait-12.jpg', alt: 'Man with dreadlocks reclining on a wooden bench under dramatic low-key lighting', width: 4000, height: 2670 },
+];
+
+/**
+ * The seamless carousel that closes the mobile home page: a rail like the
+ * others, pinned and scroll-driven, except that its photos sit flush with no
+ * gap between them (MobileRail's `seamless`). Some neighbouring slides are
+ * two halves of one picture - here 2 and 3, and 7 and 8 - so the order is
+ * load-bearing in a way no other list in this file is: swapping two slides
+ * breaks a join rather than just changing what comes first.
+ *
+ * Kept out of featuredPhotos on purpose. A slide that is half a picture
+ * must never be interleaved into the grid, gathered into another rail by
+ * its shape, or opened on its own in the lightbox, and a separate list is
+ * what guarantees none of that machinery ever sees one. PortfolioSectionClassic
+ * places it itself, after everything else.
+ *
+ * `project` is what names the rail (RAIL_TITLES in PortfolioSectionClassic).
+ *
+ * Every slide has to be exported at the same pixel size. The rail sizes all
+ * of its photos from the first one's ratio, so a slide that differs gets
+ * cropped or letterboxed to fit, and either one on a join moves the picture
+ * out of line with its other half.
+ */
+export const carouselPhotos: Photo[] = [
+  { src: '/photos/carousel-01.jpg', alt: 'Woman with star-clipped pigtails kneeling on a mirrored floor in pink and green light, her reflection rippling beneath her', width: 2160, height: 2880, project: 'seamless' },
+  { src: '/photos/carousel-02.jpg', alt: 'Close-up of her eyes and nose in pink light, an inset portrait of her covering one eye laid over it - the first half of a picture that continues onto the next slide', width: 2160, height: 2880, project: 'seamless' },
+  { src: '/photos/carousel-03.jpg', alt: 'The second half of the close-up: her lips holding a silver star, with a second inset portrait of her covering one eye', width: 2160, height: 2880, project: 'seamless' },
+  { src: '/photos/carousel-04.jpg', alt: 'Upside-down close-up of her face framed by her hands in green light', width: 2160, height: 2880, project: 'seamless' },
+  { src: '/photos/carousel-05.jpg', alt: 'Two stacked shots: her sitting beside a rippling pool of water, and lying inside a pink-lit mirrored box', width: 2160, height: 2880, project: 'seamless' },
+  { src: '/photos/carousel-06.jpg', alt: 'Woman in neon yellow sunglasses and an alien-print tank top adjusting her glasses against a green backdrop', width: 2160, height: 2880, project: 'seamless' },
+  { src: '/photos/carousel-07.jpg', alt: 'Woman lying on crinkled silver foil with a neon sunglasses chain between her teeth, beside an inset portrait of her covering her face - the first half of a picture that continues onto the next slide', width: 2160, height: 2880, project: 'seamless' },
+  { src: '/photos/carousel-08.jpg', alt: 'The second half of the foil portrait, with a second inset of her covering her face with both hands', width: 2160, height: 2880, project: 'seamless' },
+  { src: '/photos/carousel-09.jpg', alt: 'Woman in an alien-print tank top covering her eyes with both hands against a pink-to-green backdrop, neon sunglasses pushed up in her hair', width: 2160, height: 2880, project: 'seamless' },
+];
+
+/**
+ * The grid photo below the carousel. A rail opens by parting the grid rows
+ * either side of it, so the carousel needs a photo after it to push down -
+ * and a rail with nothing below it would have nowhere to hand the page back
+ * to once it unpins.
+ */
+export const carouselAfterPhotos: Photo[] = [
+  { src: '/photos/music-03.jpg', alt: 'Performer in hot-pink gloves and a gold chain shouting into a microphone under blue stage lights', width: 4672, height: 7008, category: 'music' },
 ];
 
 export const musicPhotos: Photo[] = [

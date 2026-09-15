@@ -1,6 +1,7 @@
 import PortfolioSection from '@/components/PortfolioSection';
 import { interleaveByCategory } from '@/lib/masonry';
 import { featuredPhotos } from '@/lib/photos';
+import { STANDALONE_RAILS } from '@/lib/rails';
 
 const BREAKOUT_EVERY = 6;
 
@@ -16,7 +17,7 @@ export default function Home() {
 
   return (
     <div className="w-full">
-      <PortfolioSection id="featured" photos={photos} breakoutEvery={BREAKOUT_EVERY} />
+      <PortfolioSection id="featured" photos={photos} breakoutEvery={BREAKOUT_EVERY} standaloneRails={STANDALONE_RAILS} />
     </div>
   );
 }
