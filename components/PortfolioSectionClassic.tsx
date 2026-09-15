@@ -294,10 +294,15 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery, sta
     (photo): photo is Photo => photo !== undefined
   );
 
+  // A photo a standalone rail places for itself (see STANDALONE_RAILS) is taken
+  // out of the ordinary flow, so it shows there and nowhere else.
+  const placedByRails = new Set((standaloneRails ?? []).flatMap((rail) => [...rail.photos, ...rail.after].map((photo) => photo.src)));
+  const flowPhotos = validPhotos.filter((photo) => !placedByRails.has(photo.src));
+
   const segments: GallerySegment[] = !breakoutEvery || isDesktop || !mounted
     ? [{ type: 'grid' as const, photos: validPhotos }]
     : [
-        ...chunkWithRails(validPhotos, MOBILE_LANDSCAPE_EVERY, MOBILE_RAIL_SIZE, mobileLead, mobileTail, mobileCoda),
+        ...chunkWithRails(flowPhotos, MOBILE_LANDSCAPE_EVERY, MOBILE_RAIL_SIZE, mobileLead, mobileTail, mobileCoda),
         // Placed as given, after the catalogue's own segments. Each is an
         // ordinary rail segment followed by an ordinary grid segment, so the
         // rail picks up its neighbouring rows for the peek stand-ins exactly
@@ -424,6 +429,7 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery, sta
                   title={style.title}
                   seamless={style.seamless}
                   snap={style.snap}
+                  dots={style.dots}
                 />
               );
             }

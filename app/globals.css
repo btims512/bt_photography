@@ -714,7 +714,22 @@ html {
   --rail-grid-gap: 10px;
   --rail-grid-w: calc(100vw - 2 * var(--rail-gutter));
   --rail-frame-h: calc(100svh - var(--header-shrunk-height));
-  --rail-fill-w: min(100vw, calc(var(--rail-fill-r, 0.66) * 0.94 * var(--rail-frame-h)));
+  /* The room held clear above the photo at full size for the rail's title
+     (and below it too, so the photo stays centred): one title line plus a
+     gap either side of it. It only ever binds on a short screen - on most
+     phones the photo runs out of width long before height - but there it
+     is the difference between the title sitting above the photo and the
+     photo covering the bottom of the title. This used to be a flat 94% of
+     the frame height, which left a 2:3 photo 15-18px of room on an iPhone
+     SE for a 21px title line.
+
+     The 6px lets a photo that comes within a few pixels of the screen's
+     width fill it after all (the title's room shrinks by no more than a
+     few pixels to pay for it), rather than stopping just short and leaving
+     a sub-pixel sliver of background down each edge of the frame. Both
+     numbers are mirrored in MobileRail.tsx's fillMetrics. */
+  --rail-title-band: 48px;
+  --rail-fill-w: min(100vw, calc(var(--rail-fill-r, 0.66) * (var(--rail-frame-h) - 2 * var(--rail-title-band)) + 6px));
   --rail-fill-h: calc(var(--rail-fill-w) / var(--rail-fill-r, 0.66));
   /* The photo's resting size, and the scale that gets it there from the
      peak size the box is actually laid out at. Derived rather than the
@@ -783,8 +798,10 @@ html {
    from the track so its transform composes with the track's own rather
    than replacing it: the track goes on being positioned purely by scroll
    (natively, on the compositor, where supported) and this holds only the
-   temporary offset of a finger mid-swipe, returning to 0 as the gesture
-   settles onto a photo. */
+   temporary offset of a finger mid-swipe and the glide that follows,
+   returning to 0 once that glide has landed on a photo. The glide is a
+   transition MobileRail sets inline, so this layer being its own
+   compositor layer is what keeps it off the main thread. */
 .rail-swipe {
   width: max-content;
   will-change: transform;
@@ -1045,9 +1062,9 @@ html {
    underneath: the photo read as sitting high with a white gap below it
    rather than as a photo centred on the screen. The gap was easiest to
    see once the row below had been pushed clear and nothing else was left
-   in that band. (0.94 of the frame height keeps the photo bounded by
-   height the same way --rail-photo-w is, so it never outgrows the room
-   the header leaves.) */
+   in that band. (--rail-title-band keeps the photo bounded by height
+   the same way --rail-photo-w is, so it never outgrows the room the
+   header and the title leave.) */
 /* The fill frame pins below the header instead of at the viewport top
    (its `top` and `height` are set inline by MobileRail.tsx, since the
    height shares RAIL_FRAME_SVH with the classic variant), and drops
@@ -1261,12 +1278,67 @@ html {
 }
 
 /* A snapped rail's track (MobileRail.tsx's `snap`). Sized like .rail-track,
-   but with no scroll-driven animation of its own: MobileRail sets its
-   transform, a whole photo at a time, and the transition that glides it
-   there. */
+   but with no scroll-driven animation of its own: MobileRail moves it a whole
+   photo at a time. Its own compositor layer, so each frame of a snap only
+   moves the layer rather than repainting the photos. */
 .rail-snap-track {
   width: max-content;
   will-change: transform;
+}
+
+/* A snapped rail's frame while its photos are showing: the browser stops
+   panning the page here, so a swipe up or down reaches MobileRail and pages
+   one photo, rather than coasting through several. Pinch-zoom stays the
+   browser's. Only while the photos are showing - MobileRail toggles it - so
+   the rail can still be scrolled into, and out of, normally. */
+.rail-swipe-area.rail-snap-hold {
+  touch-action: pinch-zoom;
+}
+
+/* Instagram's position dots (MobileRail.tsx's `dots`), in the band under the
+   photo. The band is .rail-title's mirror image, sized the same way: the
+   bottom row's own visible band, so that row covers the dots at rest and
+   uncovers them as it parts, and no taller than the room under the photo at
+   full size, so the photo never grows over them. Tucked up under the photo
+   rather than centred in the band, where Instagram keeps them; the site's ink
+   rather than Instagram's blue; and dots further from the current photo
+   shrink, the way Instagram tapers a long row. */
+.rail-dots {
+  position: absolute;
+  bottom: 0;
+  left: var(--rail-gutter);
+  right: var(--rail-gutter);
+  height: min(
+    var(--rail-peek-travel),
+    calc((var(--rail-frame-h) - var(--rail-fill-h)) / 2)
+  );
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 5px;
+  padding-top: min(14px, 30%);
+  pointer-events: none;
+}
+
+.rail-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ink);
+  opacity: 0.22;
+  transition: opacity 0.25s ease, scale 0.25s ease;
+}
+
+.rail-dot[data-far='2'] {
+  scale: 0.8;
+}
+
+.rail-dot[data-far='3'] {
+  scale: 0.6;
+}
+
+.rail-dot[data-active='true'] {
+  opacity: 1;
 }
 
 /* Peek layers: copies of the real grid photos immediately before and

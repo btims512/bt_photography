@@ -1,4 +1,4 @@
-import { carouselAfterPhotos, carouselPhotos, type Photo } from '@/lib/photos';
+import { carouselAfterPhotos, carouselPhotos, featuredPhotos, himPhotos, type Photo } from '@/lib/photos';
 
 /*
  * Everything that defines a scroll rail (components/MobileRail.tsx) as a
@@ -22,8 +22,10 @@ export interface RailStyle {
   title?: string;
   /** Photos sit flush with no gap, Instagram-carousel style - see MobileRail's `seamless`. */
   seamless?: boolean;
-  /** Moves a whole photo at a time instead of sliding with the scroll - see MobileRail's `snap`. */
+  /** Photos snap a whole photo at a time as you scroll, instead of sliding with it, one photo per gesture - see MobileRail's `snap`. */
   snap?: boolean;
+  /** With `snap`: Instagram-style position dots under the photo - see MobileRail's `dots`. */
+  dots?: boolean;
 }
 
 /** Keyed by the `project` a rail's photos share. */
@@ -31,8 +33,9 @@ export const RAIL_STYLES: Record<string, RailStyle> = {
   framed: { title: 'K|T Series' },
   tx: { title: 'TX' },
   'series-two': { title: 'HER' },
+  him: { title: 'HIM' },
   // Placeholder title until the carousel has a name of its own.
-  seamless: { title: 'Seamless Carousel', seamless: true, snap: true },
+  seamless: { title: 'Seamless Carousel', seamless: true, snap: true, dots: true },
 };
 
 /**
@@ -55,6 +58,9 @@ export function railStyle(photos: Photo[]): RailStyle {
  * side of it as it opens, so each of these wants at least one photo in
  * `after` to push down - and something below it to hand the page back to
  * once it unpins.
+ *
+ * A photo from featuredPhotos can be used in either list: the mobile page
+ * takes it out of its usual place, so it shows here and nowhere else there.
  */
 export interface StandaloneRail {
   photos: Photo[];
@@ -68,5 +74,7 @@ export interface StandaloneRail {
  * Mobile only, like every rail.
  */
 export const STANDALONE_RAILS: StandaloneRail[] = [
+  // comedy-02 keeps HIM and the seamless carousel from sitting flush.
+  { photos: himPhotos, after: featuredPhotos.filter((photo) => photo.src === '/photos/comedy-02.jpg') },
   { photos: carouselPhotos, after: carouselAfterPhotos },
 ];

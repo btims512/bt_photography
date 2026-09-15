@@ -46,9 +46,7 @@ export const MOBILE_LEAD: string[] = [
   '/photos/music-02.jpg',
   '/photos/portrait-08.jpg',
   '/photos/portrait-10.jpg',
-  '/photos/portrait-07.jpg',
   '/photos/portrait-04.jpg',
-  '/photos/portrait-11.jpg',
 ];
 
 /**
@@ -74,13 +72,12 @@ export const MOBILE_TAIL: string[] = [
 
 /**
  * The photos after the final rail of the ordinary catalogue, placed so it
- * doesn't sit flush against the seamless carousel that follows (see
- * carouselPhotos). Same mechanism and same cost as MOBILE_LEAD and
- * MOBILE_TAIL - a photo shows in one place only.
+ * doesn't sit flush against the first of the standalone rails that follow
+ * (STANDALONE_RAILS in lib/rails.ts). Same mechanism and same cost as
+ * MOBILE_LEAD and MOBILE_TAIL - a photo shows in one place only.
  */
 export const MOBILE_CODA: string[] = [
   '/photos/portrait-16.jpg',
-  '/photos/comedy-02.jpg',
 ];
 
 /**
@@ -114,7 +111,6 @@ export const featuredPhotos: Photo[] = [
   { src: '/photos/portrait-04.jpg', alt: 'Portrait photograph', width: 5444, height: 8000, category: 'portraits' },
   { src: '/photos/portrait-05.jpg', alt: 'Woman in a white ruffled dress and studded denim jacket posing with blue cat-eye sunglasses among balloons in purple and blue light', width: 3534, height: 5293, category: 'portraits', project: 'series-two', projectOrder: 1 },
   { src: '/photos/portrait-06.jpg', alt: 'Three boys goofing around in the middle of a suburban street at sunset, one held upside down over another boy shoulder', width: 3899, height: 5841, category: 'portraits' },
-  { src: '/photos/portrait-07.jpg', alt: 'Man in black shirt with gold cross necklace seated on a lounge sofa', width: 1297, height: 1748, category: 'portraits' },
   { src: '/photos/portrait-08.jpg', alt: 'Woman in a leopard-print bodysuit and sunglasses crouching in front of a graffiti mural, glancing back over her shoulder', width: 3924, height: 5878, category: 'portraits' },
   { src: '/photos/portrait-16.jpg', alt: 'Couple kissing at the rail of a boat as the sun sets over open water behind them', width: 3850, height: 5767, category: 'portraits' },
   { src: '/photos/tx-01.jpg', alt: 'Sheer canyon walls catching low sun above a still green river that mirrors them', width: 3840, height: 5760, project: 'tx', projectOrder: 4 },
@@ -129,7 +125,6 @@ export const featuredPhotos: Photo[] = [
   { src: '/photos/comedy-10.jpg', alt: 'Black and white portrait of a comedian in a flat cap and sunglasses peering through a stage curtain', width: 4000, height: 2670, category: 'comedy' },
   { src: '/photos/comedy-12.jpg', alt: 'Comedian mid-joke on stage gesturing with his hand, lit in blue stage light', width: 4000, height: 2670, category: 'comedy' },
   { src: '/photos/portrait-10.jpg', alt: 'Bearded man in a backwards cap crouched on the asphalt at dusk, shot wide against a deep blue sky and power lines', width: 6016, height: 4016, category: 'portraits' },
-  { src: '/photos/portrait-11.jpg', alt: 'Man with dreadlocks and a plaid shirt looking back over his shoulder against city lights at night', width: 6016, height: 4016, category: 'portraits' },
   { src: '/photos/portrait-12.jpg', alt: 'Man with dreadlocks reclining on a wooden bench under dramatic low-key lighting', width: 4000, height: 2670, category: 'portraits' },
   { src: '/photos/portrait-09.jpg', alt: 'Woman on a phone call beside a vintage phone booth lit in red', width: 3072, height: 2048, category: 'portraits' },
   { src: '/photos/music-02.jpg', alt: 'Rapper mid-verse with one arm raised, stage lights streaking outward behind him in a zoom blur', width: 6016, height: 4016, category: 'music' },
@@ -182,6 +177,25 @@ export const portraitPhotos: Photo[] = [
 ];
 
 /**
+ * The HIM rail, just before the seamless carousel at the end of the mobile
+ * home page - the men's counterpart to HER, and a standalone rail placed by
+ * STANDALONE_RAILS rather than gathered from featuredPhotos, so it lands
+ * where it's put.
+ *
+ * A rail shows every photo in one frame shaped like its first, so these are
+ * all 2:3 like HER's. portrait-11 and portrait-07 are 2:3 crops of the
+ * photos of those names, which stay whole on the Portraits page; portrait-17
+ * and portrait-18 were landscape originals, cropped to 2:3 around their
+ * subject.
+ */
+export const himPhotos: Photo[] = [
+  { src: '/photos/portrait-11-him.jpg', alt: 'Man with dreadlocks and a plaid shirt looking back over his shoulder against city lights at night', width: 2677, height: 4016, category: 'portraits', project: 'him' },
+  { src: '/photos/portrait-07-him.jpg', alt: 'Man in black shirt with gold cross necklace seated on a lounge sofa', width: 1165, height: 1748, category: 'portraits', project: 'him' },
+  { src: '/photos/portrait-17.jpg', alt: 'Black and white portrait of a bearded man in glasses and a sleeveless tee, arms folded', width: 2163, height: 3245, category: 'portraits', project: 'him' },
+  { src: '/photos/portrait-18.jpg', alt: 'Man with dreadlocks in a grey t-shirt leaning on a bridge rail in front of the downtown Austin skyline at night', width: 2613, height: 3920, category: 'portraits', project: 'him' },
+];
+
+/**
  * The seamless carousel that closes the mobile home page: a rail like the
  * others, pinned and scroll-driven, except that its photos sit flush with no
  * gap between them (MobileRail's `seamless`). Some neighbouring slides are
@@ -215,13 +229,14 @@ export const carouselPhotos: Photo[] = [
 ];
 
 /**
- * The grid photo below the carousel. A rail opens by parting the grid rows
- * either side of it, so the carousel needs a photo after it to push down -
- * and a rail with nothing below it would have nowhere to hand the page back
- * to once it unpins.
+ * The grid photos below the carousel, which close the page. A rail opens by
+ * parting the grid rows either side of it, so the carousel needs a photo
+ * after it to push down - and a rail with nothing below it would have
+ * nowhere to hand the page back to once it unpins.
  */
 export const carouselAfterPhotos: Photo[] = [
   { src: '/photos/music-03.jpg', alt: 'Performer in hot-pink gloves and a gold chain shouting into a microphone under blue stage lights', width: 4672, height: 7008, category: 'music' },
+  { src: '/photos/portrait-19.jpg', alt: 'Shirtless man in a bucket hat juggling a soccer ball on a sunny beach, turquoise surf behind him', width: 2714, height: 4160, category: 'portraits' },
 ];
 
 export const musicPhotos: Photo[] = [
