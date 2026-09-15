@@ -86,6 +86,15 @@ interface MobileRailProps {
    * uncovered as the row below parts, the way the title is by the row above.
    */
   dots?: boolean;
+  /**
+   * Fill variant only: the shape every photo in the rail is shown at, as
+   * width / height, rather than its first photo's own. A photo of another
+   * shape fills the frame and is trimmed evenly from the edges that overrun
+   * it - top and bottom for a photo taller than the frame - so rails whose
+   * photos differ in shape can still open to the same size. The image files
+   * are untouched, so the same photos stay whole wherever else they appear.
+   */
+  frameRatio?: number;
 }
 
 /**
@@ -519,15 +528,17 @@ export default function MobileRail({
   seamless = false,
   snap = false,
   dots = false,
+  frameRatio,
 }: MobileRailProps) {
   const outerRef = useRef<HTMLDivElement>(null);
   const cssSupported = useCssScrollTimelineSupport();
   const isFill = variant === 'fill';
   // Rails are uniform-ratio by construction (takeUniformRail groups to
   // within 2.5%), so the first photo's ratio stands in for the whole
-  // set - it feeds the CSS math (--rail-fill-r) and the JS fallback's
-  // pixel version of the same anchors below.
-  const fillRatio = photos[0] ? photos[0].width / photos[0].height : 0.66;
+  // set - unless the rail sets its own (`frameRatio`). Either way it feeds
+  // the CSS math (--rail-fill-r) and the JS fallback's pixel version of the
+  // same anchors below.
+  const fillRatio = frameRatio ?? (photos[0] ? photos[0].width / photos[0].height : 0.66);
 
   const gapCount = photos.length - 1;
   const totalDwellSvh =
@@ -1275,8 +1286,12 @@ export default function MobileRail({
         // Cover, not contain, for a seamless slide: its box runs half a
         // pixel wider than the photo's own ratio (.rail-seamless-photo),
         // and contain would answer that with half a pixel of letterbox -
-        // the very gap the overlap is there to close.
-        className={`photo-protected ${seamless ? 'object-cover' : 'object-contain'}`}
+        // the very gap the overlap is there to close. And for a rail with a
+        // frame of its own shape (`frameRatio`), where contain would shrink
+        // a taller photo to fit instead of trimming it.
+        className={`photo-protected ${seamless || frameRatio ? 'object-cover' : 'object-contain'}`}
+        // Where a trimmed photo is kept - see Photo.cropY.
+        style={photo.cropY === undefined ? undefined : { objectPosition: `50% ${photo.cropY}%` }}
         draggable={false}
         // The one place lazy loading can't be used: a rail panel sits
         // off to the side of the frame rather than below the fold, so it

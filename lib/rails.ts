@@ -26,14 +26,25 @@ export interface RailStyle {
   snap?: boolean;
   /** With `snap`: Instagram-style position dots under the photo - see MobileRail's `dots`. */
   dots?: boolean;
+  /**
+   * The shape the rail shows its photos at (width / height), trimmed evenly to
+   * fit - see MobileRail's `frameRatio`. Omit to show them at their own shape.
+   */
+  ratio?: number;
 }
 
 /** Keyed by the `project` a rail's photos share. */
+// The 2:3 rails open at the seamless carousel's 3:4, so every rail on the page
+// but K|T (its own 4:5 frames) opens to the same size. 3:4 rather than K|T's
+// 4:5 because it's the smaller trim: 5.6% off the top and bottom of a 2:3
+// photo, against 8.3%.
+const THREE_BY_FOUR = 3 / 4;
+
 export const RAIL_STYLES: Record<string, RailStyle> = {
   framed: { title: 'K|T Series' },
-  tx: { title: 'TX' },
-  'series-two': { title: 'HER' },
-  him: { title: 'HIM' },
+  tx: { title: 'TX', ratio: THREE_BY_FOUR },
+  'series-two': { title: 'HER', ratio: THREE_BY_FOUR },
+  him: { title: 'HIM', ratio: THREE_BY_FOUR },
   // Placeholder title until the carousel has a name of its own.
   seamless: { title: 'Seamless Carousel', seamless: true, snap: true, dots: true },
 };

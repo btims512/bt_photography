@@ -107,9 +107,9 @@ export const featuredPhotos: Photo[] = [
   { src: '/photos/comedy-02.jpg', alt: 'Distorted composite portrait of a man in a cap and sweatshirt, his face warped by a motion-blur effect', width: 3000, height: 4000, category: 'comedy' },
   { src: '/photos/portrait-03.jpg', alt: 'Two women in elaborate Day of the Dead costumes standing in a desert canyon', width: 2666, height: 4000, category: 'portraits' },
   { src: '/photos/portrait-01.jpg', alt: 'Woman walking away toward a sunlit overlook at golden hour', width: 3981, height: 5972, category: 'portraits', project: 'series-two', projectOrder: 3 },
-  { src: '/photos/portrait-02.jpg', alt: 'Blonde woman in a navy fur coat glancing back beneath a canopy of blue string lights in a city alley', width: 3615, height: 5423, category: 'portraits', project: 'series-two', projectOrder: 2 },
+  { src: '/photos/portrait-02.jpg', alt: 'Blonde woman in a navy fur coat glancing back beneath a canopy of blue string lights in a city alley', width: 3615, height: 5423, category: 'portraits', project: 'series-two', projectOrder: 2, cropY: 75 },
   { src: '/photos/portrait-04.jpg', alt: 'Portrait photograph', width: 5444, height: 8000, category: 'portraits' },
-  { src: '/photos/portrait-05.jpg', alt: 'Woman in a white ruffled dress and studded denim jacket posing with blue cat-eye sunglasses among balloons in purple and blue light', width: 3534, height: 5293, category: 'portraits', project: 'series-two', projectOrder: 1 },
+  { src: '/photos/portrait-05.jpg', alt: 'Woman in a white ruffled dress and studded denim jacket posing with blue cat-eye sunglasses among balloons in purple and blue light', width: 3534, height: 5293, category: 'portraits', project: 'series-two', projectOrder: 1, cropY: 0 },
   { src: '/photos/portrait-06.jpg', alt: 'Three boys goofing around in the middle of a suburban street at sunset, one held upside down over another boy shoulder', width: 3899, height: 5841, category: 'portraits' },
   { src: '/photos/portrait-08.jpg', alt: 'Woman in a leopard-print bodysuit and sunglasses crouching in front of a graffiti mural, glancing back over her shoulder', width: 3924, height: 5878, category: 'portraits' },
   { src: '/photos/portrait-16.jpg', alt: 'Couple kissing at the rail of a boat as the sun sets over open water behind them', width: 3850, height: 5767, category: 'portraits' },
@@ -189,9 +189,9 @@ export const portraitPhotos: Photo[] = [
  * subject.
  */
 export const himPhotos: Photo[] = [
-  { src: '/photos/portrait-11-him.jpg', alt: 'Man with dreadlocks and a plaid shirt looking back over his shoulder against city lights at night', width: 2677, height: 4016, category: 'portraits', project: 'him' },
+  { src: '/photos/portrait-11-him.jpg', alt: 'Man with dreadlocks and a plaid shirt looking back over his shoulder against city lights at night', width: 2677, height: 4016, category: 'portraits', project: 'him', cropY: 0 },
   { src: '/photos/portrait-07-him.jpg', alt: 'Man in black shirt with gold cross necklace seated on a lounge sofa', width: 1165, height: 1748, category: 'portraits', project: 'him' },
-  { src: '/photos/portrait-17.jpg', alt: 'Black and white portrait of a bearded man in glasses and a sleeveless tee, arms folded', width: 2163, height: 3245, category: 'portraits', project: 'him' },
+  { src: '/photos/portrait-17.jpg', alt: 'Black and white portrait of a bearded man in glasses and a sleeveless tee, arms folded', width: 2163, height: 3245, category: 'portraits', project: 'him', cropY: 0 },
   { src: '/photos/portrait-18.jpg', alt: 'Man with dreadlocks in a grey t-shirt leaning on a bridge rail in front of the downtown Austin skyline at night', width: 2613, height: 3920, category: 'portraits', project: 'him' },
 ];
 

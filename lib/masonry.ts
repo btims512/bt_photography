@@ -40,6 +40,15 @@ export type Photo = {
    * error, for a set that is all one shape.
    */
   projectOrder?: number;
+  /**
+   * Where a rail that trims this photo to its frame keeps it, top to bottom,
+   * as a percentage: 0 keeps the top edge (the trim all comes off the
+   * bottom), 100 the bottom edge, and the default 50 trims both ends evenly.
+   * For a photo whose subject sits near one end - a head close to the top.
+   * Only matters where a rail frame is a different shape from the photo (see
+   * MobileRail's `frameRatio`); everywhere else the photo shows whole.
+   */
+  cropY?: number;
 };
 
 /**

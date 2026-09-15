@@ -430,6 +430,7 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery, sta
                   seamless={style.seamless}
                   snap={style.snap}
                   dots={style.dots}
+                  frameRatio={style.ratio}
                 />
               );
             }
