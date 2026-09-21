@@ -1,4 +1,4 @@
-import { carouselAfterPhotos, carouselPhotos, featuredPhotos, himPhotos, type Photo } from '@/lib/photos';
+import { carouselAfterPhotos, featuredPhotos, himPhotos, type Photo } from '@/lib/photos';
 
 /*
  * Everything that defines a scroll rail (components/MobileRail.tsx) as a
@@ -85,7 +85,15 @@ export interface StandaloneRail {
  * Mobile only, like every rail.
  */
 export const STANDALONE_RAILS: StandaloneRail[] = [
-  // comedy-02 keeps HIM and the seamless carousel from sitting flush.
-  { photos: himPhotos, after: featuredPhotos.filter((photo) => photo.src === '/photos/comedy-02.jpg') },
-  { photos: carouselPhotos, after: carouselAfterPhotos },
+  // The seamless carousel is off the page for now - its rail is simply not
+  // placed here. Everything it needs is still in the tree (carouselPhotos,
+  // the `seamless` / `snap` / `dots` styles below, the photos themselves), so
+  // putting it back is this one line:
+  //   { photos: carouselPhotos, after: carouselAfterPhotos },   (re-import carouselPhotos)
+  // Its closing photos come after HIM in the meantime, so the page still ends
+  // on them.
+  {
+    photos: himPhotos,
+    after: [...featuredPhotos.filter((photo) => photo.src === '/photos/comedy-02.jpg'), ...carouselAfterPhotos],
+  },
 ];
