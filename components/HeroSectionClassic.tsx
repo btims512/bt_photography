@@ -244,7 +244,14 @@ export default function HeroSectionClassic() {
         onClick={() => setMobileOpen(true)}
         aria-expanded={mobileOpen}
         aria-label="Open menu"
-        className="absolute right-6 top-1/2 z-[45] md:hidden"
+        // p-3/-mr-3: a 48x48 target around a 24x24 icon. The padding grows the
+        // box and the negative *right* margin pulls it back, so the bars stay
+        // 24px in from the screen edge exactly as before. Horizontal only:
+        // vertically the box is centred by top-1/2 against its own height (the
+        // `y: '-50%'` below), which already keeps the icon's centre on the
+        // header's, and a negative top margin would shift it up by half the
+        // padding it just added.
+        className="absolute right-6 top-1/2 z-[45] p-3 -mr-3 md:hidden"
         initial={false}
         animate={{ opacity: mobileOpen ? 0 : 1 }}
         // Asymmetric on purpose, against the drawer's 0.56s slide. Opening:
@@ -273,7 +280,6 @@ export default function HeroSectionClassic() {
           background: 'none',
           border: 'none',
           cursor: 'pointer',
-          padding: 0,
           pointerEvents: mobileOpen ? 'none' : 'auto',
         }}
       >
@@ -322,7 +328,12 @@ export default function HeroSectionClassic() {
         animate={{ opacity: 1 }}
         transition={{ duration: 0.75, ease: 'easeOut' }}
       >
-        <ul className="md:flex md:justify-center md:gap-x-[100px] lg:gap-x-[130px]">
+        {/* Gap by the room there is for it: the labels come to ~274px, so
+            five 100px gaps need 774px of content box and a 768px tablet only
+            has 668 - the items were being squeezed and the page scrolled 3px
+            sideways. 72px fits that width with room to spare; 100px comes
+            back as soon as there is space for it, and lg keeps its 130. */}
+        <ul className="md:flex md:justify-center md:gap-x-[72px] min-[900px]:gap-x-[100px] lg:gap-x-[130px]">
           {NAV.map((item, idx) => {
             const isActive = pathname === item.href;
             return (
@@ -336,7 +347,14 @@ export default function HeroSectionClassic() {
               >
                 <Link
                   href={item.href}
-                  className={`text-[14px] font-800 uppercase transition-colors focus:outline-none pb-1 ${
+                  // px-3/-mx-3 and pt-2 grow the target around the word - a
+                  // 14px line is a thin thing to hit on a tablet, which gets
+                  // this nav rather than the drawer. Horizontal padding is paid
+                  // back by the margin so the spacing is untouched; vertical
+                  // padding needs no repayment (an inline box's own vertical
+                  // margins don't affect layout) and is kept above the text so
+                  // the active underline below stays exactly where it sits.
+                  className={`px-3 -mx-3 pt-3 text-[14px] font-800 uppercase transition-colors focus:outline-none pb-1 ${
                     isActive ? 'border-b-2' : ''
                   }`}
                   style={{

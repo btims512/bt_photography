@@ -849,8 +849,8 @@ html {
    scroll it had before these phases existed. */
 @keyframes rail-slide-kf {
   0%   { transform: translateX(0); }
-  18%  { transform: translateX(0); }
-  82%  { transform: translateX(var(--rail-shift, calc(-430cqw))); }
+  10%  { transform: translateX(0); }
+  90%  { transform: translateX(var(--rail-shift, calc(-430cqw))); }
   100% { transform: translateX(var(--rail-shift, calc(-430cqw))); }
 }
 
@@ -921,9 +921,11 @@ html {
    dimensions so scale(1) covers both, and overflowing into the layer's
    overflow: hidden on the other axis. Centred on the *content* box, not
    the frame, so it grows from behind the photo rather than from behind the
-   header. RAIL_INTRO_FRACTION in MobileRail.tsx has to match the 12%/88%
-   stops below - CSS keyframe percentages can't read a custom property, so
-   the two are kept in step by hand. */
+   header. The 6%/94% stops below sit just inside RAIL_SLIDE_START/END in
+   MobileRail.tsx (10%/90%), so the black has taken the frame over before
+   the photos travel and gives it back once they stop - CSS keyframe
+   percentages can't read those constants, so the two are kept in step by
+   hand. */
 /* Rest size of the black box: exactly the photo's own resting footprint.
    --rail-photo-w is the photo box's full width and 0.88 its resting scale
    (rail-photo-zoom-kf), and the box's 66/100 ratio turns that width into
@@ -945,10 +947,10 @@ html {
    positioned element that nothing else is sized against. */
 @keyframes rail-backdrop-kf {
   0%   { width: calc(0.88 * var(--rail-photo-w)); height: calc(0.88 * var(--rail-photo-w) / 0.66); }
-  6%   { width: calc(0.88 * var(--rail-photo-w)); height: 100%; }
-  12%  { width: 100%; height: 100%; }
-  88%  { width: 100%; height: 100%; }
-  94%  { width: calc(0.88 * var(--rail-photo-w)); height: 100%; }
+  3%   { width: calc(0.88 * var(--rail-photo-w)); height: 100%; }
+  6%   { width: 100%; height: 100%; }
+  94%  { width: 100%; height: 100%; }
+  97%  { width: calc(0.88 * var(--rail-photo-w)); height: 100%; }
   100% { width: calc(0.88 * var(--rail-photo-w)); height: calc(0.88 * var(--rail-photo-w) / 0.66); }
 }
 
@@ -1006,10 +1008,10 @@ html {
 
 @keyframes rail-photo-zoom-kf {
   0%   { --rail-photo-zoom: 0.88; }
-  12%  { --rail-photo-zoom: 0.88; }
-  18%  { --rail-photo-zoom: 1; }
-  82%  { --rail-photo-zoom: 1; }
-  88%  { --rail-photo-zoom: 0.88; }
+  6%   { --rail-photo-zoom: 0.88; }
+  10%  { --rail-photo-zoom: 1; }
+  90%  { --rail-photo-zoom: 1; }
+  94%  { --rail-photo-zoom: 0.88; }
   100% { --rail-photo-zoom: 0.88; }
 }
 
@@ -1119,15 +1121,15 @@ html {
   will-change: scale;
 }
 
-/* The swell finishes at 18%, where the slide takes over (rail-slide-kf's
-   own first stop), and reverses from 82% - so the photo is at full width
+/* The swell finishes at 10%, where the slide takes over (rail-slide-kf's
+   own first stop), and reverses from 90% - so the photo is at full width
    for exactly as long as the photos are travelling, and back to its
    resting grid size before the pin releases. The same stops the peek
    rows part and return on, so the three read as one movement. */
 @keyframes rail-fill-kf {
   0%   { scale: var(--rail-rest-scale); }
-  18%  { scale: 1; }
-  82%  { scale: 1; }
+  10%  { scale: 1; }
+  90%  { scale: 1; }
   100% { scale: var(--rail-rest-scale); }
 }
 
@@ -1157,7 +1159,7 @@ html {
    the smaller of two bands:
      --rail-peek-travel  - the top row's own visible band, i.e. exactly
                            the strip that row covers at rest and vacates
-                           at 18%. Any taller and the bottom of the title
+                           at 10%. Any taller and the bottom of the title
                            would be showing before the reveal starts.
      (frame - fill) / 2  - the strip left above the photo at full swell.
                            Any taller and the photo would grow over the
@@ -1394,11 +1396,6 @@ html {
      same line, so this row needs no per-column correction - its children
      top-align and that's already right. */
   align-items: flex-start;
-  animation: rail-peek-below-kf 1s linear;
-  animation-timeline: --rail-progress;
-  animation-range-start: var(--rail-range-start, cover 29.4118%);
-  animation-range-end: var(--rail-range-end, cover 82.3529%);
-  animation-fill-mode: both;
 }
 
 .rail-peek-above {
@@ -1414,11 +1411,6 @@ html {
      lift lives on the child so the parent keeps `transform` free for the
      push-out animation. */
   align-items: flex-end;
-  animation: rail-peek-above-kf 1s linear;
-  animation-timeline: --rail-progress;
-  animation-range-start: var(--rail-range-start, cover 29.4118%);
-  animation-range-end: var(--rail-range-end, cover 82.3529%);
-  animation-fill-mode: both;
 }
 
 .rail-peek-above > * {
@@ -1438,6 +1430,41 @@ html {
   transform: translateY(calc(-1 * min(var(--rail-peek-delta, 0px), var(--rail-peek-travel) - 12px)));
 }
 
+/* Both rows' travel, applied only on the scroll-timeline path -
+   MobileRail adds .rail-peek-css when it has confirmed support, and drives
+   the rows from Framer instead when it hasn't.
+
+   The gate is a class rather than an @supports block because of what a
+   browser without scroll-driven animations does with these declarations:
+   it drops the `animation-timeline` it doesn't understand, keeps the
+   `animation` shorthand, and runs it as an ordinary one-second animation
+   the moment the rail mounts - the rows parting and closing once, on load,
+   for no reason. `animation-fill-mode: both` then holds the last keyframe
+   afterwards, and a filling animation outranks an inline style, so the
+   fallback's own transform was being overwritten for the life of the page:
+   the rows sat still through every slide and the title they uncover never
+   appeared at all. Every other keyframed piece of a rail is already on a
+   class of its own for the same reason (.rail-track,
+   .rail-fill-photo-box-css); these two were applied unconditionally.
+
+   A class also keeps it testable: support is one JS call, so a test can
+   take the fallback path in a browser that supports both. */
+.rail-peek-below.rail-peek-css {
+  animation: rail-peek-below-kf 1s linear;
+  animation-timeline: --rail-progress;
+  animation-range-start: var(--rail-range-start, cover 29.4118%);
+  animation-range-end: var(--rail-range-end, cover 82.3529%);
+  animation-fill-mode: both;
+}
+
+.rail-peek-above.rail-peek-css {
+  animation: rail-peek-above-kf 1s linear;
+  animation-timeline: --rail-progress;
+  animation-range-start: var(--rail-range-start, cover 29.4118%);
+  animation-range-end: var(--rail-range-end, cover 82.3529%);
+  animation-fill-mode: both;
+}
+
 /* The two rows part together and return together: same stops, opposite
    directions, so the pair reads as one gap opening and closing rather
    than as two separate moves. (They used to be staggered - top out over
@@ -1452,15 +1479,15 @@ html {
    can't read those constants, so the two are kept in step by hand. */
 @keyframes rail-peek-below-kf {
   0%   { transform: translateY(0); }
-  18%  { transform: translateY(var(--rail-peek-travel)); }
-  82%  { transform: translateY(var(--rail-peek-travel)); }
+  10%  { transform: translateY(var(--rail-peek-travel)); }
+  90%  { transform: translateY(var(--rail-peek-travel)); }
   100% { transform: translateY(0); }
 }
 
 @keyframes rail-peek-above-kf {
   0%   { transform: translateY(0); }
-  18%  { transform: translateY(calc(-1 * var(--rail-peek-travel))); }
-  82%  { transform: translateY(calc(-1 * var(--rail-peek-travel))); }
+  10%  { transform: translateY(calc(-1 * var(--rail-peek-travel))); }
+  90%  { transform: translateY(calc(-1 * var(--rail-peek-travel))); }
   100% { transform: translateY(0); }
 }
 
@@ -1547,15 +1574,15 @@ html {
 }
 
 /* Timed against the photos rather than against the dwell's own midpoint.
-   The slide runs 18->82%, so the last photo comes to rest at 82% and the
-   photo's zoom-out runs 82->88%. The line draws across that entire span,
+   The slide runs 10->90%, so the last photo comes to rest at 90% and the
+   photo's zoom-out runs 90->94%. The line draws across that entire span,
    reaching full width exactly as the last photo finishes being shown, and
    withdraws only through the zoom-out itself - so it is at its fullest at
    the moment the section starts closing, and gone by the time the photo
    is back at rest.
 
-   There is deliberately no hold: the draw takes 70% of the dwell against
-   the withdraw's 6%, and every one of those 70% is spent still moving.
+   There is deliberately no hold: the draw takes 84% of the dwell against
+   the withdraw's 4%, and every one of those 84% is spent still moving.
    Holding at full width, however briefly, is what made earlier versions
    read as finishing early - the line stopped while the photos kept going,
    and the eye reads a stopped line as done regardless of where in the
@@ -1563,9 +1590,9 @@ html {
    their respective ends, and the hold between them is long
    on purpose: the line has to be on screen for the *first and last*
    photos too, not just the ones in the middle. Tucking the cycle inside
-   the slide's own span (18->82) put its endpoints exactly where the first
+   the slide's own span (10->90) put its endpoints exactly where the first
    and last photos come to rest, so those two were the only photos that
-   never saw a line at all. Bracketing it to 12->88 instead - the same
+   never saw a line at all. Bracketing it to 6->94 instead - the same
    span across which the photo grows and shrinks - starts the line with
    the photo's growth and retracts it with the photo's shrink, leaving it
    about a third drawn as each end photo settles and fully drawn
@@ -1573,9 +1600,9 @@ html {
    same distance from their respective ends, so the exit mirrors the entrance instead of snapping
    away faster than it arrived - an earlier version drew over 36% but
    withdrew over 22%, which read as the line being yanked off. Withdrawing
-   right out to 86% also keeps the line on screen through the last photo
+   right out to 94% also keeps the line on screen through the last photo
    of the slide rather than clearing while photos are still arriving, and
-   hands straight over to the backdrop's own exit at 88%.
+   hands straight over to the backdrop's own exit there.
 
    (Superseded note, kept for the reasoning: the line begins almost immediately rather than waiting for the
    photo to finish rising, so it reads as starting the moment the first
@@ -1595,9 +1622,9 @@ html {
    at 0 it covers the whole length. */
 @keyframes rail-edge-kf {
   0%   { stroke-dashoffset: 1; }
-  12%  { stroke-dashoffset: 1; }
-  82%  { stroke-dashoffset: 0; }
-  88%  { stroke-dashoffset: 1; }
+  6%   { stroke-dashoffset: 1; }
+  90%  { stroke-dashoffset: 0; }
+  94%  { stroke-dashoffset: 1; }
   100% { stroke-dashoffset: 1; }
 }
 
@@ -1605,9 +1632,9 @@ html {
    covers the whole length, having arrived from the right. */
 @keyframes rail-edge-reverse-kf {
   0%   { stroke-dashoffset: -1; }
-  12%  { stroke-dashoffset: -1; }
-  82%  { stroke-dashoffset: 0; }
-  88%  { stroke-dashoffset: -1; }
+  6%   { stroke-dashoffset: -1; }
+  90%  { stroke-dashoffset: 0; }
+  94%  { stroke-dashoffset: -1; }
   100% { stroke-dashoffset: -1; }
 }
 

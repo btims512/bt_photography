@@ -131,24 +131,36 @@ const RAIL_FRAME_SVH = 100;
 // and a fast flick has less chance of jumping several photos at once.
 // Still well short of a full screen per photo, which would hold the rest
 // of the page off-screen for an uncomfortable stretch.
-const RAIL_DWELL_PER_TRANSITION_SVH = 65;
+//
+// Tuned down from 81 effective svh (65 with a 1.25 fill multiplier over
+// it, back when the classic variant still needed a pace of its own) after
+// watching someone meet a rail for the first time: at that weight a photo
+// cost most of a screen of scrolling, the opening phase below cost the
+// better part of two, and she stopped swiping before the title had
+// finished arriving - reading the rail as a page that had stuck rather
+// than one that was responding. At 48 a photo is about half a screen, so
+// an ordinary thumb-flick carries one or two photos and the section
+// answers the first flick it is given.
+const RAIL_DWELL_PER_TRANSITION_SVH = 48;
 
-// The fill variant runs its slide this much slower than the classic one
-// - the same animation spread over 25% more scroll, so each swipe
-// advances it less. Scoped to the variant rather than folded into the
-// constant above so the classic rail keeps the pace it was tuned at.
-const RAIL_FILL_DWELL_SCALE = 1.25;
-
-// Fraction of the dwell spent growing the black backdrop in at the start,
-// and again shrinking it out at the end - the slide only runs across the
+// Fraction of the dwell the section spends opening at the start - the peek
+// rows parting, the title being uncovered, the photo swelling to full
+// width - and again closing at the end; the slide only runs across the
 // span between them. MUST match the keyframe stops in globals.css
-// (rail-backdrop-kf and friends), which can't read this value: CSS
+// (rail-peek-above-kf and friends), which can't read this value: CSS
 // keyframe percentages have to be literals, so the two are kept in step by
-// hand. The dwell below is scaled up by the leftover fraction so the slide
-// itself keeps the same per-photo pace it had before the backdrop phases
-// existed, rather than being squeezed into a shorter span.
-const RAIL_SLIDE_START = 0.18;
-const RAIL_SLIDE_END = 0.82;
+// hand. The dwell above is scaled up by the leftover fraction so the slide
+// itself keeps its per-photo pace whatever these are set to, rather than
+// being squeezed into a shorter span.
+//
+// Down from 0.18/0.82 for the same reason the dwell came down: an opening
+// that takes a fifth of a long dwell is, on the longest rail here, most of
+// two screens of scrolling spent on a title - long enough to read as
+// nothing happening. A tenth puts the whole opening inside the first
+// flick (about a third of a screen on the 9-photo rail, a fifth of one on
+// a 4-photo rail), so the rows visibly part as soon as the frame pins.
+const RAIL_SLIDE_START = 0.1;
+const RAIL_SLIDE_END = 0.9;
 
 // Horizontal gap between photos mid-slide, as cqw (% of the frame's own
 // width, via `.rail-frame`'s container query context below). This is now
@@ -541,9 +553,7 @@ export default function MobileRail({
   const fillRatio = frameRatio ?? (photos[0] ? photos[0].width / photos[0].height : 0.66);
 
   const gapCount = photos.length - 1;
-  const totalDwellSvh =
-    (gapCount * RAIL_DWELL_PER_TRANSITION_SVH * (isFill ? RAIL_FILL_DWELL_SCALE : 1)) /
-    (RAIL_SLIDE_END - RAIL_SLIDE_START);
+  const totalDwellSvh = (gapCount * RAIL_DWELL_PER_TRANSITION_SVH) / (RAIL_SLIDE_END - RAIL_SLIDE_START);
   const outerHeightSvh = RAIL_FRAME_SVH + totalDwellSvh;
   // Treating the viewport as "100" in the same svh-based unit system as
   // RAIL_FRAME_SVH/totalDwellSvh, so these ratios hold on any device
@@ -677,14 +687,19 @@ export default function MobileRail({
   };
   const fillZoom = useTransform(smoothProgress, (p) => {
     const { restScale } = fillMetrics();
-    if (p <= 0.18) return restScale + (1 - restScale) * (p / 0.18);
-    if (p >= 0.82) return restScale + (1 - restScale) * (1 - (p - 0.82) / 0.18);
+    // The same stops the swell keyframes use (rail-fill-kf), read from the
+    // constants rather than written out again - they were literals here once
+    // and went stale the first time the pace was retuned.
+    if (p <= RAIL_SLIDE_START) return restScale + (1 - restScale) * (p / RAIL_SLIDE_START);
+    if (p >= RAIL_SLIDE_END) return restScale + (1 - restScale) * (1 - (p - RAIL_SLIDE_END) / (1 - RAIL_SLIDE_END));
     return 1;
   });
   // JS-fallback equivalents of rail-peek-above-kf / rail-peek-below-kf -
   // pure travel, no opacity, same stops as the CSS: both rows part over
-  // 0-18% and return over 82-100%, together and in opposite directions,
-  // so these two differ only in sign.
+  // the opening and return over the closing, together and in opposite
+  // directions, so these two differ only in sign. For these to be what
+  // moves the rows, the keyframes mustn't also be applied - see
+  // rail-peek-css below.
   const peekTravelAt = (p: number) => {
     const { travel } = fillMetrics();
     if (p <= RAIL_SLIDE_START) return travel * (p / RAIL_SLIDE_START);
@@ -695,9 +710,9 @@ export default function MobileRail({
   const peekBelowY = useTransform(smoothProgress, (p) => peekTravelAt(p));
 
   const isInView = useInView(outerRef, { margin: '200px' });
-  // For a seamless rail's deferred loading (see `seamless`): a screen's
-  // grace either way is well ahead of need, since the slide itself doesn't
-  // start until the rail has pinned and the photo has swelled.
+  // For the panels' loading (see the Image below): a screen's grace either
+  // way is well ahead of need, since the slide itself doesn't start until
+  // the rail has pinned and the photo has swelled.
   const approaching = useInView(outerRef, { margin: '100% 0px 100% 0px', once: true });
   const { headerReady } = useLayoutMode();
   const [revealed, setRevealed] = useState(false);
@@ -1293,14 +1308,17 @@ export default function MobileRail({
         // Where a trimmed photo is kept - see Photo.cropY.
         style={photo.cropY === undefined ? undefined : { objectPosition: `50% ${photo.cropY}%` }}
         draggable={false}
-        // The one place lazy loading can't be used: a rail panel sits
-        // off to the side of the frame rather than below the fold, so it
-        // isn't near the viewport by the browser's reckoning until it has
-        // already begun sliding in - and it arrives blank. The grid and
-        // the peek stand-ins around it stay lazy. A seamless rail holds
-        // off until it's within reach instead (see `approaching`), then
-        // goes eager for the same reason.
-        loading={seamless && !approaching ? 'lazy' : 'eager'}
+        // Native lazy loading can't be left to fetch these: a rail panel
+        // sits off to the side of the frame rather than below the fold, so
+        // it isn't near the viewport by the browser's reckoning until it
+        // has already begun sliding in - and it arrives blank. But loading
+        // them with the page is the other extreme, and it was costing the
+        // home page every rail photo on it - twenty-odd - before a visitor
+        // had scrolled at all. So they wait until the rail is within about
+        // a screen (`approaching`), which is still long before the rail
+        // pins, let alone before its photos start to slide. The grid and
+        // the peek stand-ins around it stay lazy throughout.
+        loading={approaching ? 'eager' : 'lazy'}
         quality={82}
         placeholder="blur"
         blurDataURL={BLUR_DATA_URL}
@@ -1501,7 +1519,7 @@ export default function MobileRail({
             the DOM, so that photo paints on top once they overlap. */}
         {isFill && prevRow && prevRow.length > 0 && (
           <motion.div
-            className="rail-peek-layer rail-peek-above"
+            className={`rail-peek-layer rail-peek-above${cssSupported ? ' rail-peek-css' : ''}`}
             style={cssSupported ? undefined : fallbackReady ? { y: peekAboveY } : undefined}
           >
             {prevRow.map((col, i) => (
@@ -1542,7 +1560,7 @@ export default function MobileRail({
         )}
         {isFill && nextRow && nextRow.length > 0 && (
           <motion.div
-            className="rail-peek-layer rail-peek-below"
+            className={`rail-peek-layer rail-peek-below${cssSupported ? ' rail-peek-css' : ''}`}
             style={cssSupported ? undefined : fallbackReady ? { y: peekBelowY } : undefined}
           >
             {nextRow.map((col, i) => (

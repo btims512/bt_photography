@@ -159,6 +159,10 @@ export default function MobileMenu({ isOpen, onClose, nav, pathname }: MobileMen
             return (
               <motion.li
                 key={item.label}
+                // A flex row purely so the link's negative margins below can't
+                // collapse through this element and drag the whole list up with
+                // them - flex items' margins never collapse.
+                className="flex"
                 animate={
                   isOpen
                     ? { opacity: 1, x: 0, transition: { duration: 0.3, delay: 0.1 + idx * 0.05 } }
@@ -169,7 +173,12 @@ export default function MobileMenu({ isOpen, onClose, nav, pathname }: MobileMen
                   href={item.href}
                   onClick={onClose}
                   tabIndex={isOpen ? undefined : -1}
-                  className="text-[20px] font-700 uppercase"
+                  // The words are 24px tall with 28px of air between them, which
+                  // is a thumb-sized gap and a fingernail-sized target. The
+                  // padding takes that air into the target (48px tall, 48px
+                  // wider than the word) and the negative margin gives it back
+                  // to the layout, so the list looks exactly as it did.
+                  className="block px-6 -mx-6 py-3 -my-3 text-[20px] font-700 uppercase"
                   style={{
                     color: isActive ? 'var(--accent)' : 'var(--ink)',
                     letterSpacing: '0.04em',

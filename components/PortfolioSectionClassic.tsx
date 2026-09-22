@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Image from 'next/image';
+import Image, { getImageProps } from 'next/image';
 import { motion } from 'framer-motion';
 import { chunkWithRails, distributeToColumns, type GallerySegment } from '@/lib/masonry';
 import { BLUR_DATA_URL } from '@/lib/blur';
@@ -131,23 +131,28 @@ const MOBILE_RAIL_SIZE = 5;
 // browser resolves `sizes` before any JS runs).
 const DESKTOP_COLUMNS = 4;
 
+// Mirrored by the hero preload links below, which have to ask the browser
+// for the same candidate the <img> will: a preload that resolves to a
+// different width (or quality) than the image is a second download rather
+// than a head start on the first.
+const PHOTO_SIZES = '(max-width: 767px) 100vw, 25vw';
+const PHOTO_QUALITY = 82;
+
 interface GridPhotoProps {
   photo: Photo;
   currentIndex: number;
   /** Seconds to hold before this photo's desktop reveal starts. */
   revealDelay: number;
-  priority: boolean;
   onOpen: () => void;
   isDesktop: boolean;
 }
 
-// Every grid photo eager-loads (fetch starts immediately at page load,
-// never deferred to scroll proximity) so nothing is still downloading by
-// the time it's scrolled to - including everything after the breakout,
-// which is far enough down the page that native lazy-loading's fetch
-// timing isn't reliably ahead of scroll speed. The tradeoff is more
-// simultaneous network load on slow connections; quality is tuned down a
-// touch (see GridPhoto's `quality`) to help offset that.
+// Grid photos load lazily, the browser fetching each as it is scrolled
+// towards, so opening the page costs the first screen and nothing more.
+// The one photo that can't wait to be discovered here - whichever sits at
+// the top of the first screen - is preloaded from the document head
+// instead; see HeroPreloads below, including why the <img> tags carry no
+// `loading="eager"` or `fetchPriority` of their own.
 
 // Its own component (rather than inline in the .map() below) because the
 // reveal hooks need a stable per-photo call site to satisfy rules of hooks.
@@ -160,7 +165,7 @@ interface GridPhotoProps {
 // currentIndex 0 from the right, 1 from the left, and so on - and anything
 // reached only by scrolling gets no entrance animation at all, appearing
 // the instant its data is ready rather than replaying a reveal each time.
-function GridPhoto({ photo, currentIndex, revealDelay, priority, onOpen, isDesktop }: GridPhotoProps) {
+function GridPhoto({ photo, currentIndex, revealDelay, onOpen, isDesktop }: GridPhotoProps) {
   const { ref: revealRef, revealed } = useRevealWhenReady<HTMLElement>('400px');
   const { ref: initialRef, wasInitiallyVisible } = useWasInitiallyVisible<HTMLElement>();
   const { headerReady } = useLayoutMode();
@@ -176,11 +181,10 @@ function GridPhoto({ photo, currentIndex, revealDelay, priority, onOpen, isDeskt
       alt={photo.alt}
       width={photo.width}
       height={photo.height}
-      sizes="(max-width: 767px) 100vw, 25vw"
+      sizes={PHOTO_SIZES}
       className="photo-protected block h-auto w-full"
       draggable={false}
-      priority={priority}
-      quality={82}
+      quality={PHOTO_QUALITY}
       placeholder="blur"
       blurDataURL={BLUR_DATA_URL}
     />
@@ -232,6 +236,66 @@ function GridPhoto({ photo, currentIndex, revealDelay, priority, onOpen, isDeskt
     >
       {image}
     </motion.figure>
+  );
+}
+
+/**
+ * Head preloads for the photo at the top of the first screen - the page's
+ * largest-contentful-paint element, and the one photo worth fetching before
+ * the browser has even reached the gallery markup.
+ *
+ * Which photo that is depends on the viewport. A phone opens on MOBILE_LEAD's
+ * first photo (the rail layout that puts it there only exists after mount,
+ * but that is the photo under the reader's thumb from the first paint on);
+ * anything wider opens on the masonry's top-left one, with the other column
+ * tops beside it - whichever of that row renders tallest is desktop's LCP,
+ * so the row is preloaded together rather than guessed at.
+ *
+ * `<Image preload>` can't express any of that: one server-rendered document
+ * serves every viewport, so a single preload tag necessarily aims at one
+ * layout's opening photo and misses the other's. That is what this replaced -
+ * the phone's own first photo was the one photo *not* preloaded, and it took
+ * the LCP down with it. Preload links take a `media`, so each viewport
+ * fetches its own and ignores the rest (Next's docs say as much: reach for
+ * fetchPriority, not `preload`, when the LCP element varies by viewport).
+ *
+ * The <img> tags themselves stay plain - no `loading="eager"`, no
+ * `fetchPriority` - and that is load-bearing, not an omission. React emits
+ * its own preload for any server-rendered image carrying either hint, and
+ * that preload has no `media`: hinting the first photo of the pre-hydration
+ * layout put every phone back to fetching a photo it doesn't open on, at
+ * high priority, ahead of the one it does. An image in the first screen is
+ * fetched immediately whatever its `loading` says; these links are what
+ * decide which one goes first.
+ */
+function HeroPreloads({ mobile, desktop }: { mobile?: Photo; desktop: Photo[] }) {
+  const preload = (photo: Photo, media: string) => {
+    const { props } = getImageProps({
+      src: photo.src,
+      alt: '',
+      width: photo.width,
+      height: photo.height,
+      sizes: PHOTO_SIZES,
+      quality: PHOTO_QUALITY,
+    });
+    return (
+      <link
+        key={`${media}-${photo.src}`}
+        rel="preload"
+        as="image"
+        media={media}
+        imageSrcSet={props.srcSet}
+        imageSizes={props.sizes}
+        fetchPriority="high"
+      />
+    );
+  };
+
+  return (
+    <>
+      {mobile && preload(mobile, '(max-width: 767px)')}
+      {desktop.map((photo) => preload(photo, '(min-width: 768px)'))}
+    </>
   );
 }
 
@@ -299,8 +363,20 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery, sta
   const placedByRails = new Set((standaloneRails ?? []).flatMap((rail) => [...rail.photos, ...rail.after].map((photo) => photo.src)));
   const flowPhotos = validPhotos.filter((photo) => !placedByRails.has(photo.src));
 
+  // What the plain-column fallback shows, and in which order. Before mount
+  // nobody knows the breakpoint yet, so this one list is the first thing every
+  // visitor sees; it leads with the photos the phone's own layout leads with
+  // (MOBILE_LEAD), which costs desktop nothing it doesn't already pay - it
+  // repacks into columns at mount either way - and saves the phone from
+  // opening on a photo it is about to replace. That swap used to be visible,
+  // and expensive: the browser had already spent the opening seconds of a
+  // slow connection fetching the head of the catalogue's order, none of which
+  // the phone shows first.
+  const leading = new Set(mobileLead.map((photo) => photo.src));
+  const preMountPhotos = [...mobileLead, ...validPhotos.filter((photo) => !leading.has(photo.src))];
+
   const segments: GallerySegment[] = !breakoutEvery || isDesktop || !mounted
-    ? [{ type: 'grid' as const, photos: validPhotos }]
+    ? [{ type: 'grid' as const, photos: mounted ? validPhotos : preMountPhotos }]
     : [
         ...chunkWithRails(flowPhotos, MOBILE_LANDSCAPE_EVERY, MOBILE_RAIL_SIZE, mobileLead, mobileTail, mobileCoda),
         // Placed as given, after the catalogue's own segments. Each is an
@@ -342,6 +418,7 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery, sta
 
   return (
     <section id={id} style={{backgroundColor: 'var(--bg)'}}>
+      <HeroPreloads mobile={mobileLead[0] ?? flowPhotos[0]} desktop={validPhotos.slice(0, DESKTOP_COLUMNS)} />
       <main className="header-scroll-offset px-6 md:px-[50px] pb-6 md:pb-8">
         <div className="flex flex-col gap-[10px]">
           {segments.map((segment, segmentIndex) => {
@@ -453,7 +530,6 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery, sta
                         photo={photo}
                         currentIndex={currentIndex}
                         revealDelay={currentIndex * 0.07}
-                        priority={currentIndex === 0}
                         onOpen={() => setOpenIndex(visualOrder.indexOf(photo))}
                         isDesktop={isDesktop}
                       />
@@ -527,7 +603,6 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery, sta
                           // sitting blank for seconds after you scrolled to
                           // them. Capped, the wait is never over ~0.55s.
                           revealDelay={columnIndex * 0.05 + Math.min(rowIndex, 4) * 0.1}
-                          priority={currentIndex === 0}
                           onOpen={() => setOpenIndex(visualOrder.indexOf(photo))}
                           isDesktop={isDesktop}
                         />

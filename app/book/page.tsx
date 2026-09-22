@@ -10,11 +10,24 @@ export default function BookPage() {
     subject: '',
     message: '',
   });
-  const [submitted, setSubmitted] = useState(false);
+  // Where an enquiry goes if the form itself can't deliver it. Also the
+  // address Formspree sends to, which is set in the Formspree dashboard for
+  // form xyyaedyo rather than here - nothing in this file can change it.
+  const CONTACT_EMAIL = 'info@bentims.com';
+
+  const [state, setState] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (state === 'sending') return;
+    setState('sending');
 
+    // Every outcome has to say something. A booking enquiry that quietly
+    // fails - Formspree over its monthly quota, the form paused, no
+    // connection - used to leave the visitor looking at a filled-in form
+    // with no idea whether it had been sent, which is a lost enquiry rather
+    // than a delayed one. The fields are kept on failure so nothing is
+    // retyped, and the message offers the email address directly.
     try {
       const response = await fetch('https://formspree.io/f/xyyaedyo', {
         method: 'POST',
@@ -24,13 +37,17 @@ export default function BookPage() {
         body: JSON.stringify(formData),
       });
 
-      if (response.ok) {
-        setSubmitted(true);
-        setFormData({ name: '', email: '', subject: '', message: '' });
-        setTimeout(() => setSubmitted(false), 5000);
+      if (!response.ok) {
+        console.error('Formspree rejected the booking form:', response.status);
+        setState('failed');
+        return;
       }
+      setState('sent');
+      setFormData({ name: '', email: '', subject: '', message: '' });
+      setTimeout(() => setState((s) => (s === 'sent' ? 'idle' : s)), 5000);
     } catch (error) {
       console.error('Error submitting form:', error);
+      setState('failed');
     }
   };
 
@@ -50,7 +67,7 @@ export default function BookPage() {
             </p>
           </motion.div>
 
-          {submitted && (
+          {state === 'sent' && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -63,6 +80,27 @@ export default function BookPage() {
               }}
             >
               ✓ Message sent! I'll be in touch soon.
+            </motion.div>
+          )}
+
+          {state === 'failed' && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-8 p-4 rounded-lg"
+              style={{
+                backgroundColor: 'var(--bg-elev)',
+                borderColor: 'var(--ink)',
+                color: 'var(--ink)',
+                borderWidth: '1px',
+              }}
+            >
+              That didn&apos;t send - nothing has been lost, your message is still below. Please try
+              again, or email me directly at{' '}
+              <a href={`mailto:${CONTACT_EMAIL}`} style={{ color: 'var(--accent)' }}>
+                {CONTACT_EMAIL}
+              </a>
+              .
             </motion.div>
           )}
 
@@ -171,7 +209,8 @@ export default function BookPage() {
 
             <button
               type="submit"
-              className="w-full font-800 py-4 md:py-3 rounded-lg cursor-pointer active:scale-95 transition-transform"
+              disabled={state === 'sending'}
+              className="w-full font-800 py-4 md:py-3 rounded-lg cursor-pointer active:scale-95 transition-transform disabled:cursor-wait"
               style={{
                 backgroundColor: 'var(--bg-elev)',
                 color: 'var(--accent)',
@@ -187,7 +226,7 @@ export default function BookPage() {
                 e.currentTarget.style.color = 'var(--accent)';
               }}
             >
-              Send Message
+              {state === 'sending' ? 'Sending...' : 'Send Message'}
             </button>
           </motion.form>
         </div>
