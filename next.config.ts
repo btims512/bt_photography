@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
   // with no working JS on the phone even though the HTML itself loads. One
   // entry per network the Mac gets used on; if a router reassigns its IP,
   // add the new address (`ipconfig getifaddr en0`).
-  allowedDevOrigins: ["192.168.1.34", "10.20.137.219"],
+  allowedDevOrigins: ["192.168.1.236", "192.168.1.34", "10.20.137.219"],
   images: {
     qualities: [75, 82, 90],
     // The widths the optimizer is allowed to generate, replacing Next's
