@@ -166,6 +166,8 @@ export const comedyPhotos: Photo[] = [
   { src: '/photos/comedy-11.jpg', alt: 'Comedian in a leather jacket on stage as the audience claps', width: 3840, height: 2563 },
   { src: '/photos/comedy-12.jpg', alt: 'Comedian mid-joke on stage gesturing with his hand, lit in blue stage light', width: 3840, height: 2563 },
   { src: '/photos/comedy-13.jpg', alt: 'Mustached comedian on stage smiling and gesturing while holding out a microphone by its cable', width: 3840, height: 2563 },
+  { src: '/photos/comedy-22.jpg', alt: 'Comedian with shaggy hair and a beard on stage in a denim jacket, eyes closed as he speaks into the microphone, a neon sign glowing on the brick wall behind him', width: 2096, height: 1399 },
+  { src: '/photos/comedy-23.jpg', alt: 'Comedian in glasses and a blue graphic tee mid-punchline under a red neon Comedy Corner sign', width: 2096, height: 1399 },
 ];
 
 export const portraitPhotos: Photo[] = [
@@ -254,4 +256,5 @@ export const musicPhotos: Photo[] = [
   // horizontal
   { src: '/photos/music-01.jpg', alt: 'Five band members lounging on a couch in a green-lit garage, their eyes glowing white, an acoustic guitar hanging on the wall behind them', width: 3840, height: 2322 },
   { src: '/photos/music-02.jpg', alt: 'Rapper mid-verse with one arm raised, stage lights streaking outward behind him in a zoom blur', width: 3840, height: 2563 },
+  { src: '/photos/music-04.jpg', alt: 'Singer in a pale blue robe at the microphone on an outdoor stage, a keyboardist to one side and a guitarist in a white cap behind her under green and amber light', width: 2096, height: 1397 },
 ];
