@@ -417,8 +417,8 @@ function takeUniformRail(queue: Photo[], railSize: number, railedProjects: Set<s
 /**
  * Mobile-only counterpart to chunkWithBreakouts: instead of interrupting the
  * grid with a single full-bleed photo, groups portrait photos into a
- * horizontal-scroll "rail" segment (see components/MobileRail.tsx) after
- * every `landscapeEvery` landscape photos.
+ * horizontal-scroll "rail" segment (see components/MobileRail.tsx),
+ * separated by runs of grid photos of an even length.
  *
  * Every rail holds photos of a single aspect ratio (see takeUniformRail).
  * MobileRail sizes its photos to fill the frame's width with their natural
@@ -434,14 +434,19 @@ function takeUniformRail(queue: Photo[], railSize: number, railedProjects: Set<s
  * so there's no packed-column layout to keep even. No category round-robin
  * either: it just walks `photos` in the order given, so callers should pass
  * an already-interleaved list (e.g. interleaveByCategory's output) - the
- * landscape/portrait alternation that produces is also what keeps enough
- * portraits queued by the time each landscapeEvery threshold hits, rather
- * than all landscape draining first and dumping every portrait into one
- * trailing rail-less segment at the end.
+ * landscape/portrait alternation that produces is what keeps each run mixed,
+ * rather than the landscapes draining first and the portraits all arriving
+ * at the end of the page.
  */
 export function chunkWithRails(
   photos: Photo[],
-  landscapeEvery: number,
+  /**
+   * How many photos open the page before the first rail (on top of `lead`).
+   * Every run after that is sized to keep the gaps between rails even, so
+   * this is also the dial for how much of the supply is spent up front
+   * rather than spread through the page.
+   */
+  openingRun: number,
   railSize: number,
   lead: Photo[] = [],
   /**
@@ -501,52 +506,66 @@ export function chunkWithRails(
     segments.push({ type: 'grid', photos: lead });
   }
 
-  let gridBuffer: Photo[] = [];
-  const leftoverPortraits: Photo[] = [];
-  for (const photo of photos) {
-    if (pinned.has(photo)) continue;
-    // A railed photo is spent - it appears in its rail and nowhere else.
-    if (railed.has(photo)) continue;
-    if (photo.height > photo.width) {
-      leftoverPortraits.push(photo);
-      continue;
-    }
+  // Everything the rails didn't take, in the page's own order: the landscape
+  // photos the grid runs on, and any portrait a rail couldn't use (a shape
+  // with too few of its own to fill one, or the remainder of a shape that
+  // filled one and had some over). They used to be kept apart, the portraits
+  // all landing in one segment at the end; they share the runs below now,
+  // because a photo's shape is no reason for it to be last.
+  const queue = photos.filter((photo) => !pinned.has(photo) && !railed.has(photo));
 
-    gridBuffer.push(photo);
-    if (gridBuffer.length >= landscapeEvery) {
-      segments.push({ type: 'grid', photos: gridBuffer });
-      gridBuffer = [];
-      const rail = railsAhead.shift();
-      if (rail) segments.push({ type: 'rail', photos: rail });
-    }
+  // The page is a run of photos, then a rail, then a run, then a rail, and so
+  // on. The opening run is `openingRun` long and the rest are all the
+  // same size, to within the one photo an uneven division leaves over: the
+  // gaps between rails are what the reader measures the page's rhythm by, and
+  // rails a couple of photos apart in one place and five in another reads as
+  // the page losing its place rather than as variety.
+  //
+  // This used to be `landscapeEvery` photos before every rail and everything
+  // left over in a heap at the end, which made the last gap as long as the
+  // supply happened to leave it - five photos against two, on a page whose
+  // other gaps were two. The pinned lists count toward their own gap's share
+  // (`tail` sits in the gap before the final rail, `coda` in the one after
+  // it), so naming photos there moves them without swelling the gap it moves
+  // them into.
+  const opening = queue.splice(0, Math.min(openingRun, queue.length));
+  if (opening.length > 0) {
+    segments.push({ type: 'grid', photos: opening });
   }
 
-  if (gridBuffer.length > 0) {
-    segments.push({ type: 'grid', photos: gridBuffer });
-  }
-  // Portraits no rail could use - a shape with too few of its own to fill
-  // one, or the remainder of a shape that filled one and had some over.
-  if (leftoverPortraits.length > 0) {
-    segments.push({ type: 'grid', photos: leftoverPortraits });
-  }
-  // Rails with no slot left to sit in, when the landscape supply ran out
-  // before the rails did.
-  for (const rail of railsAhead) {
+  const gaps = railsAhead.length;
+  // Which gap each pinned list lands in, 1-based: `tail` in the one before
+  // the last rail, `coda` in the one after it.
+  const pinnedInGap = new Array<number>(gaps + 1).fill(0);
+  if (gaps >= 2) pinnedInGap[gaps - 1] += tail.length;
+  else if (gaps >= 1) pinnedInGap[gaps] += tail.length;
+  if (gaps >= 1) pinnedInGap[gaps] += coda.length;
+
+  railsAhead.forEach((rail, index) => {
     segments.push({ type: 'rail', photos: rail });
-  }
+    const gap = index + 1;
+    const gapsLeft = gaps - index;
+    // What this gap should hold, counting the pinned photos already promised
+    // to it and to the gaps after it, so the remainder divides evenly rather
+    // than running out early.
+    const promised = pinnedInGap.slice(gap).reduce((sum, n) => sum + n, 0);
+    const share = Math.round((queue.length + promised) / gapsLeft);
+    const take = gap === gaps ? queue.length : Math.max(0, Math.min(queue.length, share - pinnedInGap[gap]));
+    const run = queue.splice(0, take);
+    // Pinned photos sit at the end of their gap, so a named pair reads as the
+    // handover into the next rail rather than as the start of the gap.
+    if (gap === gaps - 1) run.push(...tail);
+    else if (gaps === 1 && gap === gaps) run.push(...tail);
+    if (gap === gaps) run.push(...coda);
+    if (run.length > 0) {
+      segments.push({ type: 'grid', photos: run });
+    }
+  });
 
-  // `tail` goes in last, once every rail has been placed and the final one is
-  // known - inserted before it rather than appended, so it separates the last
-  // two rails instead of trailing off the end of the page. With no rail to sit
-  // in front of it just closes the grid.
-  if (tail.length > 0) {
-    const lastRail = segments.map((segment) => segment.type).lastIndexOf('rail');
-    const at = lastRail === -1 ? segments.length : lastRail;
-    segments.splice(at, 0, { type: 'grid', photos: tail });
-  }
-
-  if (coda.length > 0) {
-    segments.push({ type: 'grid', photos: coda });
+  // No rails at all: the pinned lists still have to land somewhere.
+  if (gaps === 0) {
+    const rest = [...queue, ...tail, ...coda];
+    if (rest.length > 0) segments.push({ type: 'grid', photos: rest });
   }
 
   return segments;

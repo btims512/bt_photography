@@ -17,19 +17,18 @@ import { RAIL_STYLES, STANDALONE_RAILS, type StandaloneRail } from '@/lib/rails'
  */
 
 // Mobile-only cadence for the horizontal photo rail (see MobileRail.tsx):
-// every MOBILE_LANDSCAPE_EVERY landscape photos, insert a rail of
-// MOBILE_RAIL_SIZE portrait photos, then resume the grid. Desktop is
-// unaffected - it keeps the existing single-photo BreakoutPhoto interrupt.
+// rails of MOBILE_RAIL_SIZE portrait photos, with runs of grid photos
+// between them. Desktop is unaffected - it keeps the existing single-photo
+// BreakoutPhoto interrupt.
 //
-// This also sets how much is left over to cushion the next rail: the walk
-// spends this many landscape photos before each rail, and whatever remains
-// when the supply runs out is what separates the rails that follow. Against
-// the five landscape photos the pinned lists leave behind, four consumed all
-// but one and left a single photo between two rails; three left two, but
-// both were comedy, which reads as more of the K|T rail rather than a break
-// from it. Two leaves portrait-09 at the head of that gap. Raising it back
-// costs the gap a photo for every one it gains the opening grid.
-export const MOBILE_LANDSCAPE_EVERY = 2;
+// MOBILE_OPENING_RUN is how many photos come after MOBILE_LEAD before the
+// first rail; chunkWithRails sizes every run after that to keep the gaps
+// between rails even, so this is really the dial for how much of the supply
+// the opening spends. Three is what divides the rest evenly at the current
+// count - two left ten photos to share between three gaps, which is 4/3/3
+// however it is cut. Worth re-checking when photos are added: the gaps stay
+// even at any setting, but a different opening may divide them exactly.
+export const MOBILE_OPENING_RUN = 3;
 export const MOBILE_RAIL_SIZE = 5;
 
 /**
@@ -54,7 +53,7 @@ export function mobileSegments(photos: Photo[], standaloneRails?: StandaloneRail
   return [
     ...chunkWithRails(
       photos.filter((photo) => !placedByRails.has(photo.src)),
-      MOBILE_LANDSCAPE_EVERY,
+      MOBILE_OPENING_RUN,
       MOBILE_RAIL_SIZE,
       named(photos, MOBILE_LEAD),
       named(photos, MOBILE_TAIL),
