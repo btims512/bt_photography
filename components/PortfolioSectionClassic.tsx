@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Image, { getImageProps } from 'next/image';
 import { motion } from 'framer-motion';
-import { chunkWithRails, distributeToColumns, type GallerySegment } from '@/lib/masonry';
+import { distributeToColumns, type GallerySegment } from '@/lib/masonry';
 import { BLUR_DATA_URL } from '@/lib/blur';
 import { useRevealWhenReady } from '@/lib/use-reveal';
 import { useWasInitiallyVisible } from '@/lib/use-was-initially-visible';
@@ -12,8 +12,9 @@ import { useLayoutMode } from '@/lib/layout-mode';
 import Lightbox from './Lightbox';
 import BreakoutPhoto from './BreakoutPhoto';
 import MobileRail, { type PeekColumn } from './MobileRail';
-import { MOBILE_LEAD, MOBILE_TAIL, MOBILE_CODA, type Photo } from '@/lib/photos';
+import { type Photo } from '@/lib/photos';
 import { railStyle, type StandaloneRail } from '@/lib/rails';
+import { flattenSegments, mobileSegments, orderLike } from '@/lib/mobile-order';
 
 /**
  * Describes the row of a grid segment that adjoins a rail, so the rail can
@@ -105,22 +106,6 @@ interface PortfolioSectionProps {
   /** Rails to place after everything else on mobile - see STANDALONE_RAILS. Omit for none. */
   standaloneRails?: StandaloneRail[];
 }
-
-// Mobile-only cadence for the horizontal photo rail (see MobileRail.tsx):
-// every MOBILE_LANDSCAPE_EVERY landscape photos, insert a rail of
-// MOBILE_RAIL_SIZE portrait photos, then resume the grid. Desktop is
-// unaffected - it keeps the existing single-photo BreakoutPhoto interrupt.
-//
-// This also sets how much is left over to cushion the next rail: the walk
-// spends this many landscape photos before each rail, and whatever remains
-// when the supply runs out is what separates the rails that follow. Against
-// the five landscape photos the pinned lists leave behind, four consumed all
-// but one and left a single photo between two rails; three left two, but
-// both were comedy, which reads as more of the K|T rail rather than a break
-// from it. Two leaves portrait-09 at the head of that gap. Raising it back
-// costs the gap a photo for every one it gains the opening grid.
-const MOBILE_LANDSCAPE_EVERY = 2;
-const MOBILE_RAIL_SIZE = 5;
 
 // Columns the desktop masonry packs into. Three sites below have to agree on
 // this - the visual-order walk, the rail's peek rows, and the grid render -
@@ -343,51 +328,24 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery, sta
   // untouched and still imported/exported where it was; only this call
   // site stopped reaching for it, so bringing desktop's scrolling
   // treatment back later is a one-line change here, not a rebuild.
-  // Resolved against the photos actually being rendered, in MOBILE_LEAD's
-  // order rather than the list's, and only for this section - a named photo
-  // missing from `photos` (an album page, say) is simply skipped.
-  const mobileLead = MOBILE_LEAD.map((src) => validPhotos.find((photo) => photo.src === src)).filter(
-    (photo): photo is Photo => photo !== undefined
-  );
-
-  const mobileTail = MOBILE_TAIL.map((src) => validPhotos.find((photo) => photo.src === src)).filter(
-    (photo): photo is Photo => photo !== undefined
-  );
-
-  const mobileCoda = MOBILE_CODA.map((src) => validPhotos.find((photo) => photo.src === src)).filter(
-    (photo): photo is Photo => photo !== undefined
-  );
-
-  // A photo a standalone rail places for itself (see STANDALONE_RAILS) is taken
-  // out of the ordinary flow, so it shows there and nowhere else.
-  const placedByRails = new Set((standaloneRails ?? []).flatMap((rail) => [...rail.photos, ...rail.after].map((photo) => photo.src)));
-  const flowPhotos = validPhotos.filter((photo) => !placedByRails.has(photo.src));
-
-  // What the plain-column fallback shows, and in which order. Before mount
-  // nobody knows the breakpoint yet, so this one list is the first thing every
-  // visitor sees; it leads with the photos the phone's own layout leads with
-  // (MOBILE_LEAD), which costs desktop nothing it doesn't already pay - it
-  // repacks into columns at mount either way - and saves the phone from
-  // opening on a photo it is about to replace. That swap used to be visible,
-  // and expensive: the browser had already spent the opening seconds of a
-  // slow connection fetching the head of the catalogue's order, none of which
-  // the phone shows first.
-  const leading = new Set(mobileLead.map((photo) => photo.src));
-  const preMountPhotos = [...mobileLead, ...validPhotos.filter((photo) => !leading.has(photo.src))];
+  // What the plain column shows, and in which order. Before mount nobody
+  // knows the breakpoint yet, so this one list is the first thing every
+  // visitor sees, and it is put in the order the phone will settle on: the
+  // phone then opens on the photo it keeps, rather than painting the head of
+  // the catalogue's order and swapping it out a moment later - a swap that
+  // was visible, and had already cost the opening seconds of a slow
+  // connection fetching photos the phone doesn't show first. Desktop pays
+  // nothing for it either way, repacking into columns at mount regardless.
+  //
+  // A section with no rail layout of its own (breakoutEvery unset) settles on
+  // its list exactly as given, so for those this *is* the list.
+  const preMountPhotos = breakoutEvery
+    ? orderLike(validPhotos, flattenSegments(mobileSegments(validPhotos, standaloneRails)))
+    : validPhotos;
 
   const segments: GallerySegment[] = !breakoutEvery || isDesktop || !mounted
     ? [{ type: 'grid' as const, photos: mounted ? validPhotos : preMountPhotos }]
-    : [
-        ...chunkWithRails(flowPhotos, MOBILE_LANDSCAPE_EVERY, MOBILE_RAIL_SIZE, mobileLead, mobileTail, mobileCoda),
-        // Placed as given, after the catalogue's own segments. Each is an
-        // ordinary rail segment followed by an ordinary grid segment, so the
-        // rail picks up its neighbouring rows for the peek stand-ins exactly
-        // as a gathered rail does - it can't tell the difference.
-        ...(standaloneRails ?? []).flatMap((rail): GallerySegment[] => [
-          { type: 'rail', photos: rail.photos },
-          ...(rail.after.length > 0 ? [{ type: 'grid' as const, photos: rail.after }] : []),
-        ]),
-      ];
+    : mobileSegments(validPhotos, standaloneRails);
   let index = 0;
 
   // The Lightbox's prev/next order has to match whatever's actually on
@@ -418,7 +376,7 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery, sta
 
   return (
     <section id={id} style={{backgroundColor: 'var(--bg)'}}>
-      <HeroPreloads mobile={mobileLead[0] ?? flowPhotos[0]} desktop={validPhotos.slice(0, DESKTOP_COLUMNS)} />
+      <HeroPreloads mobile={preMountPhotos[0]} desktop={validPhotos.slice(0, DESKTOP_COLUMNS)} />
       <main className="header-scroll-offset px-6 md:px-[50px] pb-6 md:pb-8">
         <div className="flex flex-col gap-[10px]">
           {segments.map((segment, segmentIndex) => {

@@ -1,4 +1,4 @@
-import type { Photo } from '@/lib/masonry';
+import { interleaveByCategory, type Photo } from '@/lib/masonry';
 
 export type { Photo };
 
@@ -131,6 +131,17 @@ export const featuredPhotos: Photo[] = [
   { src: '/photos/comedy-03.jpg', alt: 'Black and white portrait of a smiling, mustached comedian double-exposed with a laughing audience crowd', width: 1080, height: 1080, category: 'comedy' },
   { src: '/photos/music-01.jpg', alt: 'Five band members lounging on a couch in a green-lit garage, their eyes glowing white, an acoustic guitar hanging on the wall behind them', width: 3840, height: 2322, category: 'music' },
 ];
+
+/**
+ * The home page's own list, and the order everything else follows: every
+ * featured photo with the categories interleaved, so the page alternates
+ * between them instead of running through one section at a time.
+ *
+ * app/page.tsx renders this, and lib/mobile-order.ts reads the running order
+ * out of it for the section pages - which is why the interleave lives here
+ * rather than at the page, where only one of the two could see it.
+ */
+export const homePhotos: Photo[] = interleaveByCategory(featuredPhotos);
 
 export const comedyPhotos: Photo[] = [
   // vertical

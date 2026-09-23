@@ -1,6 +1,5 @@
 import PortfolioSection from '@/components/PortfolioSection';
-import { interleaveByCategory } from '@/lib/masonry';
-import { featuredPhotos } from '@/lib/photos';
+import { homePhotos } from '@/lib/photos';
 import { STANDALONE_RAILS } from '@/lib/rails';
 
 const BREAKOUT_EVERY = 6;
@@ -13,11 +12,9 @@ const BREAKOUT_EVERY = 6;
 // repeat the whole list for (see PortfolioSectionClassic.tsx), which is what
 // was actually putting the same photo on the page several times over.
 export default function Home() {
-  const photos = interleaveByCategory(featuredPhotos);
-
   return (
     <div className="w-full">
-      <PortfolioSection id="featured" photos={photos} breakoutEvery={BREAKOUT_EVERY} standaloneRails={STANDALONE_RAILS} />
+      <PortfolioSection id="featured" photos={homePhotos} breakoutEvery={BREAKOUT_EVERY} standaloneRails={STANDALONE_RAILS} />
     </div>
   );
 }
