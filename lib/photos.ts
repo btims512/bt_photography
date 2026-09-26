@@ -136,6 +136,7 @@ export const featuredPhotos: Photo[] = [
   { src: '/photos/comedy-03.jpg', alt: 'Black and white portrait of a smiling, mustached comedian double-exposed with a laughing audience crowd', width: 1080, height: 1080, category: 'comedy' },
   { src: '/photos/music-01.jpg', alt: 'Five band members lounging on a couch in a green-lit garage, their eyes glowing white, an acoustic guitar hanging on the wall behind them', width: 3840, height: 2322, category: 'music' },
   { src: '/photos/music-04.jpg', alt: 'Singer in a pale blue robe at the microphone on an outdoor stage, a keyboardist to one side and a guitarist in a white cap behind her under green and amber light', width: 2096, height: 1397, category: 'music' },
+  { src: '/photos/music-06.jpg', alt: 'Guitarist singing into a microphone on a dark stage, his telecaster lit gold against streaks of orange and blue light behind him', width: 3000, height: 2000, category: 'music' },
 ];
 
 /**
@@ -267,4 +268,5 @@ export const musicPhotos: Photo[] = [
   { src: '/photos/music-01.jpg', alt: 'Five band members lounging on a couch in a green-lit garage, their eyes glowing white, an acoustic guitar hanging on the wall behind them', width: 3840, height: 2322 },
   { src: '/photos/music-02.jpg', alt: 'Rapper mid-verse with one arm raised, stage lights streaking outward behind him in a zoom blur', width: 3840, height: 2563 },
   { src: '/photos/music-04.jpg', alt: 'Singer in a pale blue robe at the microphone on an outdoor stage, a keyboardist to one side and a guitarist in a white cap behind her under green and amber light', width: 2096, height: 1397 },
+  { src: '/photos/music-06.jpg', alt: 'Guitarist singing into a microphone on a dark stage, his telecaster lit gold against streaks of orange and blue light behind him', width: 3000, height: 2000 },
 ];

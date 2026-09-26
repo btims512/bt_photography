@@ -24,11 +24,12 @@ import { RAIL_STYLES, STANDALONE_RAILS, type StandaloneRail } from '@/lib/rails'
 // MOBILE_OPENING_RUN is how many photos come after MOBILE_LEAD before the
 // first rail; chunkWithRails sizes every run after that to keep the gaps
 // between rails even, so this is really the dial for how much of the supply
-// the opening spends. Three is what divides the rest evenly at the current
-// count - two left ten photos to share between three gaps, which is 4/3/3
-// however it is cut. Worth re-checking when photos are added: the gaps stay
-// even at any setting, but a different opening may divide them exactly.
-export const MOBILE_OPENING_RUN = 3;
+// the opening spends. Four is what divides the rest exactly at the current
+// count: three left eleven photos to share between three gaps, which is
+// 4/3/3 however it is cut, and taking one more into the opening leaves nine.
+// Worth re-checking whenever photos are added - the gaps stay even to within
+// a photo at any setting, but only some settings divide them exactly.
+export const MOBILE_OPENING_RUN = 4;
 export const MOBILE_RAIL_SIZE = 5;
 
 /**
