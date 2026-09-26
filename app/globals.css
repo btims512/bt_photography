@@ -737,8 +737,23 @@ html {
      to sit a fixed ratio apart (both bounded by width), but on desktop
      the rest width is a grid column and the peak is bounded by height,
      so the ratio between them depends on the window's proportions. */
-  --rail-rest-h: calc(var(--rail-grid-w) / var(--rail-fill-r, 0.66));
-  --rail-rest-scale: calc(var(--rail-grid-w) / var(--rail-fill-w));
+  /* A grid photo, unless a grid photo cannot fit the frame: on a window
+     much wider than a phone - someone dragging a desktop window narrow, a
+     small tablet - the single column's photos are nearly as tall as the
+     screen, and at 767x1000 a 2:3 one is taller than the frame outright.
+     Left uncapped, the arithmetic below went to pieces: the band the title
+     sits in shrank to 5px and then to nothing, the peek rows' travel went
+     negative and sent them the wrong way, and the rail's own negative
+     margins flipped sign. Capped, the rest is whatever a grid photo would
+     be until that would overflow the frame, and from there it is simply as
+     large as the frame allows - which is also what a reader would expect,
+     the photo fitting the screen it is on. */
+  --rail-rest-w: min(
+    var(--rail-grid-w),
+    calc(var(--rail-fill-r, 0.66) * (var(--rail-frame-h) - 2 * var(--rail-title-band)))
+  );
+  --rail-rest-h: calc(var(--rail-rest-w) / var(--rail-fill-r, 0.66));
+  --rail-rest-scale: calc(var(--rail-rest-w) / var(--rail-fill-w));
   --rail-fill-inset: calc((var(--rail-frame-h) - var(--rail-rest-h)) / 2);
   /* Exactly the distance from a peek row's resting position to the frame
      edge it exits through: its own visible band. Travelling this far puts

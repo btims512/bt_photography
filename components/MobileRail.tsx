@@ -679,10 +679,13 @@ export default function MobileRail({
     // Mirrors --rail-fill-w and --rail-title-band in .rail-fullbleed-fill.
     const titleBand = 48;
     const peakW = Math.min(vw, fillRatio * (frameH - 2 * titleBand) + 6);
-    const restH = gridW / fillRatio;
+    // Capped the same way --rail-rest-w is, and for the same reason - see
+    // there. Uncapped, a frame shorter than a grid photo left this negative.
+    const restW = Math.min(gridW, fillRatio * (frameH - 2 * titleBand));
+    const restH = restW / fillRatio;
     return {
       travel: Math.max(0, (frameH - restH) / 2 - gridGap),
-      restScale: peakW > 0 ? gridW / peakW : 1,
+      restScale: peakW > 0 ? restW / peakW : 1,
     };
   };
   const fillZoom = useTransform(smoothProgress, (p) => {
