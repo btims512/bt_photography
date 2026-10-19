@@ -377,7 +377,7 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery, sta
   return (
     <section id={id} style={{backgroundColor: 'var(--bg)'}}>
       <HeroPreloads mobile={preMountPhotos[0]} desktop={validPhotos.slice(0, DESKTOP_COLUMNS)} />
-      <main className="header-scroll-offset px-6 md:px-[50px] pb-6 md:pb-8">
+      <main className="px-6 md:px-[50px] py-6 md:py-8">
         <div className="flex flex-col gap-[10px]">
           {segments.map((segment, segmentIndex) => {
             if (segment.type === 'breakout') {

@@ -4,20 +4,16 @@ import type { CSSProperties } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { motion, useMotionValueEvent, useScroll, useSpring, useTransform } from 'framer-motion';
+import { motion, useScroll } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 import MobileMenu from './MobileMenu';
 import { useLayoutMode } from '@/lib/layout-mode';
 import { useCssScrollTimelineSupport } from '@/lib/use-css-scroll-support';
-import { useMediaQuery } from '@/lib/use-media-query';
 
 type NavItem = {
   label: string;
   href: string;
 };
-
-/** Scroll distance over which the header collapses from full to compact. */
-const HEADER_SHRINK_SCROLL = 220;
 
 const NAV: NavItem[] = [
   { label: 'home', href: '/' },
@@ -44,115 +40,72 @@ const NAV: NavItem[] = [
  * scroll-driven custom properties (--breakout-zoom etc.), which only ever
  * need to be read by the same element they're declared on.
  *
- * Where that number comes from depends on the breakpoint, and the split
- * is deliberate.
+ * That number is the scroll position, 1:1, at every screen size: the
+ * browser's own scroll timeline drives it where it can (header-shrink-kf in
+ * globals.css), and this component writes the raw scroll value where it
+ * can't. No spring, anywhere.
  *
- * Mobile takes the same native CSS scroll-timeline the breakout/rail
- * elsewhere in this app prefer, driven by the header-shrink-kf keyframes in
- * globals.css - see that rule for why a spring is actively wrong for a
- * touch scroll (it lags the finger through the flick and then keeps
- * shrinking the header, and so dragging the page, for a third of a second
- * after the scroll has stopped). Nothing below is fed on that path; the
- * `style` block omits --header-shrink entirely so the spring writes nothing
- * to the DOM, rather than writing a value the animation would override.
+ * Desktop used to feed it through a damped spring (stiffness 400, damping
+ * 40), on the theory that wheel input is indirect and a smoothed catch-up
+ * would read better than a 1:1 mapping. Measured, it read as exactly the
+ * lag it is: at an ordinary scroll speed the header trailed the page by 62%
+ * of its whole collapse, 97% on a fast one, and then went on shrinking for
+ * a further 26-38 frames (about half a second) after the scroll had
+ * stopped. The header is in normal flow, so that run-on was not confined to
+ * the header either - the height it was still giving up pulled the content
+ * below it along, with nothing being scrolled. Mobile had already been moved
+ * off the spring for the same reason, and measured zero lag and zero
+ * run-on; desktop now matches it.
  *
- * Desktop keeps the spring, because a raw scroll-timeline is an *undamped*,
- * 1:1 mapping from scroll position to progress by design (that's what makes
- * it compositor-only), so on a fast wheel scroll or flick the header
- * shrinks/grows exactly as fast as the scroll itself, however abrupt that
- * is - no way to soften that in pure CSS, since a `transition` doesn't
- * apply to a value already being driven by an active `animation`. Wheel and
- * trackpad input is indirect, so a smooth catch-up reads better there than
- * it does under a finger, and the damping also gives the logo/nav merge
- * (see .header-nav-slot in globals.css) room to resolve. It costs the
- * header being compositor-only, an acceptable trade since every property it
- * drives is transform-based already (see the .header-logo-shrink comment
- * for why that specifically matters), so the spring is the only added
- * main-thread cost, not a layout one. stiffness: 400 / damping: 40
- * (mass: 1) is a critically damped spring (damping ratio exactly 1 at these
- * values) - the fastest a spring can settle without
- * overshooting/oscillating. A softer spring (previously 100/22) reads as
- * smooth on a slow scroll, but on a quick flick - especially scrolling back
- * up - it visibly lags behind before catching up to the real scroll
- * position, since it takes longer to close the gap once one opens.
- * Critically damped keeps the "doesn't jump instantly" smoothing while
- * closing that gap as fast as physically possible without introducing a
- * bounce of its own.
+ * The case for damping did not survive contact with real input, either.
+ * Every current browser smooth-scrolls a mouse wheel by itself, animating
+ * each notch over a hundred-odd milliseconds, so a 1:1 header follows that
+ * curve rather than jumping; a trackpad is continuous to begin with. And the
+ * desktop logo/nav merge (see .header-shrink-frame and .header-nav-slot) is
+ * sequenced in --header-shrink units, so it plays out in the same order on
+ * a linear mapping as on a sprung one - it just happens where the scroll
+ * is, instead of half a second behind it.
  */
 export default function HeroSectionClassic() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { markHeaderReady } = useLayoutMode();
 
-  // Whole-page scroll position, clamped to the same 0-220px range and
-  // remapped to a plain 0-1 number, then damped through a spring - the
-  // desktop/fallback source for --header-shrink, where the damping is
-  // wanted; see the component doc comment for why mobile takes the raw
-  // scroll-linked value CSS scroll-timeline gives instead.
-  const { scrollY } = useScroll();
-  const headerShrinkRaw = useTransform(scrollY, [0, HEADER_SHRINK_SCROLL], [0, 1], { clamp: true });
-  const headerShrinkSpring = useSpring(headerShrinkRaw, { stiffness: 400, damping: 40, mass: 1 });
-
   // Whether globals.css is driving --header-shrink itself rather than this
-  // component feeding it. The query is the exact complement of the
-  // `min-width: 768px` rules there, and pairs with the `max-width: 767.98px`
-  // one guarding header-shrink-kf - a viewport that matched neither would
-  // get no shrink from either side. Defaults to false so the first render
-  // (which has to match the server, and where scroll-timeline support is
-  // still unknown) takes the spring, the same fallback an unsupporting
-  // browser stays on.
+  // component feeding it - which it does wherever the browser supports
+  // scroll-driven animations, at every breakpoint. Defaults to false so the
+  // first render (which has to match the server, and where scroll-timeline
+  // support is still unknown) takes the JS value, the same one an
+  // unsupporting browser stays on.
   const cssScroll = useCssScrollTimelineSupport();
-  const isMobile = useMediaQuery('(max-width: 767.98px)', false);
-  const cssShrink = cssScroll && isMobile;
 
-  // How much scroll the shrink has swallowed so far, published as a length
-  // for the gallery to hold itself down by (see .header-scroll-offset in
-  // globals.css). It goes on the document root rather than into
-  // headerStyle below because the elements that need it are the header's
-  // siblings, not its children.
+  // The raw scroll position, for browsers without scroll-driven animations:
+  // written to the header as a bare number (--header-scroll-y), from which
+  // .header-shrink-frame derives --header-shrink over the range defined in
+  // globals.css. No range, breakpoint or easing lives here - only the one
+  // number the browser can't give the CSS itself - so the two paths cannot
+  // disagree about where the collapse starts or ends.
   //
-  // Raw, deliberately, where everything else here is sprung. The header is
-  // in normal flow, so whatever height it loses pulls the page up by the
-  // same amount and cancels out of the distance between them - leaving that
-  // distance as (rest gap - scroll + this offset), with no shrink term in
-  // it at all. Feeding this the sprung value instead would put a lag into
-  // the offset that has nothing left to cancel against, and a fast flick
-  // would clip the top row before the offset caught up.
-  const headerScrollTaken = useTransform(headerShrinkRaw, (v) => v * HEADER_SHRINK_SCROLL);
-  // Only where the CSS above can't drive the offset itself. Writing it from
-  // here costs a frame of accuracy (the gap is that much narrower for the
-  // duration of a scroll), so it is the fallback, not the default.
-  useMotionValueEvent(headerScrollTaken, 'change', (v) => {
-    if (cssScroll) return;
-    document.documentElement.style.setProperty('--header-scroll-taken', `${v}px`);
-  });
-  useEffect(() => {
-    const root = document.documentElement;
-    if (cssScroll) {
-      root.style.removeProperty('--header-scroll-taken');
-      return;
-    }
-    root.style.setProperty('--header-scroll-taken', `${headerScrollTaken.get()}px`);
-    return () => {
-      root.style.removeProperty('--header-scroll-taken');
-    };
-  }, [headerScrollTaken, cssScroll]);
+  // A frame behind the paint, as anything read from a scroll event is, and
+  // that is all: no spring (see the component doc comment), and nothing
+  // below the header depends on it, since the header keeps its footprint in
+  // the page constant however far it has shrunk.
+  const { scrollY } = useScroll();
 
-  // Framer writes --header-shrink inline until cssShrink turns on, then
-  // stops - leaving its last value sitting on the element. The animation in
-  // globals.css outranks an inline style, so the leftover changes nothing
-  // (the computed value tracks the scroll regardless), but it reads as the
-  // live number in devtools while the header is visibly half-shrunk. Clear
-  // it rather than leave a misleading one behind.
+  // Framer writes --header-scroll-y inline until cssScroll turns on, then
+  // stops - leaving its last value sitting on the element. The timeline
+  // outranks the declaration that reads it, so the leftover changes nothing,
+  // but it reads as a live number in devtools while the header is visibly
+  // somewhere else. Clear it rather than leave a misleading one behind.
   const headerRef = useRef<HTMLElement>(null);
   useEffect(() => {
-    if (cssShrink) headerRef.current?.style.removeProperty('--header-shrink');
-  }, [cssShrink]);
+    if (cssScroll) headerRef.current?.style.removeProperty('--header-scroll-y');
+  }, [cssScroll]);
 
   const headerStyle: CSSProperties = {
     zIndex: 30,
     backgroundColor: 'var(--bg)',
-    ...(cssShrink ? null : ({ '--header-shrink': headerShrinkSpring } as CSSProperties)),
+    ...(cssScroll ? null : ({ '--header-scroll-y': scrollY } as CSSProperties)),
   };
 
   return (

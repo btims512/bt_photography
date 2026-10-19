@@ -34,15 +34,15 @@ body {
    anywhere else, since it is a property of the scroller rather than of the
    content that moves.
 
-   .header-scroll-offset deliberately resizes content above the viewport on
-   every frame of the header's collapse, which is the exact thing anchoring
-   exists to undo: Chrome reads the growing padding as content shifting
-   underfoot and rewinds the scroll to compensate, so wheel input only
-   partly reached the page (60px of wheel moved it 34px) and the collapse
-   took half again as much scrolling as it was tuned for. Safari does not
-   anchor the same way, so the two browsers disagreed about how long the
-   collapse lasted. Off, the scroll position is simply the scroll position
-   in both.
+   The header resizes above the viewport on every frame of its collapse, and
+   that is exactly what anchoring exists to undo: Chrome reads a box changing
+   size above the scroll position as content shifting underfoot and rewinds
+   the scroll to compensate, so wheel input only partly reached the page and
+   the collapse took longer to scroll through in Chrome than in Safari, which
+   does not anchor the same way. The header now holds its footprint in the
+   flow constant (see .header-shrink-frame's margin-bottom), which leaves
+   anchoring nothing to correct - this stays as the guarantee rather than the
+   fix.
 
    Nothing here relies on anchoring for its usual job of absorbing late
    layout shifts: every photo is rendered through next/image at a known
@@ -62,11 +62,10 @@ html {
 
 /* Shrinking header (components/HeroSectionClassic.tsx), based on
    https://scroll-driven-animations.style/demos/shrinking-header-shadow/css/ -
-   a single scroll-position-driven number (--header-shrink, 0 to 1), set by
-   Framer Motion (a damped spring, not raw scroll-timeline - see the
-   component's doc comment for why this one specifically needs damping)
-   rather than the animation-timeline: scroll()/view() this file uses
-   elsewhere. Every visual change below (logo scale/position, header
+   a single scroll-position-driven number (--header-shrink, 0 to 1), driven
+   by the root scroll timeline (header-shrink-kf below) or, where the browser
+   has none, by the raw scroll position from the component. Every visual
+   change below (logo scale/position, header
    padding, nav spacing, shadow) reads this one inherited custom property
    via calc() rather than being separately animated, so they all stay in
    sync and the whole thing reverses cleanly scrolling back up.
@@ -93,125 +92,60 @@ html {
    derives it automatically. */
 :root {
   --header-shrunk-height: 72px;
-  /* Scroll the header's collapse spans - the range .header-scroll-offset
-     cancels. Mirrors HEADER_SHRINK_SCROLL in HeroSectionClassic.tsx. */
-  --header-shrink-scroll: 220px;
+  /* Scroll the header's collapse spans, as a plain number (the fallback
+     path in .header-shrink-frame divides by it) and as the length the
+     scroll timeline's range wants.
+
+     It is exactly the height the header gives up - 194px at rest down to
+     72px here, 343 down to 102 on desktop - and has to be. The header keeps
+     its footprint in the flow constant while it shrinks (its margin-bottom
+     hands back every pixel it loses), so the content below scrolls 1:1 with
+     the input the whole way; the header's bottom edge then rises by its
+     loss while the content rises by the scroll. Spanning the collapse over
+     exactly the loss keeps the two level, the gap between them unchanged.
+     Longer, and the content would slide up under a header still shrinking;
+     it used to be 220px on both, which on a phone is 98px longer than the
+     header has to give. */
+  --header-shrink-range: 122;
+  --header-shrink-scroll: calc(var(--header-shrink-range) * 1px);
 }
 
 @media (min-width: 768px) {
   :root {
     --header-shrunk-height: 102px;
+    --header-shrink-range: 241;
   }
 }
 
-/* Holds the gallery down by however much scroll the header's collapse has
-   swallowed, so the top row stays clear of the header for the whole of that
-   collapse instead of sliding under it almost immediately.
+/* The browser drives --header-shrink itself, off the root scroll timeline,
+   at every screen size.
 
-   Without this the shrink does nothing to protect the row below it. The
-   header is `position: sticky`, so it stays in normal flow and every pixel
-   of height it gives up pulls the page up by that same pixel - which is
-   exactly the amount the header's own bottom edge rises by. The two cancel,
-   and the distance between the header and the gallery collapses at the
-   plain scroll rate no matter how the shrink is tuned: the top row began
-   going under the header 32px into a scroll (main's own padding, all the
-   clearance there was) while the header had another ~190px of shrinking
-   left to do, ending up some 188px underneath it.
+   It used to do so on mobile only, with desktop fed by a Framer spring on
+   the theory that wheel input wanted damping. A spring is defined by lagging
+   its target and then catching up, and measured, that is all it did: at an
+   ordinary scroll speed the desktop header trailed the page by 62% of its
+   collapse (97% on a fast scroll), then carried on shrinking for 26-38
+   frames after the scroll had stopped. The header is in normal flow, so the
+   height it was still giving up dragged the content with it - the page
+   moving with nothing scrolling it, which is the skip. Mobile, already on
+   this timeline, measured zero lag and zero run-on.
 
-   Adding the swallowed scroll back as padding cancels that instead. The
-   gallery still rises - it follows the header up, staying the same 32px
-   below it - but it no longer rises faster than the header does, so nothing
-   is cut off until the header has fully settled and real scrolling takes
-   over. The page grows by --header-scroll-taken's maximum, which is the
-   scroll the collapse consumed; HeroSectionClassic.tsx publishes the value
-   and owns the range. */
-.header-scroll-offset {
-  /* Matches the py-6 / md:py-8 this replaced on the top edge; the bottom
-     edge keeps the Tailwind utility. */
-  --gallery-pad-top: 24px;
-  padding-top: calc(var(--gallery-pad-top) + var(--header-scroll-taken, 0px));
-}
+   1:1 is the right feel on both. Browsers smooth-scroll a mouse wheel
+   themselves, so the header follows that curve rather than jumping, and a
+   trackpad or a finger is continuous anyway. The browser resolves this from
+   the same scroll offset it is painting, so it cannot fall behind or run on
+   after the scroll ends.
 
-@media (min-width: 768px) {
-  .header-scroll-offset {
-    --gallery-pad-top: 32px;
-  }
-}
+   The desktop logo/nav merge still plays out in order: its windows (the logo
+   finishing by 0.55, the nav lifting from 0.52 - see .header-shrink-frame
+   and .header-nav-slot) are in --header-shrink units, so a linear mapping
+   sequences them exactly as the spring did, only where the scroll is rather
+   than half a second behind it.
 
-/* The same offset again, driven by the browser instead of by JS, which is
-   what actually makes it hold.
-
-   The offset has to equal the scroll exactly - it is cancelling the scroll,
-   so any error in it is an error in the gap. Writing it from a Framer motion
-   value could never do that: JS learns the new scroll position a frame after
-   the browser has already scrolled and painted, so the padding was always
-   one frame's worth of scroll short. That is invisible when creeping along
-   (8px per frame cost 8px of the gap) but scales with speed - at 60px per
-   frame the gap went 32px -> -28px and the top row clipped anyway, which is
-   the bug this whole offset exists to fix. It also left the gallery jittering
-   frame to frame, since its position was part sprung header height and part
-   stale raw scroll, the two arriving out of step.
-
-   On a scroll timeline the browser resolves the padding from the same scroll
-   position it is painting, so there is no frame to be behind by. Keyframes
-   win over the plain declaration above, leaving that as the fallback for
-   browsers without scroll-driven animation, where the JS value still feeds
-   it - see useCssScrollTimelineSupport, which decides whether that JS runs
-   at all. --header-shrink-scroll must match HEADER_SHRINK_SCROLL in
-   HeroSectionClassic.tsx; nothing derives one from the other. */
-@keyframes header-scroll-offset-kf {
-  from {
-    padding-top: var(--gallery-pad-top);
-  }
-  to {
-    padding-top: calc(var(--gallery-pad-top) + var(--header-shrink-scroll));
-  }
-}
-
-@supports (animation-timeline: scroll()) {
-  .header-scroll-offset {
-    animation: header-scroll-offset-kf 1s linear;
-    animation-timeline: scroll(root block);
-    animation-range: 0 var(--header-shrink-scroll);
-    animation-fill-mode: both;
-  }
-}
-
-/* Mobile drives --header-shrink itself, off the same scroll timeline as the
-   offset above, instead of the Framer spring HeroSectionClassic.tsx feeds it
-   on desktop (see that file for why desktop still wants damping).
-
-   A spring is the wrong instrument for a touch scroll specifically. It is
-   defined by lagging its target and then catching up, and on a flick that
-   lag is enormous: measured on a 700px flick, the header was still at
-   shrink 0.07 by the time the page had passed 226px (where the collapse is
-   supposed to be *over*), reached only 0.88 by the moment the finger left,
-   and then spent a further ~330ms finishing while nothing was scrolling at
-   all. The header is in normal flow, so that tail is not confined to the
-   header: the 15px it was still giving up dragged the whole page up with
-   it, after the scroll had stopped. Drifting content with no input is the
-   sticking/jitter this replaces, and no spring constant removes it - a
-   faster spring just shortens the tail, and the lag during the flick is the
-   spring working as designed.
-
-   Direct-manipulation scrolling wants the header pinned to the finger
-   anyway - 1:1 is the correct feel here, not a compromise - and the
-   browser resolves this from the same scroll offset it is painting, so it
-   cannot fall behind or run on after the scroll ends. It also puts the
-   shrink back in lockstep with .header-scroll-offset above, which has been
-   exact all along; the two disagreeing was the second half of the drift.
-
-   Scoped to mobile because the desktop shrink is a timing puzzle, not just
-   a scale: the logo has to finish clearing the nav before the nav lifts
-   onto its row (see the merge windows on .header-shrink-frame and
-   .header-nav-slot). Mobile has no nav in the header at all, so nothing
-   here has to be sequenced against anything - the only consumers are the
-   logo's own scale/slide and the frame's padding. The breakpoint is written
-   to be the exact complement of the `min-width: 768px` queries below, and
-   must stay that way: it pairs with the matching check in
-   HeroSectionClassic.tsx, which stops feeding the spring's value in
-   whichever case this rule takes over, and a viewport falling through both
-   would get no shrink at all. */
+   Browsers without scroll-driven animations compute it from the raw scroll
+   position instead (see .header-shrink-frame) - a frame behind the paint,
+   but no more, and only the header's own drawing: the content below never
+   depends on it, see the margin-bottom there. */
 @keyframes header-shrink-kf {
   from {
     --header-shrink: 0;
@@ -222,13 +156,11 @@ html {
 }
 
 @supports (animation-timeline: scroll()) {
-  @media (max-width: 767.98px) {
-    .header-shrink-frame {
-      animation: header-shrink-kf 1s linear;
-      animation-timeline: scroll(root block);
-      animation-range: 0 var(--header-shrink-scroll);
-      animation-fill-mode: both;
-    }
+  .header-shrink-frame {
+    animation: header-shrink-kf 1s linear;
+    animation-timeline: scroll(root block);
+    animation-range: 0 var(--header-shrink-scroll);
+    animation-fill-mode: both;
   }
 }
 
@@ -240,6 +172,13 @@ html {
    which isn't what's needed here). */
 .header-shrink-frame {
   container-type: inline-size;
+  /* The fallback source of the whole collapse, for browsers without
+     scroll-driven animations: the scroll position HeroSectionClassic.tsx
+     writes here (a bare number, --header-scroll-y), over the same range the
+     timeline uses. Where the timeline runs, header-shrink-kf outranks this
+     declaration, and the component writes nothing. Either way the range is
+     only ever defined in :root above - neither path has its own copy. */
+  --header-shrink: clamp(0, calc(var(--header-scroll-y, 0) / var(--header-shrink-range)), 1);
   /* The logo's own progress through the shrink, which mobile keeps
      identical to --header-shrink and desktop runs ahead of it (see the
      media query below). Everything the logo does - its frame's height,
@@ -344,7 +283,7 @@ html {
    renders as exactly one pixel however far the header has shrunk. A plain
    1px border here instead scaled down with everything else and landed at
    0.3px once the header was compact - too thin to rasterise consistently,
-   so it flickered in and out and crawled as the shrink spring settled.
+   so it flickered in and out and crawled as the header shrank.
    Paying for the thickness in layout rather than in a transform also keeps
    this element's own `transform` free for the entrance animation Framer
    sets inline (scaleX 0 -> 1), the same reason the shrink itself lives on a
@@ -370,7 +309,7 @@ html {
    height above actually gives, and `overflow: hidden` quietly ate the
    0.4px shortfall - which is exactly where the rule under PHOTOGRAPHY sits,
    so the rule vanished entirely once the header was fully compact and
-   flickered on the way there as the shrink spring crossed the edge. The
+   flickered on the way there as the shrink crossed the edge. The
    frame height is not the free variable in that pair: it feeds
    --header-shrunk-height (14px padding + 74px frame + 14px padding = 102px),
    which every rail's geometry measures itself against. So s gives instead,
@@ -408,6 +347,30 @@ html {
   padding-top: calc(18px - var(--header-shrink) * 4px);
   padding-bottom: calc(20px - var(--header-shrink) * 6px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, calc(var(--header-shrink) * 0.1));
+  /* Every pixel of height the header gives up, handed straight back below
+     it, so its footprint in the page never changes while it shrinks - the
+     sum of what the two paddings above and .header-logo-frame's height each
+     lose at this point in the collapse.
+
+     That constant footprint is what makes the collapse smooth to scroll
+     through. The header is position: sticky, so it stays in the flow, and
+     while it was allowed to shrink in place everything below it moved with
+     it as well as with the scroll: measured on a phone, the photos moved
+     22px for every 40px of swipe until the collapse ended and then lurched
+     to full speed; on desktop they ran at 1.5x through the logo's shrink
+     and 0.55x through the nav's. It also made the page shorter as you
+     scrolled it, which on a page with little below the header (about,
+     book) shortened it faster than you could scroll: the browser clamped
+     the scroll, the header grew back, and the page pushed back against the
+     wheel. Held constant, the content scrolls 1:1 with the input, the page
+     is the same length at every point of the collapse, and the header
+     shrinks on its own above it.
+
+     Must mirror the four formulas it sums - the two paddings here and the
+     logo frame's height (and on desktop the nav slot's), in the media query
+     below. Measured rather than trusted: at every shrink value the header's
+     height plus this margin comes to the resting height exactly. */
+  margin-bottom: calc(var(--header-shrink) * 10px + var(--header-logo-shrink) * 112px);
 }
 
 @media (min-width: 768px) {
@@ -416,6 +379,13 @@ html {
     padding-right: 50px;
     padding-top: calc(22px - var(--header-shrink) * 8px);
     padding-bottom: calc(24px - var(--header-shrink) * 10px);
+    /* Desktop's sum: both paddings (8 + 10), the logo frame (174, on the
+       logo's own timing), and whatever the nav slot has collapsed so far
+       (49 at rest, on the nav's window - the same clamp as .header-nav-slot). */
+    margin-bottom: calc(
+      var(--header-shrink) * 18px + var(--header-logo-shrink) * 174px + 49px -
+        clamp(0px, calc(49px * (1 - (var(--header-shrink) - 0.52) / 0.48)), 49px)
+    );
   }
 }
 
