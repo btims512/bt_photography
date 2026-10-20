@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  agentRules: false,
   // Lets phones/other devices on the home network load the dev server via
   // the Mac's LAN IP - Next 16 blocks cross-origin requests to its dev
   // resources (JS chunks, HMR) by default, which renders as a white page

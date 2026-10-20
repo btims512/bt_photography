@@ -4,16 +4,36 @@ import type { CSSProperties } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { motion, useScroll } from 'framer-motion';
+import { motion, useMotionValue, useMotionValueEvent, useScroll, useSpring } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 import MobileMenu from './MobileMenu';
 import { useLayoutMode } from '@/lib/layout-mode';
-import { useCssScrollTimelineSupport } from '@/lib/use-css-scroll-support';
 
 type NavItem = {
   label: string;
   href: string;
 };
+
+/**
+ * The bounce back: how the header eases back to full size as the page
+ * scrolls up - a spring in scroll pixels, critically damped (damping =
+ * 2 * sqrt(stiffness * mass)), so it closes the gap as fast as a spring can
+ * without overshooting the header's resting size.
+ *
+ * Only ever seen on the way back up. On the way down the header follows the
+ * scroll exactly, because a spring trailing there leaves the header too tall
+ * and the content slides under it - globals.css takes the more collapsed of
+ * the spring and the exact position, which is the exact one going down and
+ * the spring going up (see the note above header-shrink-now-kf).
+ *
+ * Natural frequency 30/s (stiffness 900): the header settles about a
+ * quarter of a second after the scroll stops - long enough to read as the
+ * header easing itself back into place, short enough to be done before
+ * you've looked for it. The desktop spring this descends from was 20/s and
+ * took half a second, while also lagging on the way down, where it did harm.
+ * Higher is snappier, lower is softer.
+ */
+const HEADER_SPRING = { stiffness: 900, damping: 60, mass: 1, restDelta: 0.5, restSpeed: 10 };
 
 const NAV: NavItem[] = [
   { label: 'home', href: '/' },
@@ -40,73 +60,65 @@ const NAV: NavItem[] = [
  * scroll-driven custom properties (--breakout-zoom etc.), which only ever
  * need to be read by the same element they're declared on.
  *
- * That number is the scroll position, 1:1, at every screen size: the
- * browser's own scroll timeline drives it where it can (header-shrink-kf in
- * globals.css), and this component writes the raw scroll value where it
- * can't. No spring, anywhere.
+ * That number follows the scroll position exactly on the way down and
+ * eases back on the way up - the bounce back to full size when you return
+ * to the top (HEADER_SPRING). This component supplies the scroll position
+ * and the sprung one; globals.css takes the more collapsed of the two at
+ * every frame (see the note above header-shrink-now-kf), using the
+ * browser's own scroll timeline for the exact value wherever there is one.
  *
- * Desktop used to feed it through a damped spring (stiffness 400, damping
- * 40), on the theory that wheel input is indirect and a smoothed catch-up
- * would read better than a 1:1 mapping. Measured, it read as exactly the
- * lag it is: at an ordinary scroll speed the header trailed the page by 62%
- * of its whole collapse, 97% on a fast one, and then went on shrinking for
- * a further 26-38 frames (about half a second) after the scroll had
- * stopped. The header is in normal flow, so that run-on was not confined to
- * the header either - the height it was still giving up pulled the content
- * below it along, with nothing being scrolled. Mobile had already been moved
- * off the spring for the same reason, and measured zero lag and zero
- * run-on; desktop now matches it.
- *
- * The case for damping did not survive contact with real input, either.
- * Every current browser smooth-scrolls a mouse wheel by itself, animating
- * each notch over a hundred-odd milliseconds, so a 1:1 header follows that
- * curve rather than jumping; a trackpad is continuous to begin with. And the
- * desktop logo/nav merge (see .header-shrink-frame and .header-nav-slot) is
- * sequenced in --header-shrink units, so it plays out in the same order on
- * a linear mapping as on a sprung one - it just happens where the scroll
- * is, instead of half a second behind it.
+ * The header has had a spring before, on desktop, and it was taken out
+ * because it measured badly: it trailed the page by up to 97% of the
+ * collapse, carried on for half a second after the scroll stopped, and
+ * dragged the content with it the whole time, because the header sat in the
+ * page flow and the content moved whenever it changed height. The drag is
+ * gone for good - the header now keeps a constant footprint in the flow
+ * (see .header-shrink-frame's margin-bottom), so nothing it does can move
+ * anything else. The trailing is confined to the one direction where it is
+ * harmless: scrolling up, a lagging header is a smaller header, and the
+ * worst that does is widen the gap below it for a moment.
  */
 export default function HeroSectionClassic() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { markHeaderReady } = useLayoutMode();
 
-  // Whether globals.css is driving --header-shrink itself rather than this
-  // component feeding it - which it does wherever the browser supports
-  // scroll-driven animations, at every breakpoint. Defaults to false so the
-  // first render (which has to match the server, and where scroll-timeline
-  // support is still unknown) takes the JS value, the same one an
-  // unsupporting browser stays on.
-  const cssScroll = useCssScrollTimelineSupport();
-
-  // The raw scroll position, for browsers without scroll-driven animations:
-  // written to the header as a bare number (--header-scroll-y), from which
-  // .header-shrink-frame derives --header-shrink over the range defined in
-  // globals.css. No range, breakpoint or easing lives here - only the one
-  // number the browser can't give the CSS itself - so the two paths cannot
-  // disagree about where the collapse starts or ends.
-  //
-  // A frame behind the paint, as anything read from a scroll event is, and
-  // that is all: no spring (see the component doc comment), and nothing
-  // below the header depends on it, since the header keeps its footprint in
-  // the page constant however far it has shrunk.
   const { scrollY } = useScroll();
 
-  // Framer writes --header-scroll-y inline until cssScroll turns on, then
-  // stops - leaving its last value sitting on the element. The timeline
-  // outranks the declaration that reads it, so the leftover changes nothing,
-  // but it reads as a live number in devtools while the header is visibly
-  // somewhere else. Clear it rather than leave a misleading one behind.
-  const headerRef = useRef<HTMLElement>(null);
+  // The scroll position the header should be showing, clamped to the
+  // collapse's own range - read from globals.css, the only place it is
+  // defined, and re-read when the breakpoint changes it. Clamped before the
+  // spring rather than after, so a long jump (End, a link far down the page)
+  // springs across the 122-241px the header actually spans, not across the
+  // thousands of pixels the page did.
+  const rangeRef = useRef(Infinity);
+  const target = useMotionValue(0);
+  const clampToRange = (y: number) => Math.min(Math.max(y, 0), rangeRef.current);
+  useMotionValueEvent(scrollY, 'change', (y) => target.set(clampToRange(y)));
   useEffect(() => {
-    if (cssScroll) headerRef.current?.style.removeProperty('--header-scroll-y');
-  }, [cssScroll]);
+    const read = () => {
+      const range = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--header-shrink-range'));
+      if (range > 0) rangeRef.current = range;
+      target.set(clampToRange(scrollY.get()));
+    };
+    read();
+    const query = window.matchMedia('(min-width: 768px)');
+    query.addEventListener('change', read);
+    return () => query.removeEventListener('change', read);
+  }, [scrollY, target]);
+  const eased = useSpring(target, HEADER_SPRING);
 
-  const headerStyle: CSSProperties = {
+  const headerRef = useRef<HTMLElement>(null);
+
+  const headerStyle = {
     zIndex: 30,
     backgroundColor: 'var(--bg)',
-    ...(cssScroll ? null : ({ '--header-scroll-y': scrollY } as CSSProperties)),
-  };
+    // The clamped scroll position itself, for the instant floor - which the
+    // scroll timeline in globals.css replaces wherever it runs - and the
+    // sprung one the header eases to. See .header-shrink-frame.
+    '--header-scroll-y-now': target,
+    '--header-scroll-y': eased,
+  } as CSSProperties;
 
   return (
     <motion.header ref={headerRef} className="sticky top-0 header-shrink-frame text-center" style={headerStyle}>
