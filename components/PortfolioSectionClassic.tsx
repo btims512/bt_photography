@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Image, { getImageProps } from 'next/image';
 import { motion } from 'framer-motion';
-import { distributeToColumns, type GallerySegment } from '@/lib/masonry';
+import { distributeToColumns, spreadEvenly, type GallerySegment } from '@/lib/masonry';
 import { BLUR_DATA_URL } from '@/lib/blur';
 import { useRevealWhenReady } from '@/lib/use-reveal';
 import { useWasInitiallyVisible } from '@/lib/use-was-initially-visible';
@@ -116,6 +116,28 @@ interface PortfolioSectionProps {
 // browser resolves `sizes` before any JS runs).
 const DESKTOP_COLUMNS = 4;
 
+// Photos the desktop grid leaves out. The TX set is a rail on a phone, where
+// seven of them make a carousel; spread across four columns they crowd the
+// page, so desktop keeps the four strongest. Phones are unaffected, and these
+// still exist everywhere else they are used.
+const DESKTOP_HIDDEN = new Set([
+  '/photos/tx-01.jpg',
+  '/photos/tx-06.jpg',
+  '/photos/tx-07.jpg',
+  // On the phone page only.
+  '/photos/comedy-11.jpg',
+]);
+
+// Photos placed in the upper part of the desktop grid, each in the slot just ahead
+// of `before`. The desktop grid has no pinned opening the way the phone page
+// does, so the newest photos are placed by naming a neighbour. `before` is a
+// photo that exists only on the home page, so a section page ignores these.
+const DESKTOP_TOP_PINS = [
+  { src: '/photos/comedy-29.jpg', before: '/photos/tx-02.jpg' },
+  { src: '/photos/comedy-32.jpg', before: '/photos/portrait-09.jpg' },
+  { src: '/photos/portrait-11-him.jpg', before: '/photos/tx-03.jpg' },
+];
+
 // Mirrored by the hero preload links below, which have to ask the browser
 // for the same candidate the <img> will: a preload that resolves to a
 // different width (or quality) than the image is a second download rather
@@ -183,12 +205,11 @@ function GridPhoto({ photo, currentIndex, revealDelay, onOpen, isDesktop }: Grid
         initial={hiddenState}
         animate={revealed ? { opacity: 1, y: 0, scale: 1 } : hiddenState}
         transition={{ duration: 0.85, delay: revealDelay, ease: 'easeOut' }}
-        whileHover={{ scale: 1.02 }}
-        className="relative m-0 cursor-pointer bg-[var(--bg)]"
+        className="photo-lift-host relative m-0 cursor-pointer bg-[var(--bg)]"
         onContextMenu={(e) => e.preventDefault()}
         onClick={onOpen}
       >
-        {image}
+        <div className="photo-lift">{image}</div>
       </motion.figure>
     );
   }
@@ -343,8 +364,27 @@ export default function PortfolioSectionClassic({ id, photos, breakoutEvery, sta
     ? orderLike(validPhotos, flattenSegments(mobileSegments(validPhotos, standaloneRails)))
     : validPhotos;
 
+  // On desktop the TX photos have no category, so the home list ends with all
+  // of them in a block; dealt through the grid instead, below the first row.
+  const desktopPhotos = spreadEvenly(
+    // Only the home page leaves photos out; a section page shows all of its own.
+    breakoutEvery ? validPhotos.filter((photo) => !DESKTOP_HIDDEN.has(photo.src)) : validPhotos,
+    (photo) => photo.project === 'tx',
+    DESKTOP_COLUMNS
+  );
+  // The newest photos near the desktop grid's top, each ahead of its named
+  // neighbour. Only where that neighbour exists - the home page - so a section
+  // page is left alone.
+  for (const pin of DESKTOP_TOP_PINS) {
+    const at = desktopPhotos.findIndex((photo) => photo.src === pin.before);
+    const from = desktopPhotos.findIndex((photo) => photo.src === pin.src);
+    if (at === -1 || from === -1) continue;
+    const [pinned] = desktopPhotos.splice(from, 1);
+    desktopPhotos.splice(Math.min(at, desktopPhotos.length), 0, pinned);
+  }
+
   const segments: GallerySegment[] = !breakoutEvery || isDesktop || !mounted
-    ? [{ type: 'grid' as const, photos: mounted ? validPhotos : preMountPhotos }]
+    ? [{ type: 'grid' as const, photos: mounted ? (isDesktop ? desktopPhotos : validPhotos) : preMountPhotos }]
     : mobileSegments(validPhotos, standaloneRails);
   let index = 0;
 

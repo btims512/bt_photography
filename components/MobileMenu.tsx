@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import ThemeToggle from './ThemeToggle';
 import { motion } from 'framer-motion';
 
 type NavItem = { label: string; href: string };
@@ -117,6 +118,24 @@ export default function MobileMenu({ isOpen, onClose, nav, pathname }: MobileMen
           aria-label="Close menu"
           tabIndex={isOpen ? undefined : -1}
           className="absolute left-6"
+          // Closing, the lines this X unfolds into do not ride the panel off the
+          // screen. They are inside the panel, which ends 100% to the right, and
+          // that would carry them 72px past the edge - the header hamburger they
+          // are about to become sits 72px short of there (the X is 36px in from
+          // the panel's left edge, the hamburger 36px in from the screen's
+          // right). So they are pulled back by exactly that much, on the
+          // panel's own curve and timing, and arrive on the hamburger's spot as
+          // the panel clears. They stay until the header's hamburger has fully
+          // faded in at the same pixels, then go - nothing leaves the screen,
+          // nothing is drawn twice for longer than a frame. Opening snaps back
+          // instantly: the button is out of sight at that point, and the panel
+          // brings it in exactly as it always has.
+          initial={false}
+          animate={{ x: isOpen ? 0 : -72, opacity: isOpen ? 1 : 0 }}
+          transition={{
+            x: isOpen ? { duration: 0 } : { duration: 0.56, delay: 0.3, ease: [0.16, 1, 0.3, 1] },
+            opacity: isOpen ? { duration: 0 } : { duration: 0.02, delay: 0.97 },
+          }}
           style={{
             top: 'calc(97px - var(--header-shrink, 0) * 61px)',
             y: '-50%',
@@ -152,6 +171,12 @@ export default function MobileMenu({ isOpen, onClose, nav, pathname }: MobileMen
             />
           </span>
         </motion.button>
+
+        {/* Light/dark, top-right on the same line as the close X, so the two
+            corners balance. Out of the tab order while the drawer is shut. */}
+        <div style={{ pointerEvents: isOpen ? 'auto' : 'none', visibility: isOpen ? 'visible' : 'hidden' }}>
+          <ThemeToggle variant="drawer" />
+        </div>
 
         <ul className="flex flex-col items-center gap-7 px-8 pt-28 text-center">
           {nav.map((item, idx) => {

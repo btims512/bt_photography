@@ -587,3 +587,34 @@ export function distributeToColumns(photos: Photo[], columnCount = 2): Photo[][]
 
   return columns;
 }
+
+/**
+ * `photos` with the ones that satisfy `pick` taken out and dealt back in at an
+ * even spacing through the rest, instead of wherever they happened to sit.
+ * Relative order within each group is kept. The first `skip` positions stay
+ * clear of the dealt-in photos, so a row at the top of the page is never one
+ * of them.
+ *
+ * It exists for photos with no category: interleaveByCategory appends those
+ * after everything else, which on a masonry grid reads as one block of them
+ * at the bottom of the page.
+ */
+export function spreadEvenly(photos: Photo[], pick: (photo: Photo) => boolean, skip = 0): Photo[] {
+  const dealt = photos.filter(pick);
+  const rest = photos.filter((photo) => !pick(photo));
+  if (dealt.length === 0 || rest.length <= skip) return photos;
+
+  const out = rest.slice(0, skip);
+  const span = rest.length - skip;
+  const queue = rest.slice(skip);
+  let given = 0;
+  queue.forEach((photo, index) => {
+    // Place each dealt photo at the middle of its own share of the page.
+    while (given < dealt.length && index >= Math.floor(((given + 0.5) * span) / dealt.length)) {
+      out.push(dealt[given++]);
+    }
+    out.push(photo);
+  });
+  while (given < dealt.length) out.push(dealt[given++]);
+  return out;
+}

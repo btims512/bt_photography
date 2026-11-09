@@ -44,10 +44,14 @@ export type { Photo };
 export const MOBILE_LEAD: string[] = [
   '/photos/portrait-03.jpg',
   '/photos/comedy-28.jpg',
-  '/photos/music-05.jpg',
-  '/photos/portrait-08.jpg',
   '/photos/portrait-10.jpg',
+  '/photos/music-07.jpg',
+  '/photos/music-05.jpg',
+  '/photos/comedy-31.jpg',
+  '/photos/comedy-29.jpg',
+  '/photos/portrait-08.jpg',
   '/photos/portrait-04.jpg',
+  '/photos/comedy-32.jpg',
 ];
 
 /**
@@ -105,6 +109,7 @@ export const featuredPhotos: Photo[] = [
   { src: '/photos/comedy-18.jpg', alt: 'Wide-eyed, laughing comedian in a yellow tropical-print shirt, framed inset over a blurred black-and-white crowd', width: 1080, height: 1350, category: 'comedy', project: 'framed', projectOrder: 7 },
   { src: '/photos/comedy-19.jpg', alt: 'Comedian with long curly hair and a mustache holding a microphone on the Austin Comedy Company stage, framed inset over a blurred crowd', width: 1080, height: 1350, category: 'comedy', project: 'framed', projectOrder: 8 },
   { src: '/photos/comedy-21.jpg', alt: 'Man with a strawberry-blond mullet, mustache, and neck tattoos tilting his head back in a patterned western snap shirt, inside a thin white frame', width: 3072, height: 3840, category: 'comedy', project: 'framed', projectOrder: 4 },
+  { src: '/photos/comedy-32.jpg', alt: 'Black and white portrait of a comedian in a patterned cap and printed shirt, mic in one hand and the other raised mid-gesture, lit from the side against a dark room', width: 2563, height: 3840, category: 'comedy' },
   { src: '/photos/comedy-02.jpg', alt: 'Distorted composite portrait of a man in a cap and sweatshirt, his face warped by a motion-blur effect', width: 2880, height: 3840, category: 'comedy' },
   { src: '/photos/portrait-03.jpg', alt: 'Two women in elaborate Day of the Dead costumes standing in a desert canyon', width: 2559, height: 3840, category: 'portraits' },
   { src: '/photos/portrait-01.jpg', alt: 'Woman walking away toward a sunlit overlook at golden hour', width: 2560, height: 3840, category: 'portraits', project: 'series-two', projectOrder: 3 },
@@ -113,8 +118,11 @@ export const featuredPhotos: Photo[] = [
   { src: '/photos/portrait-05.jpg', alt: 'Woman in a white ruffled dress and studded denim jacket posing with blue cat-eye sunglasses among balloons in purple and blue light', width: 2564, height: 3840, category: 'portraits', project: 'series-two', projectOrder: 1, cropY: 0 },
   { src: '/photos/portrait-22.jpg', alt: 'Woman in an alien-print tank top and black shorts kneeling over still water, her reflection rippling beneath her, lit in pink and green, in a wider frame', width: 2618, height: 3840, category: 'portraits', project: 'series-two', projectOrder: 4, cropY: 0 },
   { src: '/photos/portrait-06.jpg', alt: 'Three boys goofing around in the middle of a suburban street at sunset, one held upside down over another boy shoulder', width: 2563, height: 3840, category: 'portraits' },
-  { src: '/photos/portrait-08.jpg', alt: 'Woman in a leopard-print bodysuit and sunglasses crouching in front of a graffiti mural, glancing back over her shoulder', width: 2563, height: 3840, category: 'portraits' },
+  { src: '/photos/portrait-08.jpg', alt: 'Woman in a leopard-print bodysuit and sunglasses crouching in front of a graffiti mural, glancing back over her shoulder', width: 1399, height: 2096, category: 'portraits' },
   { src: '/photos/portrait-16.jpg', alt: 'Couple kissing at the rail of a boat as the sun sets over open water behind them', width: 2564, height: 3840, category: 'portraits' },
+  { src: '/photos/portrait-11-him.jpg', alt: 'Man with dreadlocks and a plaid shirt looking back over his shoulder against city lights at night', width: 2560, height: 3840, category: 'portraits' },
+  { src: '/photos/comedy-29.jpg', alt: 'Comedian in a patterned jacket mid-laugh at the mic, shot in profile on a dark stage, with a name running vertically down the left edge', width: 3072, height: 3840, category: 'comedy' },
+  { src: '/photos/portrait-07.jpg', alt: 'Man in black shirt with gold cross necklace seated on a lounge sofa', width: 1297, height: 1748, category: 'portraits' },
   { src: '/photos/music-07.jpg', alt: 'Black and white composite of a performer flung back with a mic in his raised hand above a roaring festival crowd, bats streaking across a starlit sky over the Austin skyline', width: 2560, height: 3840, category: 'music' },
   { src: '/photos/music-05.jpg', alt: 'Woman in a white embroidered corset and cargo skirt posing on a stage ramp, hands on her hips, the band playing behind her in the lights', width: 1399, height: 2096, category: 'music' },
   { src: '/photos/tx-01.jpg', alt: 'Sheer canyon walls catching low sun above a still green river that mirrors them', width: 2560, height: 3840, project: 'tx', projectOrder: 4 },
@@ -129,6 +137,8 @@ export const featuredPhotos: Photo[] = [
   { src: '/photos/comedy-10.jpg', alt: 'Black and white portrait of a comedian in a flat cap and sunglasses peering through a stage curtain', width: 3840, height: 2563, category: 'comedy' },
   { src: '/photos/comedy-28.jpg', alt: 'Comedian in profile at the mic, her hair piled high in copper twists, lit against a teal backdrop', width: 2096, height: 1399, category: 'comedy' },
   { src: '/photos/comedy-12.jpg', alt: 'Comedian mid-joke on stage gesturing with his hand, lit in blue stage light', width: 3840, height: 2563, category: 'comedy' },
+  { src: '/photos/comedy-11.jpg', alt: 'Comedian in a brown leather jacket leaning into the mic on a club stage while a packed, dimly lit room applauds', width: 2096, height: 1360, category: 'comedy' },
+  { src: '/photos/comedy-31.jpg', alt: 'Comedian in profile grinning and reaching toward the crowd with the mic in his other hand, an audience clapping and laughing out of focus behind him', width: 3840, height: 2563, category: 'comedy' },
   { src: '/photos/comedy-22.jpg', alt: 'Comedian with shaggy hair and a beard on stage in a denim jacket, eyes closed as he speaks into the microphone, a neon sign glowing on the brick wall behind him', width: 2096, height: 1399, category: 'comedy' },
   { src: '/photos/comedy-23.jpg', alt: 'Comedian in glasses and a blue graphic tee mid-punchline under a red neon Comedy Corner sign', width: 2096, height: 1399, category: 'comedy' },
   { src: '/photos/portrait-10.jpg', alt: 'Bearded man in a backwards cap crouched on the asphalt at dusk, shot wide against a deep blue sky and power lines', width: 3840, height: 2563, category: 'portraits' },
@@ -161,10 +171,10 @@ export const comedyPhotos: Photo[] = [
   { src: '/photos/comedy-08.jpg', alt: 'Stylized portrait of a comedian lighting a cigarette, framed inset over a smoky black-and-white background of the same scene', width: 2160, height: 2700, project: 'framed', projectOrder: 3 },
   { src: '/photos/comedy-14.jpg', alt: 'Musician singing into a microphone while playing a sticker-covered acoustic guitar under a stage spotlight, inside a thin white frame', width: 1122, height: 1402, project: 'framed', projectOrder: 5 },
   { src: '/photos/comedy-16.jpg', alt: 'Comedian in a backwards cap and tan hoodie mid-joke on a stool, a longhorn-cattle backdrop lit behind him', width: 3006, height: 3840 },
-  { src: '/photos/comedy-17.jpg', alt: 'Comedian in a black t-shirt pointing toward the crowd mid-joke, framed inset over a blurred black-and-white shot of the Austin Comedy Company stage', width: 1080, height: 1350 },
   { src: '/photos/comedy-18.jpg', alt: 'Wide-eyed, laughing comedian in a yellow tropical-print shirt, framed inset over a blurred black-and-white crowd', width: 1080, height: 1350, project: 'framed', projectOrder: 7 },
   { src: '/photos/comedy-19.jpg', alt: 'Comedian with long curly hair and a mustache holding a microphone on the Austin Comedy Company stage, framed inset over a blurred crowd', width: 1080, height: 1350, project: 'framed', projectOrder: 8 },
   { src: '/photos/comedy-21.jpg', alt: 'Man with a strawberry-blond mullet, mustache, and neck tattoos tilting his head back in a patterned western snap shirt, inside a thin white frame', width: 3072, height: 3840, project: 'framed', projectOrder: 4 },
+  { src: '/photos/comedy-32.jpg', alt: 'Black and white portrait of a comedian in a patterned cap and printed shirt, mic in one hand and the other raised mid-gesture, lit from the side against a dark room', width: 2563, height: 3840 },
 
   // horizontal
   { src: '/photos/comedy-09.jpg', alt: 'Comedian in a cap speaking into a microphone during his set', width: 3840, height: 2563 },
@@ -177,8 +187,10 @@ export const comedyPhotos: Photo[] = [
   { src: '/photos/comedy-24.jpg', alt: 'Audience members laughing in their seats at a comedy show, one man in a cowboy hat gazing up, another doubled over with his hand over his face', width: 2096, height: 1399 },
   { src: '/photos/comedy-25.jpg', alt: 'Black and white portrait of a comedian in a patterned cap and shirt laughing hard with his hands clasped to his chest', width: 2096, height: 1399 },
   { src: '/photos/comedy-26.jpg', alt: 'Black and white shot of a crowded audience in cinema-style rows, smiling and watching the stage', width: 2096, height: 1317 },
-  { src: '/photos/comedy-27.jpg', alt: 'Comedian in a graphic tee gesturing with open hands at the mic, a few audience members laughing in the dark behind him', width: 2096, height: 1399 },
   { src: '/photos/comedy-28.jpg', alt: 'Comedian in profile at the mic, her hair piled high in copper twists, lit against a teal backdrop', width: 2096, height: 1399 },
+  { src: '/photos/comedy-29.jpg', alt: 'Comedian in a patterned jacket mid-laugh at the mic, shot in profile on a dark stage, with a name running vertically down the left edge', width: 3072, height: 3840 },
+  { src: '/photos/comedy-30.jpg', alt: 'Comedian in a patterned jacket gesturing mid-set on a stage in a brick-walled room, a seated crowd in the foreground and a projector screen beside him', width: 2096, height: 1399 },
+  { src: '/photos/comedy-31.jpg', alt: 'Comedian in profile grinning and reaching toward the crowd with the mic in his other hand, an audience clapping and laughing out of focus behind him', width: 3840, height: 2563 },
 ];
 
 export const portraitPhotos: Photo[] = [
@@ -191,9 +203,8 @@ export const portraitPhotos: Photo[] = [
   { src: '/photos/portrait-22.jpg', alt: 'Woman in an alien-print tank top and black shorts kneeling over still water, her reflection rippling beneath her, lit in pink and green, in a wider frame', width: 2618, height: 3840, project: 'series-two', projectOrder: 4 },
   { src: '/photos/portrait-06.jpg', alt: 'Three boys goofing around in the middle of a suburban street at sunset, one held upside down over another boy shoulder', width: 2563, height: 3840 },
   { src: '/photos/portrait-07.jpg', alt: 'Man in black shirt with gold cross necklace seated on a lounge sofa', width: 1297, height: 1748 },
-  { src: '/photos/portrait-08.jpg', alt: 'Woman in a leopard-print bodysuit and sunglasses crouching in front of a graffiti mural, glancing back over her shoulder', width: 2563, height: 3840 },
+  { src: '/photos/portrait-08.jpg', alt: 'Woman in a leopard-print bodysuit and sunglasses crouching in front of a graffiti mural, glancing back over her shoulder', width: 1399, height: 2096 },
   { src: '/photos/portrait-16.jpg', alt: 'Couple kissing at the rail of a boat as the sun sets over open water behind them', width: 2564, height: 3840 },
-  { src: '/photos/portrait-20.jpg', alt: 'Woman in an alien-print tank top and black shorts kneeling over still water, her reflection rippling beneath her, lit in pink and green', width: 1356, height: 2048 },
   { src: '/photos/portrait-21.jpg', alt: 'Stacked portrait of three comedians in caps, lit in purple and green', width: 1929, height: 2600 },
 
   // horizontal

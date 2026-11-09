@@ -24,11 +24,11 @@ import { RAIL_STYLES, STANDALONE_RAILS, type StandaloneRail } from '@/lib/rails'
 // MOBILE_OPENING_RUN is how many photos come after MOBILE_LEAD before the
 // first rail; chunkWithRails sizes every run after that to keep the gaps
 // between rails even, so this is really the dial for how much of the supply
-// the opening spends. Three is what divides the rest exactly at the current
+// the opening spends. Four is what divides the rest exactly at the current
 // count (3, 3 and 3 between the rails). Worth re-checking whenever photos are
 // added or pinned in MOBILE_LEAD - the gaps stay even to within a photo at
 // any setting, but only some settings divide them exactly.
-export const MOBILE_OPENING_RUN = 3;
+export const MOBILE_OPENING_RUN = 4;
 export const MOBILE_RAIL_SIZE = 5;
 
 /**
@@ -111,7 +111,49 @@ export function homeMobileOrder(): Photo[] {
   return homeOrder;
 }
 
-/** A section's photos, in the order the home page meets them. */
-export function orderLikeHome(photos: Photo[]): Photo[] {
-  return orderLike(photos, homeMobileOrder());
+/**
+ * A section's photos, in the order the home page meets them.
+ *
+ * With `spread`, the photos the home page doesn't show are mixed in among the
+ * ones it does instead of all following them. `keep` is how many of the
+ * home-ordered photos at the top stay exactly where they are; the rest of
+ * the page is the remaining home-ordered photos with the section-only ones
+ * dealt between them at an even rate, so a section that holds many photos the
+ * home page lacks doesn't end in a long run of them. The section-only photos
+ * alternate portrait and landscape where they can, and each group keeps its
+ * own relative order.
+ */
+export function orderLikeHome(photos: Photo[], spread?: { keep: number }): Photo[] {
+  const ordered = orderLike(photos, homeMobileOrder());
+  if (!spread) return ordered;
+
+  const onHome = new Set(homeMobileOrder().map((photo) => sameAs(photo.src)));
+  const homed = ordered.filter((photo) => onHome.has(sameAs(photo.src)));
+  const extras = ordered.filter((photo) => !onHome.has(sameAs(photo.src)));
+  if (extras.length === 0) return ordered;
+
+  const top = homed.slice(0, spread.keep);
+  const rest = homed.slice(spread.keep);
+
+  // Alternate shapes among the extras so the dealt-in photos don't clump.
+  const tall = extras.filter((photo) => photo.height > photo.width);
+  const wide = extras.filter((photo) => photo.height <= photo.width);
+  const alternated: Photo[] = [];
+  while (tall.length || wide.length) {
+    const wantTall = alternated.length === 0 ? tall.length >= wide.length : alternated.at(-1)!.width >= alternated.at(-1)!.height;
+    const next = (wantTall ? tall : wide).shift() ?? (wantTall ? wide : tall).shift();
+    if (next) alternated.push(next);
+  }
+
+  // Deal them in evenly: one extra after every `rest.length / extras.length`
+  // home-ordered photos, ending with the last of each.
+  const mixed: Photo[] = [];
+  let given = 0;
+  rest.forEach((photo, index) => {
+    mixed.push(photo);
+    const due = Math.round(((index + 1) * alternated.length) / rest.length);
+    while (given < due) mixed.push(alternated[given++]);
+  });
+  while (given < alternated.length) mixed.push(alternated[given++]);
+  return [...top, ...mixed];
 }

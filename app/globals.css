@@ -1,24 +1,60 @@
 @import "tailwindcss";
 
 :root {
+  /* Dark is the default: true black, with text that steps down from white so
+     it doesn't glare, a red lightened to stay readable on it, and neutral
+     greys so nothing tints the photos' own colour. The light palette below is
+     the option, chosen with the footer / menu button. */
+  color-scheme: dark;
+
   /* grounds */
+  --bg:        #000000;
+  --bg-elev:   #0e0e10;
+  --img-bed:   #18181b;
+
+  /* text */
+  --ink:       #ececee;
+  --dim:       #adadb5;
+  --faint:     #8d8d96;
+
+  /* accent */
+  --accent:       #ff4747;
+  --accent-hover: #ff6b6b;
+
+  /* borders */
+  --line:       #2a2a2f;
+  --line-input: #6b6b74;
+  --focus:      #e4e4e7;
+}
+
+/* The light theme - set on <html> by the script in app/layout.tsx when it was
+   chosen. */
+:root[data-theme='light'] {
+  color-scheme: light;
+
   --bg:        #F4F4F5;
   --bg-elev:   #FFFFFF;
   --img-bed:   #E7E7EA;
 
-  /* text — all AA pass */
   --ink:       #17171A;
   --dim:       #52525B;
   --faint:     #6B6B75;
 
-  /* accent */
   --accent:       #f70000;
   --accent-hover: #d60000;
 
-  /* borders */
   --line:       #D4D4D9;
   --line-input: #8C8C93;
   --focus:      #1F1F24;
+}
+
+/* The wordmark is a black SVG in an <img>, which cannot inherit a colour, so
+   it is flipped for the dark default and left alone on light. */
+.bt-logo-mark {
+  filter: invert(0.93);
+}
+:root[data-theme='light'] .bt-logo-mark {
+  filter: none;
 }
 
 html,
@@ -1784,4 +1820,35 @@ html {
 .dtrail-photo-box {
   width: 100%;
   height: 100%;
+}
+
+/* Desktop hover lift. Its own CSS transition on an inner wrapper rather than
+   Framer's whileHover on the figure: whileHover animates with the element's
+   one `transition`, which here is the scroll reveal's (0.85s, delayed up to
+   half a second per photo), so the lift came up slowly and the settle back
+   was slower still. This is unhurried but not slow, the same both ways, on an
+   even ease so the whole rise is visible rather than most of it happening in
+   the first few frames. The host raises
+   above its neighbours so the lifted photo overlaps them instead of sliding
+   under. Pointer devices only, and not under reduced motion. */
+@media (hover: hover) and (min-width: 768px) {
+  .photo-lift {
+    transition:
+      transform 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+      box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform;
+  }
+  .photo-lift-host:hover {
+    z-index: 5;
+  }
+  .photo-lift-host:hover .photo-lift {
+    transform: translateY(-5px) scale(1.018);
+    box-shadow: 0 10px 22px -8px rgba(0, 0, 0, 0.32);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .photo-lift {
+    transition: none;
+  }
 }

@@ -30,7 +30,19 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${inter.variable} h-full antialiased`}>
+    <html lang="en" className={`${inter.variable} h-full antialiased`} suppressHydrationWarning>
+      <head>
+        {/* Sets the theme before the first paint - a saved choice, otherwise
+            dark - so nobody sees a flash of the wrong one. An inline script
+            rather than an effect for exactly that reason; the attribute it
+            writes is why <html> suppresses the hydration warning. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{var t=localStorage.getItem('bt-theme');if(t!=='light'){t='dark'}document.documentElement.dataset.theme=t}catch(e){}",
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col">
         {/* Refreshing mid-scroll - especially inside the tall breakout/rail
             pin zones - was landing back wherever the browser's own

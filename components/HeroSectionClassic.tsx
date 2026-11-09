@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation';
 import { motion, useMotionValue, useMotionValueEvent, useScroll, useSpring } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 import MobileMenu from './MobileMenu';
+import ThemeToggle from './ThemeToggle';
 import { useLayoutMode } from '@/lib/layout-mode';
 
 type NavItem = {
@@ -122,6 +123,7 @@ export default function HeroSectionClassic() {
 
   return (
     <motion.header ref={headerRef} className="sticky top-0 header-shrink-frame text-center" style={headerStyle}>
+      <ThemeToggle />
       {/* Logo - two nested wrapper layers, not either combined with each
           other or applied directly to the elements below (see globals.css
           for why the two layers can't be merged into one). Framer sets
@@ -154,7 +156,7 @@ export default function HeroSectionClassic() {
                   width={527}
                   height={257}
                   priority
-                  className="mx-auto h-[95px] w-auto md:h-[160px]"
+                  className="bt-logo-mark mx-auto h-[95px] w-auto md:h-[160px]"
                 />
               </motion.div>
               <motion.div

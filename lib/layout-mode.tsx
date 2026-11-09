@@ -2,13 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
-export type LayoutMode = 'classic' | 'modern';
-
-const STORAGE_KEY = 'bt-layout-mode';
-
 const LayoutModeContext = createContext<{
-  mode: LayoutMode;
-  toggle: () => void;
   /** True once the header's own entrance sequence (logo lines, then nav) has
    *  finished, so page content can hold its reveal until the header is done. */
   headerReady: boolean;
@@ -20,14 +14,14 @@ const LayoutModeContext = createContext<{
 const HEADER_READY_FALLBACK_MS = 2200;
 
 export function LayoutModeProvider({ children }: { children: ReactNode }) {
-  const [mode, setMode] = useState<LayoutMode>('classic');
   const [headerReady, setHeaderReady] = useState(false);
 
+  // The alternate layout this used to switch to is gone. A visitor who saved
+  // it would otherwise carry a dead preference around forever.
   useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored === 'classic' || stored === 'modern') {
-      setMode(stored);
-    }
+    try {
+      window.localStorage.removeItem('bt-layout-mode');
+    } catch {}
   }, []);
 
   useEffect(() => {
@@ -35,18 +29,10 @@ export function LayoutModeProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(fallback);
   }, []);
 
-  const toggle = () => {
-    setMode((prev) => {
-      const next = prev === 'classic' ? 'modern' : 'classic';
-      window.localStorage.setItem(STORAGE_KEY, next);
-      return next;
-    });
-  };
-
   const markHeaderReady = () => setHeaderReady(true);
 
   return (
-    <LayoutModeContext.Provider value={{ mode, toggle, headerReady, markHeaderReady }}>
+    <LayoutModeContext.Provider value={{ headerReady, markHeaderReady }}>
       {children}
     </LayoutModeContext.Provider>
   );

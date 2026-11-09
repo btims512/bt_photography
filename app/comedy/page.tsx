@@ -5,10 +5,11 @@ import { orderLikeHome } from '@/lib/mobile-order';
 export default function ComedyPage() {
   // In the order the home page meets these photos, so opening a section
   // after seeing it there picks up where it left off - see orderLikeHome.
-  // Photos that appear only here follow, in their catalogue order.
+  // The first eight stay put; the photos that appear only here are mixed in
+  // through the rest of the page rather than all following it.
   return (
     <div className="w-full">
-      <PortfolioSection id="comedy" photos={orderLikeHome(comedyPhotos)} />
+      <PortfolioSection id="comedy" photos={orderLikeHome(comedyPhotos, { keep: 8 })} />
     </div>
   );
 }
