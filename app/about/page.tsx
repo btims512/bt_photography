@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import Link from 'next/link';
 
 export default function AboutPage() {
   return (
@@ -8,13 +9,20 @@ export default function AboutPage() {
         <div>
           <h1 className="text-4xl font-800 mb-6" style={{color: 'var(--ink)', textTransform: 'lowercase'}}>About Me</h1>
           <p className="text-lg mb-4" style={{color: 'var(--dim)'}}>
-            My name&apos;s Ben. I&apos;m a photographer based in Austin, mostly shooting events, stand-up comedy, live music, and portraits.
+            I’m Ben, a photographer based in Austin, specializing in stand-up comedy.
           </p>
           <p className="text-lg mb-4" style={{color: 'var(--dim)'}}>
-            Comedy&apos;s the one I keep coming back to. There&apos;s a specific second, right as a joke lands and the room reacts, that I never get tired of trying to catch. That&apos;s not the only thing I shoot, though; if there&apos;s a stage or a show or someone worth photographing, I&apos;ll usually show up with a camera.
+            I work regularly with comedians from the Kill Tony universe, photographing live shows, backstage moments, and portraits. I aim to capture the atmosphere in a way that feels immersive, giving you a sense of being there that night.
+          </p>
+          <p className="text-lg mb-4" style={{color: 'var(--dim)'}}>
+            Alongside comedy, I shoot live music, events, and portrait sessions. I’m happy to talk through ideas for a shoot, whether you need event coverage, new headshots or promotional photos, or want to try something more creative.
           </p>
           <p className="text-lg" style={{color: 'var(--dim)'}}>
-            I travel a fair amount too, so not everything here was shot in Austin, just wherever I happened to be. And to be clear, this is a personal portfolio, not a business page. No packages, no pitch, just work I&apos;ve done that I like enough to put up.
+            This site brings together some of my favorite work. If you’d like to work together,{' '}
+            <Link href="/book" style={{color: 'var(--ink)', textDecoration: 'underline', textUnderlineOffset: '3px'}}>
+              get in touch
+            </Link>
+            .
           </p>
         </div>
         {/* The whole photograph, never cropped. The text beside it starts on the
