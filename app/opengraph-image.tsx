@@ -8,7 +8,9 @@ export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
 export default async function Image() {
-  const svgContent = readFileSync(join(process.cwd(), 'public', 'bt-mark.svg'), 'utf-8');
+  // The mark is drawn in currentColor, which an <img> data URI resolves to black -
+  // so the colour is written in, to show on the black card.
+  const svgContent = readFileSync(join(process.cwd(), 'public', 'bt-mark.svg'), 'utf-8').replaceAll('currentColor', '#ececee');
   const markDataUri = `data:image/svg+xml;base64,${Buffer.from(svgContent).toString('base64')}`;
 
   return new ImageResponse(
@@ -21,16 +23,16 @@ export default async function Image() {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: '#F4F4F5',
+          backgroundColor: '#000000',
         }}
       >
-        <div style={{ display: 'flex', fontSize: 24, letterSpacing: 10, color: '#17171A' }}>THE</div>
+        <div style={{ display: 'flex', fontSize: 24, letterSpacing: 10, color: '#ececee' }}>THE</div>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={markDataUri} width={440} height={214} style={{ marginTop: 8, marginBottom: 8 }} />
-        <div style={{ display: 'flex', fontSize: 48, letterSpacing: 24, color: '#17171A', marginTop: 4 }}>
+        <div style={{ display: 'flex', fontSize: 48, letterSpacing: 24, color: '#ececee', marginTop: 4 }}>
           PHOTOGRAPHY
         </div>
-        <div style={{ display: 'flex', marginTop: 22, width: 360, height: 2, backgroundColor: '#17171A' }} />
+        <div style={{ display: 'flex', marginTop: 22, width: 360, height: 2, backgroundColor: '#ececee' }} />
       </div>
     ),
     { ...size }
