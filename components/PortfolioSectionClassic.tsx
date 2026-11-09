@@ -136,6 +136,7 @@ const DESKTOP_TOP_PINS = [
   { src: '/photos/comedy-29.jpg', before: '/photos/tx-02.jpg' },
   { src: '/photos/comedy-32.jpg', before: '/photos/portrait-09.jpg' },
   { src: '/photos/portrait-11-him.jpg', before: '/photos/tx-03.jpg' },
+  { src: '/photos/portrait-23.jpg', before: '/photos/tx-05.jpg' },
 ];
 
 // Mirrored by the hero preload links below, which have to ask the browser

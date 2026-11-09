@@ -120,6 +120,7 @@ export const featuredPhotos: Photo[] = [
   { src: '/photos/portrait-06.jpg', alt: 'Three boys goofing around in the middle of a suburban street at sunset, one held upside down over another boy shoulder', width: 2563, height: 3840, category: 'portraits' },
   { src: '/photos/portrait-08.jpg', alt: 'Woman in a leopard-print bodysuit and sunglasses crouching in front of a graffiti mural, glancing back over her shoulder', width: 1399, height: 2096, category: 'portraits' },
   { src: '/photos/portrait-16.jpg', alt: 'Couple kissing at the rail of a boat as the sun sets over open water behind them', width: 2564, height: 3840, category: 'portraits' },
+  { src: '/photos/portrait-23.jpg', alt: 'Upside-down close-up of her face framed by her hands in green and pink light', width: 2160, height: 2880, category: 'portraits' },
   { src: '/photos/portrait-11-him.jpg', alt: 'Man with dreadlocks and a plaid shirt looking back over his shoulder against city lights at night', width: 2560, height: 3840, category: 'portraits' },
   { src: '/photos/comedy-29.jpg', alt: 'Comedian in a patterned jacket mid-laugh at the mic, shot in profile on a dark stage, with a name running vertically down the left edge', width: 3072, height: 3840, category: 'comedy' },
   { src: '/photos/portrait-07.jpg', alt: 'Man in black shirt with gold cross necklace seated on a lounge sofa', width: 1297, height: 1748, category: 'portraits' },
@@ -206,6 +207,7 @@ export const portraitPhotos: Photo[] = [
   { src: '/photos/portrait-08.jpg', alt: 'Woman in a leopard-print bodysuit and sunglasses crouching in front of a graffiti mural, glancing back over her shoulder', width: 1399, height: 2096 },
   { src: '/photos/portrait-16.jpg', alt: 'Couple kissing at the rail of a boat as the sun sets over open water behind them', width: 2564, height: 3840 },
   { src: '/photos/portrait-21.jpg', alt: 'Stacked portrait of three comedians in caps, lit in purple and green', width: 1929, height: 2600 },
+  { src: '/photos/portrait-23.jpg', alt: 'Upside-down close-up of her face framed by her hands in green and pink light', width: 2160, height: 2880 },
 
   // horizontal
   { src: '/photos/portrait-09.jpg', alt: 'Woman on a phone call beside a vintage phone booth lit in red', width: 3072, height: 2048 },
@@ -231,39 +233,6 @@ export const himPhotos: Photo[] = [
   { src: '/photos/portrait-07-him.jpg', alt: 'Man in black shirt with gold cross necklace seated on a lounge sofa', width: 1165, height: 1748, category: 'portraits', project: 'him' },
   { src: '/photos/portrait-17.jpg', alt: 'Black and white portrait of a bearded man in glasses and a sleeveless tee, arms folded', width: 2163, height: 3245, category: 'portraits', project: 'him', cropY: 0 },
   { src: '/photos/portrait-18.jpg', alt: 'Man with dreadlocks in a grey t-shirt leaning on a bridge rail in front of the downtown Austin skyline at night', width: 2560, height: 3840, category: 'portraits', project: 'him' },
-];
-
-/**
- * The seamless carousel that closes the mobile home page: a rail like the
- * others, pinned and scroll-driven, except that its photos sit flush with no
- * gap between them (MobileRail's `seamless`). Some neighbouring slides are
- * two halves of one picture - here 2 and 3, and 7 and 8 - so the order is
- * load-bearing in a way no other list in this file is: swapping two slides
- * breaks a join rather than just changing what comes first.
- *
- * Kept out of featuredPhotos on purpose. A slide that is half a picture
- * must never be interleaved into the grid, gathered into another rail by
- * its shape, or opened on its own in the lightbox, and a separate list is
- * what guarantees none of that machinery ever sees one. PortfolioSectionClassic
- * places it itself, after everything else.
- *
- * `project` is what names the rail (RAIL_TITLES in PortfolioSectionClassic).
- *
- * Every slide has to be exported at the same pixel size. The rail sizes all
- * of its photos from the first one's ratio, so a slide that differs gets
- * cropped or letterboxed to fit, and either one on a join moves the picture
- * out of line with its other half.
- */
-export const carouselPhotos: Photo[] = [
-  { src: '/photos/carousel-01.jpg', alt: 'Woman with star-clipped pigtails kneeling on a mirrored floor in pink and green light, her reflection rippling beneath her', width: 2160, height: 2880, project: 'seamless' },
-  { src: '/photos/carousel-02.jpg', alt: 'Close-up of her eyes and nose in pink light, an inset portrait of her covering one eye laid over it - the first half of a picture that continues onto the next slide', width: 2160, height: 2880, project: 'seamless' },
-  { src: '/photos/carousel-03.jpg', alt: 'The second half of the close-up: her lips holding a silver star, with a second inset portrait of her covering one eye', width: 2160, height: 2880, project: 'seamless' },
-  { src: '/photos/carousel-04.jpg', alt: 'Upside-down close-up of her face framed by her hands in green light', width: 2160, height: 2880, project: 'seamless' },
-  { src: '/photos/carousel-05.jpg', alt: 'Two stacked shots: her sitting beside a rippling pool of water, and lying inside a pink-lit mirrored box', width: 2160, height: 2880, project: 'seamless' },
-  { src: '/photos/carousel-06.jpg', alt: 'Woman in neon yellow sunglasses and an alien-print tank top adjusting her glasses against a green backdrop', width: 2160, height: 2880, project: 'seamless' },
-  { src: '/photos/carousel-07.jpg', alt: 'Woman lying on crinkled silver foil with a neon sunglasses chain between her teeth, beside an inset portrait of her covering her face - the first half of a picture that continues onto the next slide', width: 2160, height: 2880, project: 'seamless' },
-  { src: '/photos/carousel-08.jpg', alt: 'The second half of the foil portrait, with a second inset of her covering her face with both hands', width: 2160, height: 2880, project: 'seamless' },
-  { src: '/photos/carousel-09.jpg', alt: 'Woman in an alien-print tank top covering her eyes with both hands against a pink-to-green backdrop, neon sunglasses pushed up in her hair', width: 2160, height: 2880, project: 'seamless' },
 ];
 
 /**
